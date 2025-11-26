@@ -14,8 +14,14 @@ class RolePermissionSeeder extends Seeder
         // Permissions
         $permissions = [
             'manage users',
-            'upload questions',
-            'manage questions',
+            'manage academics',
+            'create questions',
+            'manage questions', // edit/update existing
+            'upload questions', // simple single question upload
+            'import questions', // bulk import (CSV/Excel)
+            'approve questions',
+            'delete questions',
+            'view reports',
             'view stats',
             'approve guardians',
             'manage subscriptions',
@@ -28,24 +34,37 @@ class RolePermissionSeeder extends Seeder
 
         // Roles
         $roles = [
-            'super-admin' => $permissions, // super-admin gets everything
+            'super-admin' => $permissions, // full access
             'admin' => [
                 'manage users',
+                'manage academics',
+                'create questions',
                 'manage questions',
+                'import questions',
+                'approve questions',
+                'delete questions',
+                'view reports',
                 'view stats',
-                'approve guardians',
                 'manage subscriptions',
                 'manage videos',
             ],
             'teacher' => [
-                'upload questions',
+                'create questions',
                 'manage questions',
+                'upload questions',
+                'import questions',
+                'view reports',
             ],
             'uploader' => [
                 'upload questions',
+                'import questions',
             ],
-            'guardian' => [],
-            'student' => [],
+            'guardian' => [
+                // intentionally minimal; expand later
+            ],
+            'student' => [
+                // front-end only, no panel permissions
+            ],
         ];
 
         foreach ($roles as $roleName => $rolePerms) {

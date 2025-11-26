@@ -20,8 +20,10 @@ class EnsureUserIsAdmin
             return redirect()->route('filament.auth.login');
         }
 
-        if (! auth()->user()->hasAnyRole(['super-admin', 'admin'])) {
-            abort(403, 'Access denied. Admin privileges required.');
+        // Allow broader staff roles (super-admin, admin, teacher) into panel.
+        // Fine-grained permissions are enforced per Filament Resource.
+        if (! auth()->user()->hasAnyRole(['super-admin', 'admin', 'teacher'])) {
+            abort(403, 'Access denied. Staff role required.');
         }
 
         return $next($request);

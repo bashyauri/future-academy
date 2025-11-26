@@ -8,6 +8,24 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
+    // Single panel architecture: redirect authenticated panel users to /admin
+    if (auth()->check()) {
+        $user = auth()->user();
+        // Any content or admin permission sends user to the unified admin panel
+        $panelPermissions = [
+            'manage users',
+            'manage academics',
+            'approve questions',
+            'delete questions',
+            'create questions',
+            'manage questions',
+            'upload questions',
+            'import questions',
+        ];
+        if (collect($panelPermissions)->contains(fn($p) => $user->hasPermissionTo($p))) {
+            return redirect('/admin');
+        }
+    }
     return view('welcome');
 })->name('home');
 

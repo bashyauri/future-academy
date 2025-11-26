@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class EnsureAdminAccess
+{
+    /**
+     * Permissions that qualify a user as an admin-level user for the admin panel.
+     */
+    protected array $adminPermissions = [
+        'manage users',
+        'manage academics',
+        'approve questions',
+        'delete questions',
+    ];
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return redirect()->route('filament.auth.login');
+        }
+
+        // Grant if user has ANY of the qualifying admin perms (super-admin will always pass).
+        $hasAccess = collect($this->adminPermissions)->contains(fn($perm) => $user->hasPermissionTo($perm));
+
+        if (! $hasAccess) {
+            abort(403, 'Admin access required.');
+        }
+
+        return $next($request);
+    }
+}
