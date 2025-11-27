@@ -53,8 +53,20 @@
                 </div>
 
                 <div class="flex gap-4 justify-center">
-                    <flux:button wire:click="startQuiz" variant="primary" size="lg">
-                        {{ __('Start Quiz') }}
+                    <flux:button wire:click="startQuiz" wire:target="startQuiz" wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75 cursor-wait" variant="primary" size="base" class="h-12 text-base">
+                        <span wire:loading.remove wire:target="startQuiz">{{ __('Start Quiz') }}</span>
+                        <span wire:loading wire:target="startQuiz" class="flex items-center gap-2">
+                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                                </circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                            {{ __('Loading...') }}
+                        </span>
                     </flux:button>
                     <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
                         {{ __('Back to Quizzes') }}
@@ -105,42 +117,137 @@
 
                 @if($quiz->allow_review && $quiz->show_answers_after_submit)
                     <div class="space-y-4 border-t border-neutral-200 dark:border-neutral-700 pt-6">
-                        <flux:heading size="lg">{{ __('Review Your Answers') }}</flux:heading>
+                        <flux:heading size="lg" class="mb-6">{{ __('Review Your Answers') }}</flux:heading>
 
-                        @foreach($attempt->answers()->with(['question.options'])->get() as $answer)
+                        @foreach($attempt->answers()->with(['question.options', 'question.subject', 'question.topic'])->get() as $answer)
                             <div
-                                class="p-4 rounded-lg border {{ $answer->is_correct ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30' : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30' }}">
-                                <div class="space-y-3">
-                                    <div class="flex items-start justify-between">
-                                        <flux:text class="font-medium">{{ $loop->iteration }}.
-                                            {{ $answer->question->question_text }}
-                                        </flux:text>
-                                        <flux:badge :color="$answer->is_correct ? 'green' : 'red'">
-                                            {{ $answer->is_correct ? __('Correct') : __('Wrong') }}
-                                        </flux:badge>
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        @foreach($answer->question->options as $option)
-                                            <div class="flex items-center gap-2 text-sm">
-                                                @if($option->id === $answer->option_id)
-                                                    <span class="font-semibold">→ {{ __('Your answer:') }}</span>
+                                class="rounded-lg border overflow-hidden {{ $answer->is_correct ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800' }}">
+                                {{-- Question Header --}}
+                                <div
+                                    class="p-4 {{ $answer->is_correct ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30' }}">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-3 mb-2">
+                                                <flux:badge variant="outline" size="sm">Q{{ $loop->iteration }}</flux:badge>
+                                                @if($answer->question->subject)
+                                                    <flux:badge color="blue" size="sm">{{ $answer->question->subject->name }}
+                                                    </flux:badge>
                                                 @endif
-                                                @if($option->is_correct)
-                                                    <span class="text-green-600 dark:text-green-400">✓</span>
+                                                @if($answer->question->topic)
+                                                    <flux:badge color="neutral" size="sm">{{ $answer->question->topic->name }}
+                                                    </flux:badge>
                                                 @endif
-                                                <flux:text>{{ $option->option_text }}</flux:text>
+                                                <flux:badge
+                                                    :color="match($answer->question->difficulty) { 'easy' => 'green', 'medium' => 'yellow', 'hard' => 'red', default => 'neutral' }"
+                                                    size="sm">
+                                                    {{ ucfirst($answer->question->difficulty) }}
+                                                </flux:badge>
                                             </div>
-                                        @endforeach
+                                            <flux:text class="text-base font-medium">
+                                                {{ $answer->question->question_text }}
+                                            </flux:text>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <flux:badge :color="$answer->is_correct ? 'green' : 'red'" size="lg">
+                                                {{ $answer->is_correct ? '✓ Correct' : '✗ Incorrect' }}
+                                            </flux:badge>
+                                        </div>
                                     </div>
 
-                                    @if($quiz->show_explanations && $answer->question->explanation)
-                                        <div class="pt-2 border-t border-current/10">
-                                            <flux:text class="text-sm"><strong>{{ __('Explanation:') }}</strong>
-                                                {{ $answer->question->explanation }}</flux:text>
+                                    @if($answer->question->question_image)
+                                        <div class="mt-3">
+                                            <img src="{{ Storage::url($answer->question->question_image) }}" alt="Question image"
+                                                class="rounded-lg max-w-md border border-neutral-200 dark:border-neutral-700">
                                         </div>
                                     @endif
                                 </div>
+
+                                {{-- Answer Options --}}
+                                <div class="p-4 bg-white dark:bg-neutral-900 space-y-2">
+                                    @foreach($answer->question->options as $option)
+                                        @php
+                                            $isUserAnswer = $option->id === $answer->option_id;
+                                            $isCorrectAnswer = $option->is_correct;
+
+                                            // Determine styling
+                                            if ($isCorrectAnswer && $isUserAnswer) {
+                                                // User selected correct answer
+                                                $bgColor = 'bg-green-100 dark:bg-green-900/30 border-green-500';
+                                                $icon = '✓';
+                                                $iconColor = 'text-green-600 dark:text-green-400';
+                                                $label = 'Your answer (Correct)';
+                                                $labelColor = 'text-green-700 dark:text-green-300';
+                                            } elseif ($isCorrectAnswer && !$isUserAnswer) {
+                                                // Correct answer but user didn't select it
+                                                $bgColor = 'bg-green-50 dark:bg-green-950/20 border-green-400';
+                                                $icon = '✓';
+                                                $iconColor = 'text-green-600 dark:text-green-400';
+                                                $label = 'Correct answer';
+                                                $labelColor = 'text-green-600 dark:text-green-400';
+                                            } elseif (!$isCorrectAnswer && $isUserAnswer) {
+                                                // User selected wrong answer
+                                                $bgColor = 'bg-red-100 dark:bg-red-900/30 border-red-500';
+                                                $icon = '✗';
+                                                $iconColor = 'text-red-600 dark:text-red-400';
+                                                $label = 'Your answer (Incorrect)';
+                                                $labelColor = 'text-red-700 dark:text-red-300';
+                                            } else {
+                                                // Not selected, not correct
+                                                $bgColor = 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700';
+                                                $icon = '';
+                                                $iconColor = '';
+                                                $label = '';
+                                                $labelColor = '';
+                                            }
+                                        @endphp
+
+                                        <div class="flex items-start gap-3 p-3 rounded-lg border-2 {{ $bgColor }}">
+                                            @if($icon)
+                                                <span class="flex-shrink-0 text-xl font-bold {{ $iconColor }}">{{ $icon }}</span>
+                                            @else
+                                                <span class="flex-shrink-0 w-6"></span>
+                                            @endif
+
+                                            <div class="flex-1">
+                                                <flux:text class="font-medium">{{ $option->option_text }}</flux:text>
+                                                @if($option->option_image)
+                                                    <img src="{{ Storage::url($option->option_image) }}" alt="Option image"
+                                                        class="mt-2 rounded max-w-xs border border-neutral-200 dark:border-neutral-700">
+                                                @endif
+                                                @if($label)
+                                                    <flux:text class="text-sm mt-1 {{ $labelColor }} font-semibold">
+                                                        {{ __($label) }}
+                                                    </flux:text>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                {{-- Explanation Section --}}
+                                @if($quiz->show_explanations && $answer->question->explanation)
+                                    <div class="p-4 bg-blue-50 dark:bg-blue-950/20 border-t-2 border-blue-200 dark:border-blue-800">
+                                        <div class="flex items-start gap-3">
+                                            <div
+                                                class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                                    fill="currentColor">
+                                                    <path fill-rule="evenodd"
+                                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                                        clip-rule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1">
+                                                <flux:heading size="sm" class="text-blue-900 dark:text-blue-200 mb-2">
+                                                    {{ __('Explanation') }}
+                                                </flux:heading>
+                                                <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed">
+                                                    {{ $answer->question->explanation }}
+                                                </flux:text>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -148,8 +255,21 @@
 
                 <div class="flex gap-4 justify-center pt-4">
                     @if($quiz->canUserAttempt(auth()->user()))
-                        <flux:button wire:click="$refresh" variant="primary" href="{{ route('quiz.take', $quiz->id) }}">
-                            {{ __('Retake Quiz') }}
+                        <flux:button wire:click="$refresh" wire:target="$refresh" wire:loading.attr="disabled"
+                            wire:loading.class="opacity-75 cursor-wait" variant="primary"
+                            href="{{ route('quiz.take', $quiz->id) }}">
+                            <span wire:loading.remove wire:target="$refresh">{{ __('Retake Quiz') }}</span>
+                            <span wire:loading wire:target="$refresh" class="flex items-center gap-2">
+                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                                    </circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                {{ __('Loading...') }}
+                            </span>
                         </flux:button>
                     @endif
                     <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
@@ -171,23 +291,23 @@
                             class="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
                             <flux:text class="text-sm text-center text-neutral-500 mb-2">{{ __('Time Remaining') }}</flux:text>
                             <div id="timer" class="text-3xl font-bold text-center" x-data="{
-                                                     timeLeft: {{ $timeRemaining }},
-                                                     timer: null,
-                                                     init() {
-                                                         this.timer = setInterval(() => {
-                                                             this.timeLeft--;
-                                                             if (this.timeLeft <= 0) {
-                                                                 clearInterval(this.timer);
-                                                                 $wire.dispatch('timer-expired');
-                                                             }
-                                                         }, 1000);
-                                                     },
-                                                     formatTime() {
-                                                         let minutes = Math.floor(this.timeLeft / 60);
-                                                         let seconds = this.timeLeft % 60;
-                                                         return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-                                                     }
-                                                 }" x-text="formatTime()"
+                                                                                     timeLeft: {{ $timeRemaining }},
+                                                                                     timer: null,
+                                                                                     init() {
+                                                                                         this.timer = setInterval(() => {
+                                                                                             this.timeLeft--;
+                                                                                             if (this.timeLeft <= 0) {
+                                                                                                 clearInterval(this.timer);
+                                                                                                 $wire.dispatch('timer-expired');
+                                                                                             }
+                                                                                         }, 1000);
+                                                                                     },
+                                                                                     formatTime() {
+                                                                                         let minutes = Math.floor(this.timeLeft / 60);
+                                                                                         let seconds = this.timeLeft % 60;
+                                                                                         return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                                                                                     }
+                                                                                 }" x-text="formatTime()"
                                 :class="timeLeft < 60 ? 'text-red-600 dark:text-red-400' : 'text-neutral-900 dark:text-neutral-100'">
                             </div>
                         </div>
@@ -199,13 +319,14 @@
                         </flux:text>
                         <div class="grid grid-cols-5 gap-2">
                             @foreach($questions as $index => $question)
-                                            <button wire:click="goToQuestion({{ $index }})" class="aspect-square rounded-lg text-sm font-medium transition
-                                                                                {{ $currentQuestionIndex === $index
+                                            <button wire:click="goToQuestion({{ $index }})"
+                                                class="aspect-square rounded-lg text-sm font-medium transition
+                                                                                                                                                                                    {{ $currentQuestionIndex === $index
                                 ? 'bg-amber-600 text-white'
                                 : (isset($answers[$question->id])
                                     ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
                                     : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700')
-                                                                                }}">
+                                                                                                                                                                                    }}">
                                                 {{ $index + 1 }}
                                             </button>
                             @endforeach
@@ -238,40 +359,150 @@
 
                         {{-- Answer Options --}}
                         <div class="space-y-3">
+                            @php
+                                $answered = isset($answers[$currentQuestion->id]);
+                                $userAnswerId = $answers[$currentQuestion->id] ?? null;
+                                $correctOption = collect($shuffledOptions[$currentQuestion->id] ?? $currentQuestion->options)->firstWhere('is_correct', true);
+                            @endphp
+
                             @foreach($shuffledOptions[$currentQuestion->id] ?? $currentQuestion->options as $option)
-                                    <label
-                                        class="flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition
-                                                                    {{ isset($answers[$currentQuestion->id]) && $answers[$currentQuestion->id] == $option->id
-                                ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/30'
-                                : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600' }}">
-                                        <input type="radio" name="question_{{ $currentQuestion->id }}" value="{{ $option->id }}"
-                                            wire:click="answerQuestion({{ $currentQuestion->id }}, {{ $option->id }})" {{ isset($answers[$currentQuestion->id]) && $answers[$currentQuestion->id] == $option->id ? 'checked' : '' }} class="mt-1">
-                                        <div class="flex-1">
-                                            <flux:text>{{ $option->option_text }}</flux:text>
-                                            @if($option->option_image)
-                                                <img src="{{ Storage::url($option->option_image) }}" alt="{{ __('Option image') }}"
-                                                    class="mt-2 rounded max-w-xs">
-                                            @endif
-                                        </div>
-                                    </label>
+                                @php
+                                    $isUserAnswer = $answered && $userAnswerId == $option->id;
+                                    $isCorrect = $option->is_correct;
+
+                                    // Determine styling based on answer state
+                                    if ($answered) {
+                                        if ($isUserAnswer && $isCorrect) {
+                                            $borderColor = 'border-green-500 bg-green-50 dark:bg-green-950/30';
+                                            $icon = '✓';
+                                            $iconColor = 'text-green-600 dark:text-green-400';
+                                        } elseif ($isUserAnswer && !$isCorrect) {
+                                            $borderColor = 'border-red-500 bg-red-50 dark:bg-red-950/30';
+                                            $icon = '✗';
+                                            $iconColor = 'text-red-600 dark:text-red-400';
+                                        } elseif ($isCorrect) {
+                                            $borderColor = 'border-green-400 bg-green-50 dark:bg-green-950/20';
+                                            $icon = '✓';
+                                            $iconColor = 'text-green-600 dark:text-green-400';
+                                        } else {
+                                            $borderColor = 'border-neutral-200 dark:border-neutral-700 opacity-60';
+                                            $icon = '';
+                                            $iconColor = '';
+                                        }
+                                    } else {
+                                        $borderColor = 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600';
+                                        $icon = '';
+                                        $iconColor = '';
+                                    }
+                                @endphp
+
+                                <button wire:click="answerQuestion({{ $currentQuestion->id }}, {{ $option->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="answerQuestion"
+                                    @if($answered) disabled @endif
+                                    class="w-full flex items-start gap-4 p-4 rounded-lg border-2 transition {{ $borderColor }} {{ $answered ? 'cursor-default' : 'cursor-pointer' }} text-left">
+
+                                    @if($icon)
+                                        <span class="flex-shrink-0 text-2xl font-bold {{ $iconColor }} mt-0.5">{{ $icon }}</span>
+                                    @else
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600 mt-0.5">
+                                            <!-- Loading spinner when clicking -->
+                                            <svg wire:loading wire:target="answerQuestion" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </span>
+                                    @endif
+
+                                    <div class="flex-1">
+                                        <flux:text class="font-medium">{{ $option->option_text }}</flux:text>
+                                        @if($option->option_image)
+                                            <img src="{{ Storage::url($option->option_image) }}" alt="{{ __('Option image') }}"
+                                                class="mt-2 rounded max-w-xs border border-neutral-200 dark:border-neutral-700">
+                                        @endif
+                                    </div>
+                                </button>
                             @endforeach
                         </div>
 
+                        {{-- Explanation (shown after answering) --}}
+                        @if($answered && $currentQuestion->explanation)
+                            <div
+                                class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-200 mb-2">
+                                            {{ __('Explanation') }}
+                                        </flux:heading>
+                                        <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed">
+                                            {{ $currentQuestion->explanation }}
+                                        </flux:text>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
                         {{-- Navigation Buttons --}}
                         <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                            <flux:button wire:click="previousQuestion" variant="ghost" :disabled="$currentQuestionIndex === 0">
-                                {{ __('Previous') }}
+                            <flux:button wire:click="previousQuestion" wire:target="previousQuestion"
+                                wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
+                                :disabled="$currentQuestionIndex === 0">
+                                <span wire:loading.remove wire:target="previousQuestion">{{ __('Previous') }}</span>
+                                <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                    {{ __('Loading...') }}
+                                </span>
                             </flux:button>
 
                             <div class="flex gap-3">
                                 @if($currentQuestionIndex === $totalQuestions - 1)
-                                    <flux:button wire:click="submitQuiz" variant="primary"
+                                    <flux:button wire:click="submitQuiz" wire:target="submitQuiz" wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-75 cursor-wait" variant="primary"
                                         wire:confirm="{{ __('Are you sure you want to submit? You cannot change your answers after submission.') }}">
-                                        {{ __('Submit Quiz') }}
+                                        <span wire:loading.remove wire:target="submitQuiz">{{ __('Submit Quiz') }}</span>
+                                        <span wire:loading wire:target="submitQuiz" class="flex items-center gap-2">
+                                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                    stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                </path>
+                                            </svg>
+                                            {{ __('Submitting...') }}
+                                        </span>
                                     </flux:button>
                                 @else
-                                    <flux:button wire:click="nextQuestion" variant="primary">
-                                        {{ __('Next') }}
+                                    <flux:button wire:click="nextQuestion" wire:target="nextQuestion" wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-75 cursor-wait" variant="primary">
+                                        <span wire:loading.remove wire:target="nextQuestion">{{ __('Next') }}</span>
+                                        <span wire:loading wire:target="nextQuestion" class="flex items-center gap-2">
+                                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                    stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                </path>
+                                            </svg>
+                                            {{ __('Loading...') }}
+                                        </span>
                                     </flux:button>
                                 @endif
                             </div>

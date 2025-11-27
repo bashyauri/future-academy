@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Quizzes;
 
+use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Services\QuizGeneratorService;
@@ -19,6 +20,7 @@ class TakeQuiz extends Component
     public $shuffledOptions = [];
     public $timeRemaining = null;
     public $showResults = false;
+    public $showFeedback = []; // Track which questions show feedback
 
     public function mount($id)
     {
@@ -42,9 +44,10 @@ class TakeQuiz extends Component
 
         // Load questions in the order specified by the attempt
         $questionIds = $this->attempt->getQuestionIds();
-        $this->questions = $this->quiz->questions()
-            ->with(['options', 'subject', 'topic', 'examType'])
-            ->whereIn('questions.id', $questionIds)
+
+        // Fetch questions by IDs and maintain the order
+        $this->questions = Question::with(['options', 'subject', 'topic', 'examType'])
+            ->whereIn('id', $questionIds)
             ->get()
             ->sortBy(function ($question) use ($questionIds) {
                 return array_search($question->id, $questionIds);
@@ -70,6 +73,7 @@ class TakeQuiz extends Component
     public function answerQuestion($questionId, $optionId)
     {
         $this->answers[$questionId] = $optionId;
+        $this->showFeedback[$questionId] = true; // Show feedback immediately
 
         $service = app(QuizGeneratorService::class);
         $service->submitAnswer($this->attempt, $questionId, $optionId);
@@ -94,6 +98,21 @@ class TakeQuiz extends Component
         $this->currentQuestionIndex = $index;
     }
 
+    public function getCurrentQuestion()
+    {
+        return $this->questions[$this->currentQuestionIndex] ?? null;
+    }
+
+    public function isAnswered($questionId)
+    {
+        return isset($this->answers[$questionId]);
+    }
+
+    public function showingFeedback($questionId)
+    {
+        return isset($this->showFeedback[$questionId]) && $this->showFeedback[$questionId];
+    }
+
     public function submitQuiz($timedOut = false)
     {
         if (!$this->attempt || $this->attempt->isCompleted()) {
@@ -110,11 +129,6 @@ class TakeQuiz extends Component
 
         $this->attempt->refresh();
         $this->showResults = true;
-    }
-
-    public function getCurrentQuestion()
-    {
-        return $this->questions[$this->currentQuestionIndex] ?? null;
     }
 
     #[Layout('components.layouts.app')]

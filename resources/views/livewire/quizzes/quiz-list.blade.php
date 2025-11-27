@@ -31,11 +31,11 @@
                         <div class="flex items-start justify-between gap-2">
                             <flux:heading size="lg">{{ $quiz->title }}</flux:heading>
                             <flux:badge :color="match($quiz->type) {
-                                        'practice' => 'blue',
-                                        'timed' => 'orange',
-                                        'mock' => 'purple',
-                                        default => 'zinc'
-                                    }">
+                                                        'practice' => 'blue',
+                                                        'timed' => 'orange',
+                                                        'mock' => 'purple',
+                                                        default => 'zinc'
+                                                    }">
                                 {{ ucfirst($quiz->type) }}
                             </flux:badge>
                         </div>
@@ -85,7 +85,9 @@
 
                     <div class="pt-2">
                         @if($quiz->can_attempt)
-                            <flux:button wire:click="startQuiz({{ $quiz->id }})" variant="primary" class="w-full">
+                            <flux:button wire:click="startQuiz({{ $quiz->id }})" wire:target="startQuiz({{ $quiz->id }})"
+                                wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="primary"
+                                class="w-full">
                                 {{ $quiz->user_stats['total_attempts'] > 0 ? __('Retake Quiz') : __('Start Quiz') }}
                             </flux:button>
                         @else

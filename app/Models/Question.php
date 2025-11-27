@@ -69,7 +69,7 @@ class Question extends Model
 
     public function quizzes(): BelongsToMany
     {
-        return $this->belongsToMany(Quiz::class)
+        return $this->belongsToMany(Quiz::class, 'quiz_question')
             ->withPivot('order')
             ->withTimestamps();
     }

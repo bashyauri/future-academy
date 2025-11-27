@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\Quizzes\Schemas;
 
 use App\Models\ExamType;
+use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Topic;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
@@ -111,7 +113,108 @@ class QuizForm
                             ))
                             ->visible(fn($get) => $get('type') === 'mock'),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->collapsible(),
+
+                Section::make('Manual Question Assignment (Optional)')
+                    ->description('Manually select specific questions for this quiz. If questions are assigned here, the criteria above will be ignored.')
+                    ->schema([
+                        Repeater::make('questions')
+                            ->relationship('questions')
+                            ->schema([
+                                Grid::make(3)
+                                    ->schema([
+                                        Select::make('filter_subject_id')
+                                            ->label('Filter by Subject')
+                                            ->options(Subject::pluck('name', 'id'))
+                                            ->searchable()
+                                            ->live()
+                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                            ->helperText('Optional: narrow down search'),
+
+                                        Select::make('filter_difficulty')
+                                            ->label('Filter by Difficulty')
+                                            ->options([
+                                                'easy' => 'Easy',
+                                                'medium' => 'Medium',
+                                                'hard' => 'Hard',
+                                            ])
+                                            ->live()
+                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                            ->helperText('Optional: narrow down search'),
+
+                                        Select::make('filter_exam_type_id')
+                                            ->label('Filter by Exam Type')
+                                            ->options(ExamType::pluck('name', 'id'))
+                                            ->searchable()
+                                            ->live()
+                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                            ->helperText('Optional: narrow down search'),
+                                    ]),
+
+                                Select::make('question_id')
+                                    ->label('Question')
+                                    ->searchable()
+                                    ->getSearchResultsUsing(function (string $search, $get) {
+                                        $query = Question::approved()
+                                            ->active()
+                                            ->where(function ($q) use ($search) {
+                                                $q->where('id', 'like', "%{$search}%")
+                                                    ->orWhere('question_text', 'like', "%{$search}%");
+                                            });
+
+                                        // Apply filters if set
+                                        if ($subjectId = $get('filter_subject_id')) {
+                                            $query->where('subject_id', $subjectId);
+                                        }
+                                        if ($difficulty = $get('filter_difficulty')) {
+                                            $query->where('difficulty', $difficulty);
+                                        }
+                                        if ($examTypeId = $get('filter_exam_type_id')) {
+                                            $query->where('exam_type_id', $examTypeId);
+                                        }
+
+                                        return $query
+                                            ->with(['subject', 'examType'])
+                                            ->limit(50)
+                                            ->get()
+                                            ->mapWithKeys(fn($question) => [
+                                                $question->id => "#{$question->id} - " .
+                                                    \Str::limit($question->question_text, 80) .
+                                                    " ({$question->subject?->name} - {$question->difficulty})"
+                                            ]);
+                                    })
+                                    ->getOptionLabelUsing(function ($value) {
+                                        $question = Question::with(['subject', 'examType'])->find($value);
+                                        if (!$question) return "Question #{$value}";
+
+                                        return "#{$question->id} - " .
+                                            \Str::limit($question->question_text, 80) .
+                                            " ({$question->subject?->name} - {$question->difficulty})";
+                                    })
+                                    ->required()
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                    ->helperText('Type question ID or search by text')
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2)
+                            ->reorderable('order')
+                            ->orderColumn('order')
+                            ->defaultItems(0)
+                            ->addActionLabel('Add Question')
+                            ->helperText('Drag to reorder questions. Leave empty to use automatic selection based on criteria above.')
+                            ->collapsible()
+                            ->itemLabel(
+                                fn(array $state): ?string =>
+                                $state['question_id']
+                                    ? Question::find($state['question_id'])?->question_text
+                                    ? '#' . $state['question_id'] . ' - ' . \Str::limit(Question::find($state['question_id'])->question_text, 50)
+                                    : "Question #{$state['question_id']}"
+                                    : 'New Question'
+                            ),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
 
                 Section::make('Quiz Settings')
                     ->schema([
