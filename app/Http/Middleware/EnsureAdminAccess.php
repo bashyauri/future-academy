@@ -11,11 +11,27 @@ class EnsureAdminAccess
     /**
      * Permissions that qualify a user as an admin-level user for the admin panel.
      */
+    // protected array $adminPermissions = [
+    //     'manage users',
+    //     'manage academics',
+    //     'approve questions',
+    //     'delete questions',
+    // ];
     protected array $adminPermissions = [
         'manage users',
         'manage academics',
         'approve questions',
         'delete questions',
+        'create questions',
+        'manage questions',
+        'upload questions',
+        'import questions',
+        // Quiz access grants panel entry for authorized staff
+        'view quizzes',
+        'create quizzes',
+        'edit quizzes',
+        'delete quizzes',
+        'publish quizzes',
     ];
 
     public function handle(Request $request, Closure $next): Response

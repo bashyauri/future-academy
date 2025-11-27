@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Quizzes\QuizList;
+use App\Livewire\Quizzes\TakeQuiz;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -50,4 +52,8 @@ Route::middleware(['auth'])->group(function () {
             ),
         )
         ->name('two-factor.show');
+
+    // Quiz routes
+    Route::get('quizzes', QuizList::class)->name('quizzes.index');
+    Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
 });

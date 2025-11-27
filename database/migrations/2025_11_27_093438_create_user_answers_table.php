@@ -19,7 +19,7 @@ return new class extends Migration
             $table->boolean('is_correct')->default(false);
             $table->integer('time_spent_seconds')->nullable()->comment('Time spent on this question');
             $table->timestamps();
-
+            
             // Indexes
             $table->index('quiz_attempt_id');
             $table->index(['quiz_attempt_id', 'question_id']);
