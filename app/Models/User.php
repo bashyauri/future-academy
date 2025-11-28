@@ -95,4 +95,27 @@ class User extends Authenticatable
             }
         });
     }
+
+    // Progress tracking
+    public function progress()
+    {
+        return $this->hasMany(UserProgress::class);
+    }
+
+    public function lessonProgress()
+    {
+        return $this->progress()->where('type', 'lesson');
+    }
+
+    public function quizProgress()
+    {
+        return $this->progress()->where('type', 'quiz');
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        // For now, return true for all users
+        // Later implement: return $this->subscriptions()->active()->exists();
+        return true;
+    }
 }

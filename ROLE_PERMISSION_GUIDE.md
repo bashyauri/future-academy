@@ -132,13 +132,15 @@ Your database already has:
 
 ### Permissions:
 
--   ✅ manage users
--   ✅ upload questions
--   ✅ manage questions
--   ✅ view stats
--   ✅ approve guardians
--   ✅ manage subscriptions
--   ✅ manage videos
+-   ✅ **User Management**: manage users, view users, create users, edit users, delete users, approve guardians
+-   ✅ **Academic Structure**: manage academics, manage subjects, manage topics, manage exam types
+-   ✅ **Question Management**: view questions, create questions, manage questions, upload questions, import questions, approve questions, delete questions
+-   ✅ **Quiz Management**: view quizzes, create quizzes, edit quizzes, delete quizzes, publish quizzes, manage quiz attempts
+-   ✅ **Lesson Management**: view lessons, create lessons, edit lessons, delete lessons, publish lessons, manage lessons
+-   ✅ **Video Management**: manage videos, manage video categories, upload videos
+-   ✅ **Progress & Analytics**: view reports, view stats, view user progress, manage user progress, view analytics
+-   ✅ **Role & Permission Management**: manage roles, manage permissions
+-   ✅ **Subscription Management**: manage subscriptions, view subscriptions
 
 ### Default User:
 

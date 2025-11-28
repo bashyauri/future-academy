@@ -13,25 +13,64 @@ class RolePermissionSeeder extends Seeder
     {
         // Permissions
         $permissions = [
+            // User Management
             'manage users',
+            'view users',
+            'create users',
+            'edit users',
+            'delete users',
+            'approve guardians',
+
+            // Academic Structure
             'manage academics',
+            'manage subjects',
+            'manage topics',
+            'manage exam types',
+
+            // Question Management
+            'view questions',
             'create questions',
             'manage questions', // edit/update existing
             'upload questions', // simple single question upload
             'import questions', // bulk import (CSV/Excel)
             'approve questions',
             'delete questions',
-            // Quiz/Assessment management
+
+            // Quiz/Assessment Management
             'view quizzes',
             'create quizzes',
             'edit quizzes',
             'delete quizzes',
             'publish quizzes',
+            'manage quiz attempts',
+
+            // Lesson Management
+            'view lessons',
+            'create lessons',
+            'edit lessons',
+            'delete lessons',
+            'publish lessons',
+            'manage lessons',
+
+            // Video Management
+            'manage videos',
+            'manage video categories',
+            'upload videos',
+
+            // Progress & Analytics
             'view reports',
             'view stats',
-            'approve guardians',
+            'view user progress',
+            'manage user progress',
+            'view analytics',
+
+            // Role & Permission Management
+            'manage roles',
+            'manage permissions',
+
+            // Subscription Management
             'manage subscriptions',
-            'manage videos',
+            'view subscriptions',
         ];
 
         foreach ($permissions as $perm) {
@@ -41,41 +80,110 @@ class RolePermissionSeeder extends Seeder
         // Roles
         $roles = [
             'super-admin' => $permissions, // full access
+
             'admin' => [
+                // User Management
                 'manage users',
+                'view users',
+                'create users',
+                'edit users',
+                'delete users',
+                'approve guardians',
+
+                // Academic Structure
                 'manage academics',
+                'manage subjects',
+                'manage topics',
+                'manage exam types',
+
+                // Question Management
+                'view questions',
                 'create questions',
                 'manage questions',
                 'import questions',
                 'approve questions',
                 'delete questions',
+
+                // Quiz Management
                 'view quizzes',
                 'create quizzes',
                 'edit quizzes',
                 'delete quizzes',
                 'publish quizzes',
+                'manage quiz attempts',
+
+                // Lesson Management
+                'view lessons',
+                'create lessons',
+                'edit lessons',
+                'delete lessons',
+                'publish lessons',
+                'manage lessons',
+
+                // Video Management
+                'manage videos',
+                'manage video categories',
+                'upload videos',
+
+                // Analytics & Reports
                 'view reports',
                 'view stats',
+                'view user progress',
+                'manage user progress',
+                'view analytics',
+
+                // Subscriptions
                 'manage subscriptions',
-                'manage videos',
+                'view subscriptions',
             ],
+
             'teacher' => [
+                // Question Management
+                'view questions',
                 'create questions',
                 'manage questions',
                 'upload questions',
                 'import questions',
+
+                // Quiz Management
                 'view quizzes',
                 'create quizzes',
                 'edit quizzes',
+                'publish quizzes',
+
+                // Lesson Management
+                'view lessons',
+                'create lessons',
+                'edit lessons',
+                'manage lessons',
+
+                // Video Management
+                'manage videos',
+                'upload videos',
+
+                // Analytics
                 'view reports',
+                'view stats',
+                'view user progress',
+                'view analytics',
+
+                // Academic Structure (view only)
+                'manage academics',
             ],
+
             'uploader' => [
                 'upload questions',
                 'import questions',
+                'upload videos',
+                'view questions',
+                'view lessons',
             ],
+
             'guardian' => [
-                // intentionally minimal; expand later
+                'view user progress', // view their children's progress
+                'view subscriptions', // view their subscriptions
             ],
+
             'student' => [
                 // front-end only, no panel permissions
             ],

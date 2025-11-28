@@ -17,9 +17,18 @@
             <flux:navlist.group :heading="__('Platform')" class="grid">
                 <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
                     wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                <flux:navlist.item icon="book-open" :href="route('lessons.subjects')"
+                    :current="request()->routeIs('lessons.*') || request()->routeIs('lesson.*')" wire:navigate>
+                    {{ __('Lessons') }}
+                </flux:navlist.item>
                 <flux:navlist.item icon="academic-cap" :href="route('quizzes.index')"
                     :current="request()->routeIs('quizzes.*') || request()->routeIs('quiz.*')" wire:navigate>
-                    {{ __('Quizzes') }}</flux:navlist.item>
+                    {{ __('Quizzes') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="chart-bar" :href="route('analytics')"
+                    :current="request()->routeIs('analytics')" wire:navigate>
+                    {{ __('Analytics') }}
+                </flux:navlist.item>
             </flux:navlist.group>
         </flux:navlist>
 

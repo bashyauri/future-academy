@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Dashboard\Analytics;
+use App\Livewire\Dashboard\Index;
 use App\Livewire\Quizzes\QuizList;
 use App\Livewire\Quizzes\TakeQuiz;
 use App\Livewire\Settings\Appearance;
@@ -31,7 +33,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::view('dashboard', 'dashboard')
+Route::get('dashboard', Index::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -54,6 +56,16 @@ Route::middleware(['auth'])->group(function () {
         ->name('two-factor.show');
 
     // Quiz routes
-    Route::get('quizzes', QuizList::class)->name('quizzes.index');
+    Route::get('quizzes', \App\Livewire\Quizzes\SubjectsList::class)->name('quizzes.index');
+    Route::get('quizzes/all', QuizList::class)->name('quizzes.all'); // Keep old list as "browse all"
+    Route::get('quizzes/subject/{subject}', \App\Livewire\Quizzes\QuizzesBySubject::class)->name('quizzes.subject');
     Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
+
+    // Lesson routes
+    Route::get('lessons', \App\Livewire\Lessons\SubjectsList::class)->name('lessons.subjects');
+    Route::get('lessons/{subject}', \App\Livewire\Lessons\LessonsList::class)->name('lessons.list');
+    Route::get('lesson/{id}', \App\Livewire\Lessons\LessonView::class)->name('lessons.view');
+
+    // Analytics route
+    Route::get('analytics', Analytics::class)->name('analytics');
 });

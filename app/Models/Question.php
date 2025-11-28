@@ -74,6 +74,14 @@ class Question extends Model
             ->withTimestamps();
     }
 
+    public function lessons(): BelongsToMany
+    {
+        return $this->belongsToMany(Lesson::class)
+            ->withPivot('order')
+            ->withTimestamps()
+            ->orderBy('lesson_question.order');
+    }
+
     // Scopes
     public function scopeApproved($query)
     {

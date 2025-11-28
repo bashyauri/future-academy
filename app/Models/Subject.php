@@ -58,4 +58,11 @@ class Subject extends Model
     {
         return $this->topics()->where('is_active', true);
     }
+
+    public function lessons(): HasMany
+    {
+        return $this->hasMany(Lesson::class)
+            ->orderBy('order')
+            ->orderBy('created_at');
+    }
 }
