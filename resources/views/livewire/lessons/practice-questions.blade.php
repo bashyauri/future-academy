@@ -87,8 +87,10 @@
                     @foreach($question->options as $option)
                         <button
                             wire:click="selectAnswer({{ $index }}, {{ $option->id }})"
+                            wire:loading.attr="disabled"
+                            wire:target="selectAnswer({{ $index }}, {{ $option->id }})"
                             @if($showResults[$index]) disabled @endif
-                            class="w-full text-left flex items-start gap-2 p-3 rounded transition-all {{ 
+                            class="w-full text-left flex items-start gap-2 p-3 rounded transition-all relative {{ 
                                 $showResults[$index] 
                                     ? ($option->is_correct 
                                         ? 'bg-green-100 dark:bg-green-950/50 border-2 border-green-500 cursor-not-allowed' 
@@ -99,6 +101,15 @@
                                         ? 'bg-blue-100 dark:bg-blue-950/50 border-2 border-blue-500' 
                                         : 'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-blue-300 dark:hover:border-blue-700')
                             }}">
+                            
+                            {{-- Loading Spinner --}}
+                            <div wire:loading wire:target="selectAnswer({{ $index }}, {{ $option->id }})" class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-neutral-900/80 rounded">
+                                <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+
                             <div class="flex-shrink-0 mt-0.5">
                                 @if($showResults[$index] && $option->is_correct)
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,12 +152,33 @@
                             wire:click="submitAnswer({{ $index }})" 
                             variant="primary" 
                             size="sm"
+                            wire:loading.attr="disabled"
+                            wire:target="submitAnswer({{ $index }})"
                             :disabled="!isset($selectedAnswers[$index]) || $selectedAnswers[$index] === null">
-                            {{ __('Submit Answer') }}
+                            <span wire:loading.remove wire:target="submitAnswer({{ $index }})">{{ __('Submit Answer') }}</span>
+                            <span wire:loading wire:target="submitAnswer({{ $index }})" class="flex items-center gap-2">
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {{ __('Submitting...') }}
+                            </span>
                         </flux:button>
                     @else
-                        <flux:button wire:click="resetQuestion({{ $index }})" variant="ghost" size="sm">
-                            {{ __('Try Again') }}
+                        <flux:button 
+                            wire:click="resetQuestion({{ $index }})" 
+                            variant="ghost" 
+                            size="sm"
+                            wire:loading.attr="disabled"
+                            wire:target="resetQuestion({{ $index }})">
+                            <span wire:loading.remove wire:target="resetQuestion({{ $index }})">{{ __('Try Again') }}</span>
+                            <span wire:loading wire:target="resetQuestion({{ $index }})" class="flex items-center gap-2">
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {{ __('Resetting...') }}
+                            </span>
                         </flux:button>
                     @endif
                 </div>

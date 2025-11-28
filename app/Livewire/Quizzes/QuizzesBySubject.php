@@ -5,13 +5,14 @@ namespace App\Livewire\Quizzes;
 use App\Models\Quiz;
 use App\Models\Subject;
 use App\Models\Topic;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 class QuizzesBySubject extends Component
 {
-    public Subject $subject;
+    public $subject;
     public ?int $topicFilter = null;
     public string $typeFilter = 'all';
 
@@ -60,9 +61,9 @@ class QuizzesBySubject extends Component
             ->get()
             ->map(function ($quiz) {
                 $stats = app(\App\Services\QuizGeneratorService::class)
-                    ->getUserStats($quiz, auth()->user());
+                    ->getUserStats($quiz, Auth::user());
                 $quiz->user_stats = $stats;
-                $quiz->can_attempt = $quiz->canUserAttempt(auth()->user());
+                $quiz->can_attempt = $quiz->canUserAttempt(Auth::user());
 
                 // Get subject and topic names from JSON arrays
                 if ($quiz->subject_ids) {

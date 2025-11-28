@@ -95,20 +95,23 @@
                 @endif
             </div>
 
-            {{-- Lesson Content --}}
+            {{-- Practice Questions - Positioned before notes for immediate reinforcement --}}
+            @if($lesson->questions->isNotEmpty())
+                <livewire:lessons.practice-questions :questions="$lesson->questions" :lesson-id="$lesson->id"
+                    :key="'practice-' . $lesson->id" />
+            @endif
+
+            {{-- Lesson Content/Notes - Detailed reference material --}}
             @if($lesson->content)
                 <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">
                     <flux:heading size="lg" class="mb-4">{{ __('Lesson Notes') }}</flux:heading>
+                    <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+                        {{ __('Detailed notes and additional reading material for this lesson.') }}
+                    </flux:text>
                     <div class="prose dark:prose-invert max-w-none">
                         {!! $lesson->content !!}
                     </div>
                 </div>
-            @endif
-
-            {{-- Practice Questions --}}
-            @if($lesson->questions->isNotEmpty())
-                <livewire:lessons.practice-questions :questions="$lesson->questions" :lesson-id="$lesson->id"
-                    :key="'practice-' . $lesson->id" />
             @endif
 
             {{-- Navigation Buttons --}}
