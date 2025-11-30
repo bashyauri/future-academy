@@ -1,4 +1,4 @@
-# Railway Deployment Guide for Future Academy
+# Railway Deployment (Nixpacks + PostgreSQL)
 
 ## Prerequisites
 
@@ -18,14 +18,13 @@ git push origin master
 
 ### 2. Deploy on Railway
 
-#### Option A: Using Railway Dashboard (Easiest)
+#### Option A: Using Railway Dashboard (Recommended)
 
 1. Go to https://railway.app
-2. Click "Start a New Project"
-3. Select "Deploy from GitHub repo"
-4. Authorize Railway to access your GitHub
-5. Select the `future-academy` repository
-6. Railway will auto-detect Laravel and start building
+2. Start a New Project → Deploy from GitHub
+3. Select the `future-academy` repository
+4. In Service Settings → Builder, choose "Nixpacks"
+5. Deploy
 
 #### Option B: Using Railway CLI
 
@@ -48,32 +47,35 @@ railway open
 
 ### 3. Configure Environment Variables
 
-In Railway Dashboard > Variables, add:
+In Railway Dashboard → Variables, set:
 
 ```
 APP_NAME=Future Academy
 APP_ENV=production
-APP_KEY=base64:Tqk2YnAGUSwaMmJl1AoS7RP8qlst/Jut+N0ljDiO1+Y=
+APP_KEY=base64:...       # generate below
 APP_DEBUG=false
 APP_URL=${{RAILWAY_PUBLIC_DOMAIN}}
-DB_CONNECTION=sqlite
+DB_CONNECTION=pgsql
+DB_HOST=${{PGHOST}}
+DB_PORT=${{PGPORT}}
+DB_DATABASE=${{PGDATABASE}}
+DB_USERNAME=${{PGUSER}}
+DB_PASSWORD=${{PGPASSWORD}}
 SESSION_DRIVER=database
 CACHE_STORE=database
 LOG_LEVEL=error
 ```
 
-**Important:** Railway auto-provides `${{RAILWAY_PUBLIC_DOMAIN}}` variable.
+Notes:
 
-### 4. Create Persistent Volume for SQLite
+-   Railway injects `PG*` variables when you add a PostgreSQL database resource and link it to the service.
+-   `RAILWAY_PUBLIC_DOMAIN` is provided automatically.
 
-In Railway Dashboard:
+### 4. Add PostgreSQL
 
-1. Go to your service
-2. Click "Volumes" tab
-3. Click "New Volume"
-4. Name: `database`
-5. Mount Path: `/app/database`
-6. Click "Add"
+1. In your Railway project, add a new resource → PostgreSQL.
+2. Link the PostgreSQL resource to your service ("Connect" in the Variables panel).
+3. Confirm `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` variables appear on the service.
 
 ### 5. Generate New APP_KEY (Important!)
 
@@ -86,14 +88,7 @@ php artisan key:generate --show
 
 ### 6. Run Migrations & Seeders
 
-Railway automatically runs:
-
-```bash
-php artisan migrate --force
-php artisan db:seed --force
-```
-
-Or manually via Railway CLI:
+Migrations are run by the start command in `nixpacks.toml`. You can also run manually:
 
 ```bash
 railway run php artisan migrate:fresh --seed --force
@@ -128,11 +123,15 @@ if (!\$user) {
 
 ## Important Notes
 
-### SQLite Persistence
+### Builder & PHP Version
 
-✅ Your database is persistent thanks to the volume mount
-✅ Data survives deployments and restarts
-⚠️ Limited to 1 instance (can't scale horizontally)
+-   Builder is Nixpacks (no Docker required).
+-   `railway.json` and `nixpacks.toml` force PHP 8.3 and install Composer (`php83Packages.composer`).
+
+### Database
+
+-   PostgreSQL is recommended and configured via environment variables.
+-   No volumes required; managed by Railway.
 
 ### File Storage
 
@@ -232,19 +231,7 @@ railway run php artisan view:clear
 
 ### Backup Database
 
-```bash
-# Download SQLite file
-railway run cat database/database.sqlite > backup.sqlite
-
-# Or use Railway CLI to copy files
-railway volume download database database/database.sqlite backup.sqlite
-```
-
-### Restore Database
-
-```bash
-railway volume upload database backup.sqlite database/database.sqlite
-```
+Use Railway PostgreSQL connection string with your preferred tool (pg_dump/pg_restore or Railway Data tab).
 
 ## Security Recommendations
 
@@ -259,4 +246,4 @@ railway volume upload database backup.sqlite database/database.sqlite
 
 -   Railway Docs: https://docs.railway.app
 -   Railway Discord: https://discord.gg/railway
--   GitHub Issues: Your repository issues page
+-   GitHub Issues: your repository issues page
