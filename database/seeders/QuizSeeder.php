@@ -16,6 +16,12 @@ class QuizSeeder extends Seeder
      */
     public function run(): void
     {
+        // Check if quizzes already exist
+        if (Quiz::count() > 0) {
+            $this->command->info('Quizzes already exist. Skipping QuizSeeder.');
+            return;
+        }
+
         $admin = User::first();
 
         if (!$admin) {

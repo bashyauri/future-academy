@@ -11,6 +11,12 @@ class SubjectTopicSeeder extends Seeder
 {
     public function run(): void
     {
+        // Check if data already exists
+        if (ExamType::count() > 0) {
+            $this->command->info('Exam types already exist. Skipping SubjectTopicSeeder.');
+            return;
+        }
+
         // Create Exam Types
         $waec = ExamType::create([
             'name' => 'WAEC',

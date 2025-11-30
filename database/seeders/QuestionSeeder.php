@@ -16,6 +16,12 @@ class QuestionSeeder extends Seeder
      */
     public function run(): void
     {
+        // Check if questions already exist
+        if (Question::count() > 0) {
+            $this->command->info('Questions already exist. Skipping QuestionSeeder.');
+            return;
+        }
+
         $admin = User::first();
 
         if (!$admin) {

@@ -12,6 +12,12 @@ class LessonSeeder extends Seeder
 {
     public function run(): void
     {
+        // Check if lessons already exist
+        if (Lesson::count() > 0) {
+            $this->command->info('Lessons already exist. Skipping LessonSeeder.');
+            return;
+        }
+
         $admin = User::where('email', 'super@admin.com')->first();
 
         if (!$admin) {
