@@ -1,9 +1,11 @@
 [phases.setup]
 nixPkgs = ["php83", "php83Packages.composer", "nodejs_20"]
+nixLibs = ["php83Extensions.pdo", "php83Extensions.pdo_sqlite", "php83Extensions.mbstring", "php83Extensions.zip"]
 
 [phases.install]
 cmds = [
   "php -v",
+  "which php",
   "composer install --no-dev --optimize-autoloader --no-interaction",
   "npm ci"
 ]
