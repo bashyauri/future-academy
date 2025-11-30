@@ -1,6 +1,6 @@
 [phases.setup]
 nixPkgs = ["php83", "php83Packages.composer", "nodejs_20"]
-nixLibs = ["php83Extensions.pdo", "php83Extensions.pdo_sqlite", "php83Extensions.mbstring", "php83Extensions.zip", "php83Extensions.bcmath", "php83Extensions.gd"]
+nixLibs = ["php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Extensions.mbstring", "php83Extensions.zip", "php83Extensions.bcmath", "php83Extensions.gd"]
 
 [phases.install]
 cmds = [
@@ -14,12 +14,7 @@ cmds = [
 ]
 
 [start]
-cmd = "touch /app/database/database.sqlite && php artisan config:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
+cmd = "php artisan config:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
 
 [variables]
 NODE_ENV = "production"
-
-# Persistent volume for SQLite database
-[[mounts]]
-source = "database"
-destination = "/app/database"
