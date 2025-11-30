@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call(\Database\Seeders\SubjectTopicSeeder::class);
         $this->call(\Database\Seeders\QuestionSeeder::class);
         $this->call(\Database\Seeders\QuizSeeder::class);
+        $this->call(\Database\Seeders\LessonSeeder::class);
 
 
         // User::factory()->create([

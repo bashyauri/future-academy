@@ -20,8 +20,10 @@ return new class extends Migration
             $table->index('topic_id', 'idx_topic');
             $table->index('year', 'idx_year');
 
-            // Fulltext index for question text search
-            $table->fullText('question_text', 'idx_question_text_fulltext');
+            // Fulltext index for question text search (only for MySQL)
+            if (config('database.default') !== 'sqlite') {
+                $table->fullText('question_text', 'idx_question_text_fulltext');
+            }
         });
     }
 
@@ -32,7 +34,9 @@ return new class extends Migration
     {
         Schema::table('questions', function (Blueprint $table) {
             // Drop indexes in reverse order
-            $table->dropFullText('idx_question_text_fulltext');
+            if (config('database.default') !== 'sqlite') {
+                $table->dropFullText('idx_question_text_fulltext');
+            }
             $table->dropIndex('idx_year');
             $table->dropIndex('idx_topic');
             $table->dropIndex('idx_exam_type');
