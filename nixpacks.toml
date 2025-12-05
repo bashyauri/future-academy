@@ -1,5 +1,6 @@
 [phases.setup]
-nixPkgs = ["php83", "php83Packages.composer", "nodejs_20", "php83Extensions.pdo_pgsql", "php83Extensions.intl", "php83Extensions.mbstring", "php83Extensions.zip", "php83Extensions.bcmath", "php83Extensions.gd", "postgresql"]
+nixPkgs = ["php83", "php83Packages.composer", "nodejs_20"]
+aptPkgs = ["postgresql-client"]
 
 [phases.install]
 cmds = [
