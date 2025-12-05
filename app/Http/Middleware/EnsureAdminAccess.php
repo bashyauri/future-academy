@@ -38,10 +38,15 @@ class EnsureAdminAccess
     {
         $user = auth()->user();
         if (! $user) {
-            return redirect()->route('filament.auth.login');
+            return redirect()->route('filament.admin.auth.login');
         }
 
-        // Grant if user has ANY of the qualifying admin perms (super-admin will always pass).
+        // Grant access if user is super-admin or admin
+        if ($user->hasRole(['super-admin', 'admin'])) {
+            return $next($request);
+        }
+
+        // Grant if user has ANY of the qualifying admin perms
         $hasAccess = collect($this->adminPermissions)->contains(fn($perm) => $user->hasPermissionTo($perm));
 
         if (! $hasAccess) {
