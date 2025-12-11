@@ -1,0 +1,287 @@
+<div x-data="{
+    timeRemaining: @entangle('timeRemaining'),
+    timer: null,
+    
+    init() {
+        this.startTimer();
+    },
+    
+    startTimer() {
+        this.timer = setInterval(() => {
+            if (this.timeRemaining > 0) {
+                this.timeRemaining--;
+            } else {
+                clearInterval(this.timer);
+                $wire.call('handleTimerEnd');
+            }
+        }, 1000);
+    },
+    
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+}" class="min-h-screen bg-gray-50">
+    
+    @if(!$showResults)
+        <!-- Quiz Interface -->
+        <div class="flex h-screen overflow-hidden">
+            <!-- Main Quiz Area -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <!-- Timer and Header -->
+                <div class="bg-white border-b border-gray-200 p-4">
+                    <div class="max-w-7xl mx-auto flex items-center justify-between">
+                        <div>
+                            <flux:heading size="lg">JAMB {{ $year }} Practice Test</flux:heading>
+                            <flux:text class="text-sm">{{ $subjects[$currentSubjectIndex]->name }}</flux:text>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <flux:text class="text-sm text-gray-600">Time Remaining</flux:text>
+                                <div class="text-2xl font-bold" :class="timeRemaining < 600 ? 'text-red-600' : 'text-blue-600'" x-text="formatTime(timeRemaining)"></div>
+                            </div>
+                            <flux:button wire:click="submitQuiz" variant="primary">Submit Test</flux:button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subject Tabs -->
+                <div class="bg-white border-b border-gray-200 px-4">
+                    <div class="max-w-7xl mx-auto flex gap-2 overflow-x-auto py-2">
+                        @foreach($subjects as $index => $subject)
+                            @php
+                                $answered = count(array_filter($userAnswers[$subject->id]));
+                            @endphp
+                            <button
+                                wire:click="switchSubject({{ $index }})"
+                                class="px-4 py-2 rounded-t-lg whitespace-nowrap transition-all {{ $currentSubjectIndex == $index ? 'bg-blue-500 text-white' : 'bg-gray-100 hover:bg-gray-200' }}"
+                            >
+                                <div class="font-medium">{{ $subject->name }}</div>
+                                <div class="text-xs">{{ $answered }}/40</div>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Question Area -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="max-w-4xl mx-auto">
+                        @php
+                            $question = $this->getCurrentQuestion();
+                            $currentSubjectId = $this->getCurrentSubjectId();
+                        @endphp
+
+                        <!-- Question Number and Text -->
+                        <div class="mb-6">
+                            <flux:text class="text-sm text-gray-600 mb-2">Question {{ $currentQuestionIndex + 1 }} of 40</flux:text>
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+                                <flux:text class="text-lg font-medium">{{ $question->question_text }}</flux:text>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="space-y-3">
+                            @foreach($question->options as $option)
+                                @php
+                                    $isSelected = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) == $option->id;
+                                @endphp
+                                <button
+                                    wire:click="selectAnswer({{ $option->id }})"
+                                    class="w-full p-4 rounded-lg border-2 text-left transition-all {{ $isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}"
+                                >
+                                    <div class="flex items-start gap-3">
+                                        <div class="flex-shrink-0 w-6 h-6 rounded-full border-2 {{ $isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300' }} flex items-center justify-center">
+                                            @if($isSelected)
+                                                <div class="w-3 h-3 bg-white rounded-full"></div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1">
+                                            <span class="font-medium text-gray-700">{{ $option->option_text }}</span>
+                                        </div>
+                                    </div>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <!-- Navigation Buttons -->
+                        <div class="mt-8 flex justify-between">
+                            <flux:button wire:click="previousQuestion" variant="ghost" {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'disabled' : '' }}>
+                                Previous
+                            </flux:button>
+                            <flux:button wire:click="nextQuestion" variant="primary">
+                                {{ ($currentSubjectIndex == count($subjectsData) - 1 && $currentQuestionIndex == 39) ? 'Finish' : 'Next' }}
+                            </flux:button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Navigator Sidebar -->
+            <div class="w-80 bg-white border-l border-gray-200 overflow-y-auto p-4">
+                <flux:heading size="lg" class="mb-4">Question Navigator</flux:heading>
+                
+                @foreach($subjects as $subjectIndex => $subject)
+                    <div class="mb-6">
+                        <flux:text class="font-medium mb-2">{{ $subject->name }}</flux:text>
+                        <div class="grid grid-cols-5 gap-2">
+                            @for($i = 0; $i < 40; $i++)
+                                @php
+                                    $isAnswered = ($userAnswers[$subject->id][$i] ?? null) !== null;
+                                    $isCurrent = $currentSubjectIndex == $subjectIndex && $currentQuestionIndex == $i;
+                                @endphp
+                                <button
+                                    wire:click="jumpToQuestion({{ $subjectIndex }}, {{ $i }})"
+                                    class="aspect-square rounded-lg font-medium text-sm transition-all {{ 
+                                        $isCurrent ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 
+                                        ($isAnswered ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200') 
+                                    }}"
+                                >
+                                    {{ $i + 1 }}
+                                </button>
+                            @endfor
+                        </div>
+                    </div>
+                @endforeach
+
+                <!-- Legend -->
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <flux:text class="text-sm font-medium mb-2">Legend</flux:text>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded bg-blue-500"></div>
+                            <span>Current</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded bg-green-100"></div>
+                            <span>Answered</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded bg-gray-100"></div>
+                            <span>Not Answered</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @else
+        <!-- Results Screen -->
+        <div class="p-6">
+            <div class="max-w-4xl mx-auto">
+                <!-- Overall Score -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 mb-6 text-center">
+                    <flux:heading size="xl" class="mb-4">Test Completed!</flux:heading>
+                    @php
+                        $scoresBySubject = $this->getScoresBySubject();
+                        $totalScore = array_sum($scoresBySubject);
+                        $totalQuestions = count($subjectsData) * 40;
+                        $percentage = ($totalScore / $totalQuestions) * 100;
+                    @endphp
+                    
+                    <div class="inline-flex items-center justify-center w-40 h-40 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white mb-6">
+                        <div>
+                            <div class="text-5xl font-bold">{{ $totalScore }}</div>
+                            <div class="text-lg">/ {{ $totalQuestions }}</div>
+                        </div>
+                    </div>
+                    
+                    <flux:text class="text-2xl font-bold mb-2">{{ number_format($percentage, 1) }}%</flux:text>
+                    <flux:text class="text-gray-600">Overall Score</flux:text>
+                </div>
+
+                <!-- Subject Breakdown -->
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 mb-6">
+                    <flux:heading size="lg" class="mb-4">Subject Scores</flux:heading>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach($subjectsData as $subject)
+                            @php
+                                $score = $scoresBySubject[$subject->id];
+                                $subjectPercentage = ($score / 40) * 100;
+                            @endphp
+                            <div class="p-4 rounded-lg bg-gray-50">
+                                <flux:text class="font-medium mb-2">{{ $subject->name }}</flux:text>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-2xl font-bold text-blue-600">{{ $score }}/40</span>
+                                    <span class="text-lg text-gray-600">{{ number_format($subjectPercentage, 1) }}%</span>
+                                </div>
+                                <div class="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-500 rounded-full" style="width: {{ $subjectPercentage }}%"></div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-4">
+                    <flux:button wire:click="toggleReview" variant="primary">
+                        {{ $showReview ? 'Hide' : 'View' }} Answer Review
+                    </flux:button>
+                    <flux:button wire:navigate href="{{ route('practice.jamb.setup') }}" variant="ghost">
+                        Try Another Test
+                    </flux:button>
+                    <flux:button wire:navigate href="{{ route('dashboard') }}" variant="ghost">
+                        Back to Dashboard
+                    </flux:button>
+                </div>
+
+                <!-- Answer Review -->
+                @if($showReview)
+                    <div class="mt-6">
+                        @foreach($subjectsData as $subjectIndex => $subject)
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 mb-6">
+                                <flux:heading size="lg" class="mb-4">{{ $subject->name }} - Answer Review</flux:heading>
+                                
+                                @foreach($questionsBySubject[$subject->id] as $qIndex => $question)
+                                    @php
+                                        $userAnswer = $userAnswers[$subject->id][$qIndex] ?? null;
+                                        $correctOption = $question->options->firstWhere('is_correct', true);
+                                        $isCorrect = $userAnswer && $correctOption && $userAnswer == $correctOption->id;
+                                        $userOption = $question->options->firstWhere('id', $userAnswer);
+                                    @endphp
+                                    
+                                    <div class="mb-6 p-4 rounded-lg {{ $isCorrect ? 'bg-green-50' : ($userAnswer ? 'bg-red-50' : 'bg-gray-50') }}">
+                                        <div class="flex items-start gap-2 mb-2">
+                                            <span class="font-bold">Q{{ $qIndex + 1 }}.</span>
+                                            <flux:text class="flex-1">{{ $question->question_text }}</flux:text>
+                                        </div>
+                                        
+                                        @if($userAnswer)
+                                            <div class="ml-6 space-y-1">
+                                                <flux:text class="text-sm">
+                                                    <span class="font-medium">Your answer:</span> 
+                                                    <span class="{{ $isCorrect ? 'text-green-600' : 'text-red-600' }}">{{ $userOption->option_text }}</span>
+                                                </flux:text>
+                                                @if(!$isCorrect && $correctOption)
+                                                    <flux:text class="text-sm">
+                                                        <span class="font-medium">Correct answer:</span> 
+                                                        <span class="text-green-600">{{ $correctOption->option_text }}</span>
+                                                    </flux:text>
+                                                @endif
+                                                @if($question->explanation)
+                                                    <flux:text class="text-sm text-gray-700 mt-2">
+                                                        <span class="font-medium">Explanation:</span> {{ $question->explanation }}
+                                                    </flux:text>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <flux:text class="ml-6 text-sm text-gray-600">Not answered</flux:text>
+                                            @if($correctOption)
+                                                <flux:text class="ml-6 text-sm">
+                                                    <span class="font-medium">Correct answer:</span> 
+                                                    <span class="text-green-600">{{ $correctOption->option_text }}</span>
+                                                </flux:text>
+                                            @endif
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+</div>
+

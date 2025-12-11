@@ -18,6 +18,7 @@ class Question extends Model
         'subject_id',
         'topic_id',
         'exam_type_id',
+        'exam_year',
         'difficulty',
         'year',
         'status',

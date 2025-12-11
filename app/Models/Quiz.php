@@ -19,6 +19,7 @@ class Quiz extends Model
         'duration_minutes',
         'passing_score',
         'question_count',
+        'subject_id',
         'subject_ids',
         'topic_ids',
         'exam_type_ids',
@@ -74,6 +75,22 @@ class Quiz extends Model
     public function attempts(): HasMany
     {
         return $this->hasMany(QuizAttempt::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    // Accessors
+    public function getTotalQuestionsAttribute()
+    {
+        return $this->question_count ?? $this->questions()->count();
+    }
+
+    public function getTimeLimitAttribute()
+    {
+        return $this->duration_minutes;
     }
 
     // Scopes

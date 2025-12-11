@@ -2,93 +2,61 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Models\Subject;
 use App\Models\Quiz;
-use App\Models\QuizAttempt;
-use App\Models\UserProgress;
-use Livewire\Component;
+use App\Models\Subject;
+use App\Models\Video;
 use Livewire\Attributes\Layout;
-use Illuminate\Support\Facades\DB;
+use Livewire\Component;
 
+#[Layout('components.layouts.app')]
 class Index extends Component
 {
-    #[Layout('components.layouts.app')]
-    public function render()
+    public $stats = [];
+    public $recentVideos = [];
+    public $recentQuizzes = [];
+    public $enrolledSubjects = [];
+
+    public function mount()
     {
         $user = auth()->user();
 
-        // Get recent quiz attempts
-        $recentAttempts = QuizAttempt::with('quiz')
-            ->where('user_id', $user->id)
-            ->latest()
-            ->take(5)
+        // Get enrolled subjects
+        $this->enrolledSubjects = $user->enrolledSubjects()
+            ->with('examTypes')
             ->get();
 
-        // Get overall stats
-        $totalQuizzes = QuizAttempt::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->count();
+        // Calculate stats
+        $this->stats = [
+            'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
+            'total_videos' => Video::where('is_published', true)->count(),
+            'quizzes_taken' => $user->quizAttempts()->where('status', 'completed')->count(),
+            'total_quizzes' => Quiz::where('status', 'published')->count(),
+            'average_score' => $user->quizAttempts()
+                ->where('status', 'completed')
+                ->avg('score_percentage') ?? 0,
+            'subjects_enrolled' => $this->enrolledSubjects->count(),
+        ];
 
-        $averageScore = QuizAttempt::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->avg('score_percentage') ?? 0;
+        // Get recent videos from enrolled subjects
+        $subjectIds = $this->enrolledSubjects->pluck('id')->toArray();
+        $this->recentVideos = Video::whereIn('subject_id', $subjectIds)
+            ->where('is_published', true)
+            ->with(['subject', 'topic'])
+            ->latest()
+            ->take(6)
+            ->get();
 
-        $lessonsCompleted = UserProgress::where('user_id', $user->id)
-            ->where('type', 'lesson')
-            ->where('is_completed', true)
-            ->count();
+        // Get recent quizzes
+        // Get recent quizzes
+        $this->recentQuizzes = Quiz::where('status', 'published')
+            ->with('subject')
+            ->latest('published_at')
+            ->take(6)
+            ->get();
+    }
 
-        $quizzesCompleted = QuizAttempt::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->count();
-
-        $totalTimeSpent = UserProgress::where('user_id', $user->id)
-            ->sum('time_spent_seconds');
-
-        // Subject performance
-        $subjectPerformance = QuizAttempt::select(
-            'quizzes.subject_ids',
-            DB::raw('AVG(quiz_attempts.score_percentage) as avg_score'),
-            DB::raw('COUNT(*) as total_attempts')
-        )
-            ->join('quizzes', 'quiz_attempts.quiz_id', '=', 'quizzes.id')
-            ->where('quiz_attempts.user_id', $user->id)
-            ->where('quiz_attempts.status', 'completed')
-            ->whereNotNull('quizzes.subject_ids')
-            ->groupBy('quizzes.subject_ids')
-            ->get()
-            ->map(function ($item) {
-                $subjectIds = json_decode($item->subject_ids, true);
-                if (!empty($subjectIds)) {
-                    $subject = Subject::find($subjectIds[0]);
-                    return [
-                        'subject' => $subject?->name ?? 'Unknown',
-                        'avg_score' => round($item->avg_score, 1),
-                        'total_attempts' => $item->total_attempts,
-                    ];
-                }
-                return null;
-            })
-            ->filter()
-            ->take(5);
-
-        // Continue learning - incomplete lessons
-        $continueLesson = UserProgress::with('lesson.subject')
-            ->where('user_id', $user->id)
-            ->where('type', 'lesson')
-            ->where('is_completed', false)
-            ->latest('updated_at')
-            ->first();
-
-        return view('livewire.dashboard.index', [
-            'recentAttempts' => $recentAttempts,
-            'totalQuizzes' => $totalQuizzes,
-            'averageScore' => round($averageScore, 1),
-            'lessonsCompleted' => $lessonsCompleted,
-            'quizzesCompleted' => $quizzesCompleted,
-            'totalTimeSpent' => $totalTimeSpent,
-            'subjectPerformance' => $subjectPerformance,
-            'continueLesson' => $continueLesson,
-        ]);
+    public function render()
+    {
+        return view('livewire.dashboard.index');
     }
 }

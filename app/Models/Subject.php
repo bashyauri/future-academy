@@ -11,6 +11,7 @@ class Subject extends Model
 {
     protected $fillable = [
         'name',
+        'code',
         'slug',
         'description',
         'icon',
@@ -64,5 +65,12 @@ class Subject extends Model
         return $this->hasMany(Lesson::class)
             ->orderBy('order')
             ->orderBy('created_at');
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(Question::class)
+            ->where('is_active', true)
+            ->where('status', 'approved');
     }
 }

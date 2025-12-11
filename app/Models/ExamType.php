@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class ExamType extends Model
@@ -47,5 +48,12 @@ class ExamType extends Model
             ->withTimestamps()
             ->orderBy('sort_order')
             ->orderBy('name');
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(Question::class)
+            ->where('is_active', true)
+            ->where('status', 'approved');
     }
 }

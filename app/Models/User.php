@@ -30,6 +30,10 @@ class User extends Authenticatable implements FilamentUser
         'account_type',
         'avatar',
         'is_active',
+        'stream',
+        'selected_subjects',
+        'exam_types',
+        'has_completed_onboarding',
     ];
 
     /**
@@ -54,7 +58,10 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
+            'selected_subjects' => 'array',
+            'exam_types' => 'array',
+            'has_completed_onboarding' => 'boolean',
         ];
     }
 
@@ -112,6 +119,72 @@ class User extends Authenticatable implements FilamentUser
     public function quizProgress()
     {
         return $this->progress()->where('type', 'quiz');
+    }
+
+    // Enrollments and subjects
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function enrolledSubjects()
+    {
+        return $this->belongsToMany(Subject::class, 'enrollments')
+            ->withPivot('is_active', 'enrolled_at', 'enrolled_by')
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
+    // Parent-Student relationships
+    public function children()
+    {
+        return $this->belongsToMany(User::class, 'parent_student', 'parent_id', 'student_id')
+            ->withPivot('is_active', 'linked_at')
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
+    public function parents()
+    {
+        return $this->belongsToMany(User::class, 'parent_student', 'student_id', 'parent_id')
+            ->withPivot('is_active', 'linked_at')
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
+    // Quiz attempts and answers
+    public function quizAttempts()
+    {
+        return $this->hasMany(QuizAttempt::class);
+    }
+
+    public function userAnswers()
+    {
+        return $this->hasMany(UserAnswer::class);
+    }
+
+    // Video progress
+    public function videoProgress()
+    {
+        return $this->hasMany(VideoProgress::class);
+    }
+
+    // Check if user is a parent
+    public function isParent(): bool
+    {
+        return $this->account_type === 'guardian';
+    }
+
+    // Check if user is a teacher
+    public function isTeacher(): bool
+    {
+        return in_array($this->account_type, ['teacher', 'uploader']);
+    }
+
+    // Check if user is a student
+    public function isStudent(): bool
+    {
+        return $this->account_type === 'student';
     }
 
     public function hasActiveSubscription(): bool
