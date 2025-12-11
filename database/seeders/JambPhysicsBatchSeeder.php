@@ -72,6 +72,18 @@ class JambPhysicsBatchSeeder extends Seeder
     private function createQuestions(array $questions, $subject, $examType, $admin): void
     {
         foreach ($questions as $q) {
+            // Check if question already exists to prevent duplicates
+            $exists = Question::where('question_text', $q['text'])
+                ->where('subject_id', $subject->id)
+                ->where('exam_type_id', $examType->id)
+                ->where('exam_year', $q['year'])
+                ->exists();
+
+            if ($exists) {
+                $this->command->warn("Skipping duplicate: " . substr($q['text'], 0, 50) . "...");
+                continue;
+            }
+
             $question = Question::create([
                 'question_text' => $q['text'],
                 'explanation' => $q['explanation'],

@@ -20,19 +20,20 @@ class PracticeQuiz extends Component
 
     #[Url]
     public $year;
-    
+
     public $questions = [];
     public $currentQuestionIndex = 0;
     public $userAnswers = [];
     public $timeStarted;
     public $showResults = false;
+    public $showReview = false;
     public $score = 0;
     public $totalQuestions = 0;
-    
+
     public function mount()
     {
         $this->timeStarted = now();
-        
+
         // Load questions
         $this->questions = Question::where('exam_type_id', $this->exam_type)
             ->where('subject_id', $this->subject)
@@ -40,69 +41,80 @@ class PracticeQuiz extends Component
             ->with('options')
             ->get()
             ->toArray();
-        
+
         $this->totalQuestions = count($this->questions);
-        
+
         // Initialize user answers array
         $this->userAnswers = array_fill(0, $this->totalQuestions, null);
     }
-    
+
     public function selectAnswer($optionId)
     {
         $this->userAnswers[$this->currentQuestionIndex] = $optionId;
     }
-    
+
     public function nextQuestion()
     {
         if ($this->currentQuestionIndex < $this->totalQuestions - 1) {
             $this->currentQuestionIndex++;
         }
     }
-    
+
     public function previousQuestion()
     {
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
         }
     }
-    
+
     public function jumpToQuestion($index)
     {
         if ($index >= 0 && $index < $this->totalQuestions) {
             $this->currentQuestionIndex = $index;
         }
     }
-    
+
     public function submitQuiz()
     {
         $this->calculateScore();
         $this->showResults = true;
         $this->saveAttempt();
     }
-    
+
+    public function startReview()
+    {
+        $this->showReview = true;
+        $this->currentQuestionIndex = 0;
+    }
+
+    public function exitReview()
+    {
+        $this->showReview = false;
+    }
+
     private function calculateScore()
     {
         $this->score = 0;
-        
+
         foreach ($this->userAnswers as $index => $selectedOptionId) {
             if ($selectedOptionId && isset($this->questions[$index])) {
                 $question = $this->questions[$index];
-                
+
                 // Find the selected option
                 $selectedOption = collect($question['options'])
                     ->firstWhere('id', $selectedOptionId);
-                
+
                 if ($selectedOption && $selectedOption['is_correct']) {
                     $this->score++;
                 }
             }
         }
     }
-    
+
     private function saveAttempt()
     {
         $user = auth()->user();
-        
+
         // Create attempt record
         $attempt = QuizAttempt::create([
             'user_id' => $user->id,
@@ -118,7 +130,7 @@ class PracticeQuiz extends Component
             'completed_at' => now(),
             'time_taken_seconds' => $this->timeStarted->diffInSeconds(now()),
         ]);
-        
+
         // Save individual answers
         foreach ($this->userAnswers as $index => $selectedOptionId) {
             if (isset($this->questions[$index])) {
@@ -131,7 +143,7 @@ class PracticeQuiz extends Component
             }
         }
     }
-    
+
     public function render()
     {
         return view('livewire.practice.practice-quiz');
