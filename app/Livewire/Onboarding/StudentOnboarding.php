@@ -8,7 +8,7 @@ use App\Models\Subject;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.app')]
+#[Layout('components.layouts.app')]
 class StudentOnboarding extends Component
 {
     public $step = 1;
@@ -42,7 +42,7 @@ class StudentOnboarding extends Component
     public function selectStream($streamSlug)
     {
         $this->selectedStream = $streamSlug;
-        
+
         if ($streamSlug === 'custom') {
             // Go directly to subject selection
             $this->step = 3;
@@ -92,7 +92,7 @@ class StudentOnboarding extends Component
         ]);
 
         $user = auth()->user();
-        
+
         // Update user with selections
         $user->update([
             'stream' => $this->selectedStream,
@@ -112,7 +112,7 @@ class StudentOnboarding extends Component
         }
 
         session()->flash('success', 'Welcome! Your account has been set up successfully.');
-        
+
         return redirect()->route('student.dashboard');
     }
 
