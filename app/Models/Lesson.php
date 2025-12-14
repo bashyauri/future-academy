@@ -63,6 +63,11 @@ class Lesson extends Model
             ->orderBy('lesson_question.order');
     }
 
+    public function quizzes(): HasMany
+    {
+        return $this->hasMany(Quiz::class);
+    }
+
     public function userProgress(User $user)
     {
         return $this->progress()->where('user_id', $user->id)->first();

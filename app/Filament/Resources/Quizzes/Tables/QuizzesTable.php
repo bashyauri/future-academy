@@ -56,6 +56,12 @@ class QuizzesTable
                     ->sortable()
                     ->alignCenter(),
 
+                TextColumn::make('lesson.title')
+                    ->label('Lesson')
+                    ->sortable()
+                    ->limit(30)
+                    ->toggleable(),
+
                 TextColumn::make('attempts_count')
                     ->label('Attempts')
                     ->counts('attempts')
@@ -113,6 +119,20 @@ class QuizzesTable
                         'published' => 'Published',
                         'archived' => 'Archived',
                     ]),
+
+                SelectFilter::make('lesson_link')
+                    ->label('Lesson Link')
+                    ->options([
+                        'linked' => 'Linked to Lesson',
+                        'unlinked' => 'No Lesson',
+                    ])
+                    ->query(function ($query, $state) {
+                        return match ($state) {
+                            'linked' => $query->whereNotNull('lesson_id'),
+                            'unlinked' => $query->whereNull('lesson_id'),
+                            default => $query,
+                        };
+                    }),
 
                 TrashedFilter::make(),
             ])

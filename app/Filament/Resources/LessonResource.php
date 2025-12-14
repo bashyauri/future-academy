@@ -71,6 +71,7 @@ class LessonResource extends Resource
     {
         return [
             RelationManagers\QuestionsRelationManager::class,
+            RelationManagers\QuizzesRelationManager::class,
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Quizzes\Schemas;
 
 use App\Models\ExamType;
+use App\Models\Lesson;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Topic;
@@ -31,6 +32,21 @@ class QuizForm
 
                         Textarea::make('description')
                             ->rows(3)
+                            ->columnSpanFull(),
+
+                        Select::make('lesson_id')
+                            ->label('Attach to Lesson')
+                            ->options(fn() => Lesson::with('subject')
+                                ->orderBy('title')
+                                ->get()
+                                ->mapWithKeys(fn($lesson) => [
+                                    $lesson->id => $lesson->title . ($lesson->subject?->name ? ' · ' . $lesson->subject->name : ''),
+                                ]))
+                            ->searchable()
+                            ->preload()
+                            ->default(fn() => request()->integer('lesson_id'))
+                            ->placeholder('Optional')
+                            ->helperText('Link this quiz to a specific lesson; defaults when opened from a lesson page.')
                             ->columnSpanFull(),
 
                         Grid::make(3)

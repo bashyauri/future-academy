@@ -20,6 +20,7 @@ class Quiz extends Model
         'passing_score',
         'question_count',
         'subject_id',
+        'lesson_id',
         'subject_ids',
         'topic_ids',
         'exam_type_ids',
@@ -80,6 +81,11 @@ class Quiz extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    public function lesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class);
     }
 
     // Accessors
