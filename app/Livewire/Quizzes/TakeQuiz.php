@@ -101,7 +101,7 @@ class TakeQuiz extends Component
     public function exitQuiz()
     {
         if ($this->attempt && !$this->attempt->isCompleted()) {
-            $this->attempt->update(['status' => 'cancelled']);
+            $this->attempt->update(['status' => 'abandoned']);
         }
 
         return redirect()->route('quizzes.index');
