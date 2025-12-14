@@ -3,7 +3,9 @@
 namespace App\Livewire\Lessons;
 
 use App\Models\Lesson;
+use App\Models\Quiz;
 use App\Models\UserProgress;
+use App\Models\QuizAttempt;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 
@@ -12,6 +14,8 @@ class LessonView extends Component
     public Lesson $lesson;
     public $progress;
     public $startTime;
+    public ?Quiz $lessonQuiz = null;
+    public bool $lessonQuizCompleted = false;
 
     public function mount($id)
     {
@@ -31,13 +35,43 @@ class LessonView extends Component
         ]);
 
         $this->startTime = now();
+
+        $this->lessonQuiz = Quiz::query()
+            ->active()
+            ->available()
+            ->where('lesson_id', $this->lesson->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($this->lessonQuiz) {
+            $this->lessonQuizCompleted = QuizAttempt::query()
+                ->where('quiz_id', $this->lessonQuiz->id)
+                ->where('user_id', auth()->id())
+                ->where('status', 'completed')
+                ->exists();
+        }
     }
 
     public function markComplete()
     {
+        if ($this->lessonQuiz) {
+            $this->lessonQuizCompleted = QuizAttempt::query()
+                ->where('quiz_id', $this->lessonQuiz->id)
+                ->where('user_id', auth()->id())
+                ->where('status', 'completed')
+                ->exists();
+
+            if (!$this->lessonQuizCompleted) {
+                session()->flash('error', 'Please complete the lesson quiz before marking this lesson as complete.');
+                return redirect()->route('quiz.take', $this->lessonQuiz);
+            }
+        }
+
         $this->progress->markCompleted();
 
         session()->flash('success', 'Lesson marked as complete!');
+
+        $quiz = $this->lessonQuiz;
 
         // Find next lesson
         $nextLesson = Lesson::where('subject_id', $this->lesson->subject_id)
@@ -82,9 +116,20 @@ class LessonView extends Component
             ->orderBy('order', 'desc')
             ->first();
 
+        $lessonQuiz = $this->lessonQuiz;
+
+        if ($lessonQuiz) {
+            $service = app(\App\Services\QuizGeneratorService::class);
+            $stats = $service->getUserStats($lessonQuiz, auth()->user());
+            $lessonQuiz->user_stats = $stats;
+            $lessonQuiz->can_attempt = $lessonQuiz->canUserAttempt(auth()->user());
+        }
+
         return view('livewire.lessons.lesson-view', [
             'nextLesson' => $nextLesson,
             'previousLesson' => $previousLesson,
+            'lessonQuiz' => $lessonQuiz,
+            'lessonQuizCompleted' => $this->lessonQuizCompleted,
         ]);
     }
 }

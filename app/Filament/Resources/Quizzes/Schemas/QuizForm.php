@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Quizzes\Schemas;
 
+use App\Enums\QuizType;
 use App\Models\ExamType;
 use App\Models\Lesson;
 use App\Models\Question;
@@ -52,13 +53,12 @@ class QuizForm
                         Grid::make(3)
                             ->schema([
                                 Select::make('type')
-                                    ->options([
-                                        'practice' => 'Practice Test',
-                                        'timed' => 'Timed Exam',
-                                        'mock' => 'Mock Exam (Past Questions)',
-                                    ])
+                                    ->options(QuizType::options())
                                     ->required()
-                                    ->default('practice')
+                                    ->default(QuizType::Practice->value)
+                                    ->rules([
+                                        'in:' . implode(',', QuizType::values()),
+                                    ])
                                     ->reactive(),
 
                                 TextInput::make('question_count')
@@ -83,7 +83,8 @@ class QuizForm
                             ->numeric()
                             ->minValue(1)
                             ->helperText('Leave empty for untimed practice tests')
-                            ->visible(fn($get) => $get('type') === 'timed'),
+                            ->required(fn($get) => $get('type') === QuizType::Timed->value)
+                            ->visible(fn($get) => $get('type') === QuizType::Timed->value),
                     ])
                     ->columns(2),
 
@@ -127,7 +128,7 @@ class QuizForm
                                 range(date('Y'), date('Y') - 20),
                                 range(date('Y'), date('Y') - 20)
                             ))
-                            ->visible(fn($get) => $get('type') === 'mock'),
+                            ->visible(fn($get) => $get('type') === QuizType::Mock->value),
                     ])
                     ->columns(2)
                     ->collapsible(),

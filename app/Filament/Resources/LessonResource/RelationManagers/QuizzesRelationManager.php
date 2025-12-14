@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LessonResource\RelationManagers;
 
+use App\Enums\QuizType;
 use App\Filament\Resources\Quizzes\QuizResource;
 use App\Models\Quiz;
 use Filament\Actions\Action;
@@ -35,11 +36,13 @@ class QuizzesRelationManager extends RelationManager
                 TextColumn::make('type')
                     ->badge()
                     ->sortable()
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'practice' => 'Practice',
-                        'timed' => 'Timed',
-                        'mock' => 'Mock Exam',
-                        default => ucfirst($state),
+                    ->formatStateUsing(function ($state): string {
+                        $type = $state instanceof QuizType ? $state : QuizType::tryFrom((string) $state);
+                        if ($type) {
+                            return $type->label();
+                        }
+
+                        return is_scalar($state) ? ucfirst((string) $state) : '-';
                     }),
 
                 TextColumn::make('total_questions')
@@ -69,11 +72,7 @@ class QuizzesRelationManager extends RelationManager
             ])
             ->filters([
                 SelectFilter::make('type')
-                    ->options([
-                        'practice' => 'Practice',
-                        'timed' => 'Timed',
-                        'mock' => 'Mock Exam',
-                    ]),
+                    ->options(QuizType::options()),
 
                 SelectFilter::make('status')
                     ->options([

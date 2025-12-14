@@ -98,6 +98,15 @@ class TakeQuiz extends Component
         $this->currentQuestionIndex = $index;
     }
 
+    public function exitQuiz()
+    {
+        if ($this->attempt && !$this->attempt->isCompleted()) {
+            $this->attempt->update(['status' => 'cancelled']);
+        }
+
+        return redirect()->route('quizzes.index');
+    }
+
     public function getCurrentQuestion()
     {
         return $this->questions[$this->currentQuestionIndex] ?? null;

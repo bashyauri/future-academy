@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Quizzes\Tables;
 
+use App\Enums\QuizType;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -28,15 +29,17 @@ class QuizzesTable
 
                 TextColumn::make('type')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'practice' => 'success',
-                        'timed' => 'warning',
-                        'mock' => 'info',
+                    ->color(function ($state): string {
+                        $type = $state instanceof QuizType ? $state : QuizType::tryFrom((string) $state);
+                        return $type?->color() ?? 'gray';
                     })
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'practice' => 'Practice',
-                        'timed' => 'Timed',
-                        'mock' => 'Mock Exam',
+                    ->formatStateUsing(function ($state): string {
+                        $type = $state instanceof QuizType ? $state : QuizType::tryFrom((string) $state);
+                        if ($type) {
+                            return $type->label();
+                        }
+
+                        return is_scalar($state) ? ucfirst((string) $state) : '-';
                     })
                     ->sortable(),
 
@@ -106,11 +109,7 @@ class QuizzesTable
             ])
             ->filters([
                 SelectFilter::make('type')
-                    ->options([
-                        'practice' => 'Practice',
-                        'timed' => 'Timed',
-                        'mock' => 'Mock Exam',
-                    ]),
+                    ->options(QuizType::options()),
 
                 SelectFilter::make('status')
                     ->label('Publish Status')

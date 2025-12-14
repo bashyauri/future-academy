@@ -46,14 +46,25 @@
                     class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-4 hover:border-neutral-300 dark:hover:border-neutral-600 transition">
                     <div class="space-y-2">
                         <div class="flex items-start justify-between gap-2">
+                            @php
+                                $typeEnum = $quiz->type instanceof \App\Enums\QuizType
+                                    ? $quiz->type
+                                    : \App\Enums\QuizType::tryFrom((string) $quiz->type);
+
+                                $typeColor = match ($typeEnum?->value) {
+                                    'practice' => 'blue',
+                                    'timed' => 'orange',
+                                    'mock' => 'purple',
+                                    default => 'zinc',
+                                };
+
+                                $typeLabel = $typeEnum?->label()
+                                    ?? (is_scalar($quiz->type) ? ucfirst((string) $quiz->type) : '-');
+                            @endphp
+
                             <flux:heading size="lg">{{ $quiz->title }}</flux:heading>
-                            <flux:badge :color="match($quiz->type) {
-                                        'practice' => 'blue',
-                                        'timed' => 'orange',
-                                        'mock' => 'purple',
-                                        default => 'zinc'
-                                    }">
-                                {{ ucfirst($quiz->type) }}
+                            <flux:badge :color="$typeColor">
+                                {{ $typeLabel }}
                             </flux:badge>
                         </div>
 

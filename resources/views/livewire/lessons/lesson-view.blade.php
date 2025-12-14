@@ -58,11 +58,20 @@
                     </div>
 
                     @if(!$progress->is_completed)
-                        <flux:button wire:click="markComplete" wire:loading.attr="disabled" wire:target="markComplete"
-                            variant="primary" icon="check">
-                            <span wire:loading.remove wire:target="markComplete">{{ __('Mark Complete') }}</span>
-                            <span wire:loading wire:target="markComplete">{{ __('Saving...') }}</span>
-                        </flux:button>
+                        <div class="flex flex-col gap-2 items-end">
+                            @if($lessonQuiz && !$lessonQuizCompleted)
+                                <flux:badge color="amber" size="sm">
+                                    {{ __('Complete the lesson quiz to unlock completion') }}
+                                </flux:badge>
+                            @endif
+
+                            <flux:button wire:click="markComplete" wire:loading.attr="disabled" wire:target="markComplete"
+                                variant="primary" icon="check"
+                                :disabled="$lessonQuiz && !$lessonQuizCompleted">
+                                <span wire:loading.remove wire:target="markComplete">{{ __('Mark Complete') }}</span>
+                                <span wire:loading wire:target="markComplete">{{ __('Saving...') }}</span>
+                            </flux:button>
+                        </div>
                     @else
                         <flux:badge color="green" size="lg" class="flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
@@ -127,8 +136,9 @@
 
                 @if($nextLesson)
                     <flux:button href="{{ route('lessons.view', $nextLesson) }}" wire:navigate variant="primary"
-                        icon-trailing="arrow-right">
-                        {{ __('Next Lesson') }}
+                        icon-trailing="arrow-right"
+                        :disabled="$lessonQuiz && !$lessonQuizCompleted">
+                        {{ $lessonQuiz && !$lessonQuizCompleted ? __('Complete Quiz to Unlock') : __('Next Lesson') }}
                     </flux:button>
                 @else
                     <flux:button href="{{ route('lessons.list', $lesson->subject_id) }}" wire:navigate variant="primary">
@@ -185,16 +195,89 @@
                 </div>
             </div>
 
-            {{-- Related Quizzes --}}
+            {{-- Lesson Quiz --}}
             <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">
-                <flux:heading size="lg" class="mb-4">{{ __('Test Your Knowledge') }}</flux:heading>
-                <flux:text class="text-sm mb-4">
-                    {{ __('Take a quiz to reinforce what you\'ve learned in this lesson.') }}
-                </flux:text>
-                <flux:button href="{{ route('quizzes.index') }}" wire:navigate variant="primary" class="w-full"
-                    icon="clipboard-document-list">
-                    {{ __('Browse Quizzes') }}
-                </flux:button>
+                <flux:heading size="lg" class="mb-4">{{ __('Lesson Quiz') }}</flux:heading>
+
+                @if($lessonQuiz)
+                    @php
+                        $typeEnum = $lessonQuiz->type instanceof \App\Enums\QuizType
+                            ? $lessonQuiz->type
+                            : \App\Enums\QuizType::tryFrom((string) $lessonQuiz->type);
+
+                        $typeColor = match ($typeEnum?->value) {
+                            'practice' => 'blue',
+                            'timed' => 'orange',
+                            'mock' => 'purple',
+                            default => 'zinc',
+                        };
+
+                        $typeLabel = $typeEnum?->label()
+                            ?? (is_scalar($lessonQuiz->type) ? ucfirst((string) $lessonQuiz->type) : '-');
+                    @endphp
+
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <flux:text class="text-sm text-neutral-500">{{ __('Linked to this lesson') }}</flux:text>
+                                <flux:heading size="md">{{ $lessonQuiz->title }}</flux:heading>
+                            </div>
+                            <flux:badge :color="$typeColor">{{ $typeLabel }}</flux:badge>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <flux:text class="text-xs text-neutral-500">{{ __('Questions') }}</flux:text>
+                                <flux:text class="font-semibold">{{ $lessonQuiz->question_count }}</flux:text>
+                            </div>
+
+                            <div>
+                                <flux:text class="text-xs text-neutral-500">{{ __('Attempts') }}</flux:text>
+                                <flux:text class="font-semibold">
+                                    {{ $lessonQuiz->user_stats['total_attempts'] ?? 0 }}
+                                    @if($lessonQuiz->max_attempts)
+                                        / {{ $lessonQuiz->max_attempts }}
+                                    @endif
+                                </flux:text>
+                            </div>
+
+                            @if(($lessonQuiz->user_stats['best_score'] ?? null) !== null)
+                                <div>
+                                    <flux:text class="text-xs text-neutral-500">{{ __('Best Score') }}</flux:text>
+                                    <flux:text class="font-semibold">
+                                        {{ round($lessonQuiz->user_stats['best_score'], 1) }}%
+                                    </flux:text>
+                                </div>
+                            @endif
+
+                            @if($lessonQuiz->isTimed())
+                                <div>
+                                    <flux:text class="text-xs text-neutral-500">{{ __('Duration') }}</flux:text>
+                                    <flux:text class="font-semibold">{{ $lessonQuiz->duration_minutes }} min</flux:text>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if($lessonQuiz->can_attempt ?? false)
+                            <flux:button href="{{ route('quiz.take', $lessonQuiz) }}" variant="primary" class="w-full"
+                                icon="play">
+                                {{ ($lessonQuiz->user_stats['total_attempts'] ?? 0) > 0 ? __('Retake Quiz') : __('Start Quiz') }}
+                            </flux:button>
+                        @else
+                            <flux:button variant="ghost" disabled class="w-full">
+                                {{ __('Max Attempts Reached') }}
+                            </flux:button>
+                        @endif
+                    </div>
+                @else
+                    <flux:text class="text-sm mb-4">
+                        {{ __('No quiz is linked to this lesson yet. You can still practice from the quiz library.') }}
+                    </flux:text>
+                    <flux:button href="{{ route('quizzes.index') }}" wire:navigate variant="primary" class="w-full"
+                        icon="clipboard-document-list">
+                        {{ __('Browse Quizzes') }}
+                    </flux:button>
+                @endif
             </div>
 
             {{-- Help Card --}}

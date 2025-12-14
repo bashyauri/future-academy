@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\QuizType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -57,6 +58,7 @@ class Quiz extends Model
         'published_at' => 'datetime',
         'available_from' => 'datetime',
         'available_until' => 'datetime',
+        'type' => QuizType::class,
     ];
 
     // Relationships
@@ -118,17 +120,17 @@ class Quiz extends Model
 
     public function scopePractice($query)
     {
-        return $query->where('type', 'practice');
+        return $query->where('type', QuizType::Practice->value);
     }
 
     public function scopeTimed($query)
     {
-        return $query->where('type', 'timed');
+        return $query->where('type', QuizType::Timed->value);
     }
 
     public function scopeMock($query)
     {
-        return $query->where('type', 'mock');
+        return $query->where('type', QuizType::Mock->value);
     }
 
     // Helper methods
@@ -158,7 +160,9 @@ class Quiz extends Model
 
     public function isTimed(): bool
     {
-        return $this->type === 'timed';
+        $type = $this->type instanceof QuizType ? $this->type : QuizType::tryFrom((string) $this->type);
+
+        return $type === QuizType::Timed;
     }
 
     public function canUserAttempt(User $user): bool

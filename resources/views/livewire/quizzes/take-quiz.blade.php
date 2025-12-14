@@ -30,8 +30,12 @@
                     </div>
 
                     <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                        @php
+                            $typeEnum = $quiz->type instanceof \App\Enums\QuizType ? $quiz->type : \App\Enums\QuizType::tryFrom((string) $quiz->type);
+                            $typeLabel = $typeEnum?->label() ?? (is_scalar($quiz->type) ? ucfirst((string) $quiz->type) : '-');
+                        @endphp
                         <flux:text class="text-sm text-neutral-500">{{ __('Quiz Type') }}</flux:text>
-                        <flux:heading size="lg">{{ ucfirst($quiz->type) }}</flux:heading>
+                        <flux:heading size="lg">{{ $typeLabel }}</flux:heading>
                     </div>
                 </div>
 
@@ -453,22 +457,42 @@
 
                         {{-- Navigation Buttons --}}
                         <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                            <flux:button wire:click="previousQuestion" wire:target="previousQuestion"
-                                wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
-                                :disabled="$currentQuestionIndex === 0">
-                                <span wire:loading.remove wire:target="previousQuestion">{{ __('Previous') }}</span>
-                                <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
-                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                        viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                            stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                        </path>
-                                    </svg>
-                                    {{ __('Loading...') }}
-                                </span>
-                            </flux:button>
+                            <div class="flex gap-3">
+                                <flux:button wire:click="exitQuiz" wire:target="exitQuiz"
+                                    wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
+                                    color="danger"
+                                    wire:confirm="{{ __('Exit the quiz? Your in-progress answers will be saved, but the attempt will be marked as cancelled.') }}">
+                                    <span wire:loading.remove wire:target="exitQuiz">{{ __('Exit Quiz') }}</span>
+                                    <span wire:loading wire:target="exitQuiz" class="flex items-center gap-2">
+                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                        {{ __('Exiting...') }}
+                                    </span>
+                                </flux:button>
+
+                                <flux:button wire:click="previousQuestion" wire:target="previousQuestion"
+                                    wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
+                                    :disabled="$currentQuestionIndex === 0">
+                                    <span wire:loading.remove wire:target="previousQuestion">{{ __('Previous') }}</span>
+                                    <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
+                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                        {{ __('Loading...') }}
+                                    </span>
+                                </flux:button>
+                            </div>
 
                             <div class="flex gap-3">
                                 @if($currentQuestionIndex === $totalQuestions - 1)
