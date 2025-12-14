@@ -13,6 +13,7 @@ class CreateQuestion extends CreateRecord
     {
         $data['created_by'] = \Filament\Facades\Filament::auth()->id();
         $data['status'] = $data['status'] ?? 'pending';
+        $data['upload_batch'] = $data['upload_batch'] ?? 'manual-' . (string) \Str::uuid();
 
         return $data;
     }

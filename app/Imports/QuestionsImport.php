@@ -30,6 +30,7 @@ class QuestionsImport implements
     protected $defaultExamTypeId;
     protected $defaultSubjectId;
     protected $userId;
+    protected string $batchKey;
     protected $errors = [];
     protected $imported = 0;
     protected $skipped = 0;
@@ -39,6 +40,7 @@ class QuestionsImport implements
         $this->defaultExamTypeId = $defaultExamTypeId;
         $this->defaultSubjectId = $defaultSubjectId;
         $this->userId = $userId ?? \Illuminate\Support\Facades\Auth::id();
+        $this->batchKey = 'import-' . (string) \Str::uuid();
     }
 
     /**
@@ -114,6 +116,7 @@ class QuestionsImport implements
                 'year' => $data['year'] ?? null,
                 'status' => 'pending',
                 'created_by' => $this->userId,
+                'upload_batch' => $this->batchKey,
                 'is_active' => true,
             ]);
 
