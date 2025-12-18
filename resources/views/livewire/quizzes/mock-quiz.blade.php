@@ -140,7 +140,13 @@
                             wire:loading.attr="disabled"
                             wire:target="nextQuestion"
                             class="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white font-medium rounded-lg transition-all shadow-sm flex items-center gap-2">
-                            <span wire:loading.remove wire:target="nextQuestion">{{ $currentQuestionIndex + 1 >= $totalInSubject ? 'Next Subject' : 'Next' }}</span>
+                            <span wire:loading.remove wire:target="nextQuestion">
+                                @if($currentQuestionIndex + 1 >= $totalInSubject && count($subjectsData) > 1)
+                                    Next Subject
+                                @else
+                                    Next
+                                @endif
+                            </span>
                             <span wire:loading wire:target="nextQuestion" class="flex items-center gap-2">
                                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
