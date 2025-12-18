@@ -18,8 +18,8 @@
                     <flux:text class="text-blue-50 text-sm">{{ __('Select your stream, exam type (JAMB, NECO, WAEC), and subjects to get tailored recommendations. Takes just 2 minutes!') }}</flux:text>
                 </div>
                 <div class="flex-shrink-0">
-                    <flux:button 
-                        href="{{ route('onboarding') }}" 
+                    <flux:button
+                        href="{{ route('onboarding') }}"
                         wire:navigate
                         class="px-6 py-3 bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 font-bold rounded-lg shadow-md hover:shadow-lg transition-all whitespace-nowrap"
                     >
@@ -42,6 +42,81 @@
             <flux:button href="{{ route('analytics') }}" variant="primary" icon="chart-bar" wire:navigate class="w-full sm:w-auto">
                 {{ __('View Full Analytics') }}
             </flux:button>
+        </div>
+
+        {{-- Quick Links Section --}}
+        <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8">
+            <flux:heading size="lg" class="mb-6 font-bold text-neutral-900 dark:text-white">{{ __('Quick Access') }}</flux:heading>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Dashboard -->
+                <a href="{{ route('dashboard') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all">
+                    <div class="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors mb-3">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 11l4-4m0 0l4 4m-4-4v4"></path>
+                        </svg>
+                    </div>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Dashboard') }}</flux:text>
+                </a>
+
+                <!-- Lessons -->
+                <a href="{{ route('lessons.subjects') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-green-500 dark:hover:border-green-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-green-50 dark:hover:bg-green-950/20 transition-all">
+                    <div class="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors mb-3">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z"></path>
+                        </svg>
+                    </div>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Lessons') }}</flux:text>
+                </a>
+
+                <!-- Mock Exams -->
+                <a href="{{ route('mock.setup') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-purple-500 dark:hover:border-purple-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-all">
+                    <div class="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors mb-3">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Mock Exams') }}</flux:text>
+                </a>
+
+                <!-- Practice -->
+                <a href="{{ route('practice.home') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500 dark:hover:border-orange-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all">
+                    <div class="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors mb-3">
+                        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Practice') }}</flux:text>
+                </a>
+
+                <!-- Analytics -->
+                <a href="{{ route('analytics') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all">
+                    <div class="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors mb-3">
+                        <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Analytics') }}</flux:text>
+                </a>
+
+                <!-- Onboarding -->
+                <a href="{{ route('onboarding') }}" class="group flex flex-col items-center p-5 rounded-xl border-2 {{ auth()->user()->has_completed_onboarding ? 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50' : 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-950/30' }} hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all">
+                    <div class="p-3 rounded-lg {{ auth()->user()->has_completed_onboarding ? 'bg-green-100 dark:bg-green-900/30' : 'bg-blue-100 dark:bg-blue-900/30' }} group-hover:shadow-md transition-all mb-3">
+                        @if(auth()->user()->has_completed_onboarding)
+                            <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                        @else
+                            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m7 8a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        @endif
+                    </div>
+                    <flux:text class="text-xs font-bold {{ auth()->user()->has_completed_onboarding ? 'text-neutral-700 dark:text-neutral-300' : 'text-blue-700 dark:text-blue-300' }} text-center">{{ __('Onboarding') }}</flux:text>
+                    @if(!auth()->user()->has_completed_onboarding)
+                    <span class="mt-2 inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full text-center">{{ __('Required') }}</span>
+                    @endif
+                </a>
+            </div>
         </div>
 
         {{-- Stats Overview Grid --}}
@@ -70,7 +145,7 @@
                 @endif
             </div>
 
-            {{-- Quizzes Taken --}}
+            {{-- Mock Exams Taken --}}
             <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-neutral-800 hover:shadow-lg transition-shadow">
                 <div class="flex items-start justify-between mb-4">
                     <div class="p-3 rounded-lg bg-green-100 dark:bg-green-900/30">
@@ -82,7 +157,7 @@
                         {{ $stats['total_quizzes'] > 0 ? round(($stats['quizzes_taken'] / $stats['total_quizzes']) * 100) : 0 }}%
                     </span>
                 </div>
-                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 font-medium mb-1">{{ __('Quizzes Taken') }}</flux:text>
+                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 font-medium mb-1">{{ __('Mock Exams Taken') }}</flux:text>
                 <div class="flex items-baseline gap-2 mb-3">
                     <flux:heading size="xl" class="text-neutral-900 dark:text-white font-bold">{{ $stats['quizzes_taken'] }}</flux:heading>
                     <flux:text class="text-neutral-500 dark:text-neutral-400">/ {{ $stats['total_quizzes'] }}</flux:text>
@@ -131,81 +206,6 @@
             </div>
         </div>
 
-        {{-- Quick Links Section --}}
-        <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8">
-            <flux:heading size="lg" class="mb-6 font-bold text-neutral-900 dark:text-white">{{ __('Quick Access') }}</flux:heading>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <!-- Dashboard -->
-                <a href="{{ route('dashboard') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all">
-                    <div class="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors mb-3">
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 11l4-4m0 0l4 4m-4-4v4"></path>
-                        </svg>
-                    </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Dashboard') }}</flux:text>
-                </a>
-
-                <!-- Lessons -->
-                <a href="{{ route('lessons.subjects') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-green-500 dark:hover:border-green-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-green-50 dark:hover:bg-green-950/20 transition-all">
-                    <div class="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors mb-3">
-                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z"></path>
-                        </svg>
-                    </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Lessons') }}</flux:text>
-                </a>
-
-                <!-- Quizzes -->
-                <a href="{{ route('quizzes.index') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-purple-500 dark:hover:border-purple-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-all">
-                    <div class="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors mb-3">
-                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Quizzes') }}</flux:text>
-                </a>
-
-                <!-- Practice -->
-                <a href="{{ route('practice.home') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500 dark:hover:border-orange-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all">
-                    <div class="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors mb-3">
-                        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Practice') }}</flux:text>
-                </a>
-
-                <!-- Analytics -->
-                <a href="{{ route('analytics') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all">
-                    <div class="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors mb-3">
-                        <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                    </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Analytics') }}</flux:text>
-                </a>
-
-                <!-- Onboarding -->
-                <a href="{{ route('onboarding') }}" class="group flex flex-col items-center p-5 rounded-xl border-2 {{ auth()->user()->has_completed_onboarding ? 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50' : 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-950/30' }} hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all">
-                    <div class="p-3 rounded-lg {{ auth()->user()->has_completed_onboarding ? 'bg-green-100 dark:bg-green-900/30' : 'bg-blue-100 dark:bg-blue-900/30' }} group-hover:shadow-md transition-all mb-3">
-                        @if(auth()->user()->has_completed_onboarding)
-                            <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                            </svg>
-                        @else
-                            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m7 8a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        @endif
-                    </div>
-                    <flux:text class="text-xs font-bold {{ auth()->user()->has_completed_onboarding ? 'text-neutral-700 dark:text-neutral-300' : 'text-blue-700 dark:text-blue-300' }} text-center">{{ __('Onboarding') }}</flux:text>
-                    @if(!auth()->user()->has_completed_onboarding)
-                    <span class="mt-2 inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full text-center">{{ __('Required') }}</span>
-                    @endif
-                </a>
-            </div>
-        </div>
-
         {{-- Enrolled Subjects Section --}}
         @if($enrolledSubjects->isNotEmpty())
         <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8">
@@ -230,8 +230,8 @@
                     <flux:heading size="lg" class="text-white mb-2 font-bold">{{ __('Practice Past Papers') }}</flux:heading>
                     <flux:text class="text-orange-50">{{ __('Master exam questions by practicing JAMB, NECO, and other past papers by subject and year. Start with JAMB full-length tests!') }}</flux:text>
                 </div>
-                <flux:button 
-                    href="{{ route('practice.home') }}" 
+                <flux:button
+                    href="{{ route('practice.home') }}"
                     wire:navigate
                     class="flex-shrink-0 px-6 py-3 bg-white hover:bg-orange-50 text-orange-600 hover:text-orange-700 font-bold rounded-lg shadow-md hover:shadow-lg whitespace-nowrap"
                 >
@@ -298,7 +298,7 @@
                 </div>
             </div>
 
-            {{-- Recent Quizzes --}}
+            {{-- Available Mock Exams --}}
             <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div class="px-8 py-5 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-neutral-50 dark:bg-neutral-700/50">
                     <div>
@@ -315,7 +315,7 @@
                             <svg class="w-16 h-16 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <flux:text class="text-neutral-500 dark:text-neutral-400 font-medium">{{ __('No quizzes available yet') }}</flux:text>
+                            <flux:text class="text-neutral-500 dark:text-neutral-400 font-medium">{{ __('No mock exams available yet') }}</flux:text>
                         </div>
                     @else
                         <div class="space-y-3">

@@ -19,7 +19,7 @@ Route::get('/', HomePage::class)->name('home');
 // Redirect based on account type after login
 Route::get('/redirect-dashboard', function () {
     $user = auth()->user();
-    
+
     if (!$user) {
         return redirect()->route('login');
     }
@@ -72,10 +72,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('quizzes/subject/{subject}', \App\Livewire\Quizzes\QuizzesBySubject::class)->name('quizzes.subject');
     Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
 
+    // Mock exam flow
+    Route::get('mock', \App\Livewire\Quizzes\MockSetup::class)->name('mock.setup');
+    Route::get('mock/quiz', \App\Livewire\Quizzes\MockQuiz::class)->name('mock.quiz');
+
     // Practice routes (by exam type, subject, and year)
     Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');
     Route::get('practice/quiz', \App\Livewire\Practice\PracticeQuiz::class)->name('practice.quiz');
-    
+
     // JAMB Practice routes
     Route::get('practice/jamb/setup', \App\Livewire\Practice\JambSetup::class)->name('practice.jamb.setup');
     Route::get('practice/jamb/quiz', \App\Livewire\Practice\JambQuiz::class)->name('practice.jamb.quiz');

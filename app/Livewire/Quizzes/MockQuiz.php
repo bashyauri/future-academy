@@ -1,0 +1,271 @@
+<?php
+
+namespace App\Livewire\Quizzes;
+
+use App\Models\ExamType;
+use App\Models\Question;
+use App\Models\QuizAttempt;
+use App\Models\Subject;
+use App\Models\UserAnswer;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+#[Layout('components.layouts.app')]
+class MockQuiz extends Component
+{
+    public ?int $examTypeId = null;
+    public ?int $selectedYear = null;
+    public array $subjectIds = [];
+    public $subjectsData = [];
+    public array $questionsBySubject = [];
+
+    public int $currentSubjectIndex = 0;
+    public int $currentQuestionIndex = 0;
+    public array $userAnswers = [];
+
+    public bool $showResults = false;
+    public bool $showReview = false;
+    public ?int $quizAttemptId = null;
+
+    public int $timeRemaining = 0; // seconds
+    public int $timeLimit = 180; // minutes
+    public int $questionsPerSubject = 40;
+    public bool $showAnswersImmediately = false;
+    public bool $showExplanations = false;
+    public bool $shuffleQuestions = true;
+
+    public function mount()
+    {
+        $this->examTypeId = (int) (request()->query('examType') ?? 0);
+        $this->selectedYear = request()->query('year');
+        $subjectsParam = request()->query('subjects');
+
+        $this->timeLimit = (int) (request()->query('timeLimit') ?? 180);
+        $this->questionsPerSubject = (int) (request()->query('questionsPerSubject') ?? 40);
+        $this->showAnswersImmediately = request()->query('showAnswers') === '1';
+        $this->showExplanations = request()->query('showExplanations') === '1';
+        $this->shuffleQuestions = request()->query('shuffle') !== '0';
+
+        if ($subjectsParam) {
+            $this->subjectIds = array_filter(explode(',', $subjectsParam));
+        }
+
+        if (empty($this->examTypeId) || empty($this->subjectIds)) {
+            return $this->redirectToSetup();
+        }
+
+        if (!ExamType::where('id', $this->examTypeId)->where('is_active', true)->exists()) {
+            return $this->redirectToSetup();
+        }
+
+        $this->timeRemaining = $this->timeLimit * 60;
+
+        if ($response = $this->loadSubjectsAndQuestions()) {
+            return $response;
+        }
+    }
+
+    protected function redirectToSetup()
+    {
+        return redirect()->route('mock.setup');
+    }
+
+    protected function loadSubjectsAndQuestions()
+    {
+        $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get();
+        $this->subjectIds = $this->subjectsData->pluck('id')->toArray();
+
+        foreach ($this->subjectIds as $subjectId) {
+            $query = Question::where('exam_type_id', $this->examTypeId)
+                ->where('subject_id', $subjectId)
+                ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->with('options');
+
+            if ($this->shuffleQuestions) {
+                $query->inRandomOrder();
+            }
+
+            $questions = $query->take($this->questionsPerSubject)->get();
+
+            if ($questions->count() === 0) {
+                $this->addError('subjects', 'No questions available for one of the selected subjects.');
+                return $this->redirectToSetup();
+            }
+
+            $this->questionsBySubject[$subjectId] = $questions;
+            $this->userAnswers[$subjectId] = array_fill(0, $questions->count(), null);
+        }
+    }
+
+    #[On('timer-ended')]
+    public function handleTimerEnd(): void
+    {
+        $this->submitQuiz();
+    }
+
+    public function getCurrentSubjectId()
+    {
+        return $this->subjectsData[$this->currentSubjectIndex]->id;
+    }
+
+    public function getCurrentQuestions()
+    {
+        return $this->questionsBySubject[$this->getCurrentSubjectId()];
+    }
+
+    public function getCurrentQuestion()
+    {
+        return $this->getCurrentQuestions()[$this->currentQuestionIndex];
+    }
+
+    public function switchSubject(int $index): void
+    {
+        $this->currentSubjectIndex = $index;
+        $this->currentQuestionIndex = 0;
+    }
+
+    public function selectAnswer(int $optionId): void
+    {
+        $currentSubjectId = $this->getCurrentSubjectId();
+        $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
+    }
+
+    public function nextQuestion(): void
+    {
+        $currentSubjectId = $this->getCurrentSubjectId();
+        $maxIndex = count($this->questionsBySubject[$currentSubjectId]) - 1;
+
+        if ($this->currentQuestionIndex < $maxIndex) {
+            $this->currentQuestionIndex++;
+            return;
+        }
+
+        if ($this->currentSubjectIndex < count($this->subjectIds) - 1) {
+            $this->currentSubjectIndex++;
+            $this->currentQuestionIndex = 0;
+        }
+    }
+
+    public function previousQuestion(): void
+    {
+        if ($this->currentQuestionIndex > 0) {
+            $this->currentQuestionIndex--;
+            return;
+        }
+
+        if ($this->currentSubjectIndex > 0) {
+            $this->currentSubjectIndex--;
+            $prevSubjectId = $this->getCurrentSubjectId();
+            $this->currentQuestionIndex = max(count($this->questionsBySubject[$prevSubjectId]) - 1, 0);
+        }
+    }
+
+    public function jumpToQuestion(int $subjectIndex, int $questionIndex): void
+    {
+        $this->currentSubjectIndex = $subjectIndex;
+        $this->currentQuestionIndex = $questionIndex;
+    }
+
+    public function submitQuiz(): void
+    {
+        $this->showResults = true;
+        $this->saveAttempt();
+    }
+
+    protected function saveAttempt(): void
+    {
+        $totalQuestions = 0;
+        $totalScore = 0;
+        $answeredCount = 0;
+
+        foreach ($this->subjectIds as $subjectId) {
+            $totalQuestions += count($this->questionsBySubject[$subjectId]);
+        }
+
+        $attempt = QuizAttempt::create([
+            'user_id' => auth()->id(),
+            'exam_type_id' => $this->examTypeId,
+            'exam_year' => $this->selectedYear,
+            'score' => 0,
+            'total_questions' => $totalQuestions,
+            'time_taken_seconds' => ($this->timeLimit * 60) - $this->timeRemaining,
+            'percentage' => 0,
+            'started_at' => now()->subSeconds(($this->timeLimit * 60) - $this->timeRemaining),
+            'completed_at' => now(),
+            'answered_questions' => 0,
+            'correct_answers' => 0,
+            'score_percentage' => 0,
+            'status' => 'completed',
+        ]);
+
+        foreach ($this->subjectIds as $subjectId) {
+            foreach ($this->questionsBySubject[$subjectId] as $index => $question) {
+                $userAnswer = $this->userAnswers[$subjectId][$index] ?? null;
+                if ($userAnswer) {
+                    $answeredCount++;
+                }
+
+                $correctOption = $question->options->firstWhere('is_correct', true);
+                $isCorrect = $correctOption && $correctOption->id == $userAnswer;
+
+                if ($isCorrect) {
+                    $totalScore++;
+                }
+
+                UserAnswer::create([
+                    'user_id' => auth()->id(),
+                    'quiz_attempt_id' => $attempt->id,
+                    'question_id' => $question->id,
+                    'option_id' => $userAnswer,
+                    'is_correct' => $isCorrect,
+                ]);
+            }
+        }
+
+        $percentage = $totalQuestions > 0 ? ($totalScore / $totalQuestions) * 100 : 0;
+
+        $attempt->update([
+            'score' => $totalScore,
+            'percentage' => $percentage,
+            'answered_questions' => $answeredCount,
+            'correct_answers' => $totalScore,
+            'score_percentage' => $percentage,
+            'time_spent_seconds' => ($this->timeLimit * 60) - $this->timeRemaining,
+            'completed_at' => now(),
+        ]);
+
+        $this->quizAttemptId = $attempt->id;
+    }
+
+    public function getScoresBySubject(): array
+    {
+        $scores = [];
+        foreach ($this->subjectIds as $subjectId) {
+            $score = 0;
+            foreach ($this->questionsBySubject[$subjectId] as $index => $question) {
+                $userAnswer = $this->userAnswers[$subjectId][$index] ?? null;
+                if ($userAnswer) {
+                    $correctOption = $question->options->firstWhere('is_correct', true);
+                    if ($correctOption && $correctOption->id == $userAnswer) {
+                        $score++;
+                    }
+                }
+            }
+            $scores[$subjectId] = $score;
+        }
+        return $scores;
+    }
+
+    public function toggleReview(): void
+    {
+        $this->showReview = !$this->showReview;
+    }
+
+    public function render()
+    {
+        return view('livewire.quizzes.mock-quiz');
+    }
+}

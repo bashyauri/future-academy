@@ -21,10 +21,6 @@
                     :current="request()->routeIs('lessons.*') || request()->routeIs('lesson.*')" wire:navigate>
                     {{ __('Lessons') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="academic-cap" :href="route('quizzes.index')"
-                    :current="request()->routeIs('quizzes.*') || request()->routeIs('quiz.*')" wire:navigate>
-                    {{ __('Quizzes') }}
-                </flux:navlist.item>
                 <flux:navlist.item icon="chart-bar" :href="route('analytics')"
                     :current="request()->routeIs('analytics')" wire:navigate>
                     {{ __('Analytics') }}
