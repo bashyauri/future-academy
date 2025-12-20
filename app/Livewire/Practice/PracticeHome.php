@@ -15,10 +15,13 @@ class PracticeHome extends Component
     public $selectedSubject = null;
     public $selectedYear = null;
     public $shuffleQuestions = false;
+    public $questionLimit = null; // null means all questions
+    public $timeLimit = null; // null means no time limit
 
     public $examTypes = [];
     public $subjects = [];
     public $filteredYears = [];
+    public $availableQuestionCount = 0;
 
     public function mount()
     {
@@ -61,6 +64,7 @@ class PracticeHome extends Component
     {
         // Reset dependent field
         $this->selectedYear = null;
+        $this->availableQuestionCount = 0;
 
         if ($this->selectedExamType && $this->selectedSubject) {
             // Filter years available for selected exam type and subject
@@ -76,6 +80,21 @@ class PracticeHome extends Component
                 ->values();
         } else {
             $this->filteredYears = [];
+        }
+    }
+
+    public function updatedSelectedYear()
+    {
+        // Update available question count when year is selected
+        if ($this->selectedExamType && $this->selectedSubject && $this->selectedYear) {
+            $this->availableQuestionCount = Question::where('exam_type_id', $this->selectedExamType)
+                ->where('subject_id', $this->selectedSubject)
+                ->where('exam_year', $this->selectedYear)
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->count();
+        } else {
+            $this->availableQuestionCount = 0;
         }
     }
 
@@ -104,12 +123,20 @@ class PracticeHome extends Component
             return;
         }
 
+        // Validate question limit if set
+        if ($this->questionLimit && $this->questionLimit > $questionCount) {
+            $this->addError('questionLimit', "Only {$questionCount} questions available for this combination.");
+            return;
+        }
+
         // Redirect to practice quiz with parameters
         return redirect()->route('practice.quiz', [
             'exam_type' => $this->selectedExamType,
             'subject' => $this->selectedSubject,
             'year' => $this->selectedYear,
             'shuffle' => $this->shuffleQuestions ? '1' : '0',
+            'limit' => $this->questionLimit,
+            'time' => $this->timeLimit,
         ]);
     }
 

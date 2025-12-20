@@ -24,6 +24,12 @@ class PracticeQuiz extends Component
     #[Url]
     public $shuffle = 0;
 
+    #[Url]
+    public $limit = null;
+
+    #[Url]
+    public $time = null;
+
     public $questions = [];
     public $currentQuestionIndex = 0;
     public $userAnswers = [];
@@ -46,6 +52,11 @@ class PracticeQuiz extends Component
         // Shuffle if requested
         if ($this->shuffle == 1) {
             $query->inRandomOrder();
+        }
+
+        // Apply question limit if set
+        if ($this->limit && $this->limit > 0) {
+            $query->limit($this->limit);
         }
 
         $this->questions = $query->get()->toArray();

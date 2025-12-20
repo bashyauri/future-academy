@@ -17,6 +17,8 @@ class JambSetup extends Component
     public $years = [];
     public $shuffleQuestions = false;
     public $maxSubjects = 4;
+    public $questionsPerSubject = null; // null means all available
+    public $timeLimit = null; // null means no time limit
 
     public function mount()
     {
@@ -62,9 +64,9 @@ class JambSetup extends Component
 
     public function startJambTest()
     {
-        // Fixed values for JAMB practice
-        $questionsPerSubject = 40; // Standard JAMB questions per subject
-        $timeLimit = 180; // 3 hours in minutes
+        // Default values for JAMB practice if not customized
+        $questionsPerSubject = $this->questionsPerSubject ?? 40; // Standard JAMB questions per subject
+        $timeLimit = $this->timeLimit; // Can be null for unlimited time
 
         $this->validate([
             'selectedYear' => 'required',

@@ -89,8 +89,60 @@
                 <div class="space-y-6">
                     <flux:heading size="lg" level="2" class="mb-4">Quiz Settings</flux:heading>
 
-                    <!-- Options -->
-                    <div class="space-y-3">
+                    <!-- Questions Per Subject -->
+                    <div class="space-y-2">
+                        <flux:label for="questionsPerSubject" class="text-sm">Questions per Subject</flux:label>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <flux:input
+                                id="questionsPerSubject"
+                                wire:model="questionsPerSubject"
+                                type="number"
+                                min="1"
+                                placeholder="All questions (default: 40)"
+                                class="flex-1 text-sm"
+                            />
+                            <flux:button
+                                wire:click="$set('questionsPerSubject', null)"
+                                variant="ghost"
+                                size="sm"
+                                class="text-xs sm:text-xs w-full sm:w-auto py-2.5 sm:py-2"
+                            >
+                                Reset
+                            </flux:button>
+                        </div>
+                        <flux:text class="text-xs text-gray-500 dark:text-gray-400">
+                            Leave blank for all available questions (default: 40 per subject)
+                        </flux:text>
+                    </div>
+
+                    <!-- Time Limit -->
+                    <div class="space-y-2">
+                        <flux:label for="timeLimit" class="text-sm">Time Limit (minutes)</flux:label>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <flux:input
+                                id="timeLimit"
+                                wire:model="timeLimit"
+                                type="number"
+                                min="1"
+                                placeholder="No time limit"
+                                class="flex-1 text-sm"
+                            />
+                            <flux:button
+                                wire:click="$set('timeLimit', null)"
+                                variant="ghost"
+                                size="sm"
+                                class="text-xs sm:text-xs w-full sm:w-auto py-2.5 sm:py-2"
+                            >
+                                No Limit
+                            </flux:button>
+                        </div>
+                        <flux:text class="text-xs text-gray-500 dark:text-gray-400">
+                            Leave blank for untimed practice (standard: 180 mins/3 hours)
+                        </flux:text>
+                    </div>
+
+                    <!-- Shuffle Option -->
+                    <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <flux:checkbox
                             wire:model="shuffleQuestions"
                             label="Shuffle questions" />
@@ -105,16 +157,16 @@
                     <flux:heading size="sm" level="3" class="mb-4">Test Summary</flux:heading>
                     <div class="space-y-3 text-sm">
                         <div class="flex justify-between items-center">
+                            <flux:text class="text-gray-600 dark:text-gray-400">Questions/Subject:</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ $questionsPerSubject ?? 'All' }}</flux:text>
+                        </div>
+                        <div class="flex justify-between items-center">
                             <flux:text class="text-gray-600 dark:text-gray-400">Total Questions:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">160</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ $questionsPerSubject ? $questionsPerSubject * 4 : 'All available' }}</flux:text>
                         </div>
                         <div class="flex justify-between items-center">
-                            <flux:text class="text-gray-600 dark:text-gray-400">Time Allowed:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">180 mins (3 hours)</flux:text>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <flux:text class="text-gray-600 dark:text-gray-400">Per Question:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">67s</flux:text>
+                            <flux:text class="text-gray-600 dark:text-gray-400">Time Limit:</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ $timeLimit ? $timeLimit . ' mins' : 'Unlimited' }}</flux:text>
                         </div>
                     </div>
                 </div>
@@ -122,12 +174,12 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
                 wire:click="startJambTest"
                 wire:loading.attr="disabled"
                 wire:target="startJambTest"
-                class="px-8 py-3 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-semibold rounded-lg transition-all flex items-center gap-2 {{ count($selectedSubjects) != $maxSubjects ? 'opacity-50 cursor-not-allowed' : '' }}"
+                class="w-full sm:w-auto px-6 sm:px-8 py-3 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 {{ count($selectedSubjects) != $maxSubjects ? 'opacity-50 cursor-not-allowed' : '' }}"
                 {{ count($selectedSubjects) != $maxSubjects ? 'disabled' : '' }}>
                 <span wire:loading.remove wire:target="startJambTest">Start JAMB Practice Test</span>
                 <span wire:loading wire:target="startJambTest" class="flex items-center gap-2">
@@ -140,7 +192,8 @@
             </button>
             <flux:button
                 wire:navigate href="{{ route('practice.home') }}"
-                variant="ghost">
+                variant="ghost"
+                class="w-full sm:w-auto">
                 Back to Practice
             </flux:button>
         </div>

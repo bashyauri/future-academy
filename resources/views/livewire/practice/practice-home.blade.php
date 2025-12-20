@@ -109,25 +109,73 @@
                 </flux:text>
             </div>
         </div>
-        {{-- Shuffle Option --}}
-        <div class="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50">
-            <label class="flex items-start gap-3 cursor-pointer">
-                <input
-                    type="checkbox"
-                    wire:model="shuffleQuestions"
-                    class="mt-1 h-5 w-5 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600 dark:bg-neutral-700 cursor-pointer"
-                >
-                <div class="flex-1">
-                    <flux:heading size="sm" class="text-sm font-semibold">{{ __('Shuffle Questions') }}</flux:heading>
-                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                        {{ __('Randomize the order of questions in your practice exam') }}
-                    </flux:text>
+        {{-- Configuration Options --}}
+        <div class="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50 space-y-4">
+            <flux:heading size="sm" class="text-sm font-semibold mb-3">{{ __('Practice Settings') }}</flux:heading>
+
+            {{-- Number of Questions --}}
+            <div class="space-y-2">
+                <flux:label for="questionLimit" class="text-sm">{{ __('Number of Questions') }}</flux:label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <flux:input
+                        id="questionLimit"
+                        wire:model="questionLimit"
+                        type="number"
+                        min="1"
+                        :max="$availableQuestionCount"
+                        placeholder="All questions"
+                        class="flex-1 text-sm"
+                    />
+                    @if($availableQuestionCount > 0)
+                        <flux:button
+                            wire:click="$set('questionLimit', null)"
+                            variant="ghost"
+                            size="sm"
+                            class="text-xs sm:text-xs w-full sm:w-auto py-2.5 sm:py-2"
+                        >
+                            Use All ({{ $availableQuestionCount }})
+                        </flux:button>
+                    @endif
                 </div>
-            </label>
-        </div>
-        {{-- Shuffle Option --}}
-        <div class="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50">
-            <label class="flex items-start gap-3 cursor-pointer">
+                @error('questionLimit')
+                    <flux:text class="text-xs text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                @enderror
+                <flux:text class="text-xs text-neutral-600 dark:text-neutral-400">
+                    {{ __('Leave blank to practice all available questions') }}
+                    @if($availableQuestionCount > 0)
+                        <span class="font-semibold">({{ $availableQuestionCount }} available)</span>
+                    @endif
+                </flux:text>
+            </div>
+
+            {{-- Time Limit --}}
+            <div class="space-y-2">
+                <flux:label for="timeLimit" class="text-sm">{{ __('Time Limit (minutes)') }}</flux:label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <flux:input
+                        id="timeLimit"
+                        wire:model="timeLimit"
+                        type="number"
+                        min="1"
+                        placeholder="No time limit"
+                        class="flex-1 text-sm"
+                    />
+                    <flux:button
+                        wire:click="$set('timeLimit', null)"
+                        variant="ghost"
+                        size="sm"
+                        class="text-xs sm:text-xs w-full sm:w-auto py-2.5 sm:py-2"
+                    >
+                        No Limit
+                    </flux:button>
+                </div>
+                <flux:text class="text-xs text-neutral-600 dark:text-neutral-400">
+                    {{ __('Leave blank for untimed practice') }}
+                </flux:text>
+            </div>
+
+            {{-- Shuffle Questions --}}
+            <label class="flex items-start gap-3 cursor-pointer pt-2 border-t border-neutral-200 dark:border-neutral-600">
                 <input
                     type="checkbox"
                     wire:model="shuffleQuestions"
@@ -136,7 +184,7 @@
                 <div class="flex-1">
                     <flux:heading size="sm" class="text-sm font-semibold">{{ __('Shuffle Questions') }}</flux:heading>
                     <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                        {{ __('Randomize the order of questions in your practice exam') }}
+                        {{ __('Randomize the order of questions. Answers and explanations show automatically.') }}
                     </flux:text>
                 </div>
             </label>
