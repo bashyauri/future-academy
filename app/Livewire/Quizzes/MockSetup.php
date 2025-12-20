@@ -12,16 +12,8 @@ use Livewire\Component;
 class MockSetup extends Component
 {
     public ?int $examTypeId = null;
-    public ?int $selectedYear = null;
     public array $selectedSubjects = [];
     public $subjects;
-    public $years;
-
-    public int $questionsPerSubject = 40;
-    public int $timeLimit = 180; // minutes
-    public bool $shuffleQuestions = true;
-    public bool $showAnswersImmediately = false;
-    public bool $showExplanations = false;
 
     public int $maxSubjects = 4;
 
@@ -40,7 +32,6 @@ class MockSetup extends Component
     public function updatedExamTypeId(): void
     {
         $this->selectedSubjects = [];
-        $this->selectedYear = null;
         $this->loadOptions();
     }
 
@@ -48,7 +39,6 @@ class MockSetup extends Component
     {
         if (!$this->examTypeId) {
             $this->subjects = collect();
-            $this->years = collect();
             return;
         }
 
@@ -60,20 +50,6 @@ class MockSetup extends Component
             })
             ->orderBy('name')
             ->get();
-
-        $this->years = Question::where('exam_type_id', $this->examTypeId)
-            ->where('is_active', true)
-            ->where('status', 'approved')
-            ->distinct()
-            ->orderByDesc('exam_year')
-            ->pluck('exam_year')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if (!$this->selectedYear && $this->years->isNotEmpty()) {
-            $this->selectedYear = $this->years->first();
-        }
     }
 
     public function toggleSubject(int $subjectId): void
@@ -92,38 +68,85 @@ class MockSetup extends Component
     {
         $this->validate([
             'examTypeId' => 'required|exists:exam_types,id',
-            'selectedYear' => 'required',
             'selectedSubjects' => 'required|array|min:1|max:' . $this->maxSubjects,
-            'questionsPerSubject' => 'required|integer|min:5|max:100',
-            'timeLimit' => 'required|integer|min:10|max:600',
         ]);
 
-        // Verify availability per subject
+        // Get exam type to determine specifications
+        $examType = ExamType::find($this->examTypeId);
+        $examTypeName = strtoupper($examType?->name ?? '');
+
+        // Check if this is JAMB or SSCE/WAEC/NECO
+        $isJamb = stripos($examTypeName, 'JAMB') !== false;
+        $isSsce = stripos($examTypeName, 'WAEC') !== false ||
+                  stripos($examTypeName, 'NECO') !== false ||
+                  stripos($examTypeName, 'NAPTEB') !== false ||
+                  stripos($examTypeName, 'SSCE') !== false;
+
+        // Auto-calculate question counts and time limits based on exam type
+        $questionsPerSubject = [];
+        $totalTime = 0;
+
         foreach ($this->selectedSubjects as $subjectId) {
+            $subject = Subject::find($subjectId);
+            $subjectName = $subject?->name ?? '';
+
+            if ($isJamb) {
+                // JAMB: English = 70, others = 50, total time = 100 mins
+                $questionCount = (stripos($subjectName, 'English') !== false) ? 70 : 50;
+                $questionsPerSubject[$subjectId] = $questionCount;
+            } elseif ($isSsce) {
+                // SSCE (WAEC/NECO/NAPTEB):
+                // English = 110 questions, 50 minutes
+                // Maths/Further Maths = 60 questions, 50 minutes
+                // All others = 60 questions, 35 minutes
+                if (stripos($subjectName, 'English') !== false) {
+                    $questionCount = 110;
+                    $totalTime += 50;
+                } elseif (stripos($subjectName, 'Math') !== false || stripos($subjectName, 'Further') !== false) {
+                    $questionCount = 60;
+                    $totalTime += 50;
+                } else {
+                    $questionCount = 60;
+                    $totalTime += 35;
+                }
+                $questionsPerSubject[$subjectId] = $questionCount;
+            } else {
+                // Default fallback
+                $questionCount = 50;
+                $questionsPerSubject[$subjectId] = $questionCount;
+            }
+
+            // Verify availability (mixed years)
             $available = Question::where('exam_type_id', $this->examTypeId)
                 ->where('subject_id', $subjectId)
-                ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
                 ->where('is_active', true)
                 ->where('status', 'approved')
                 ->count();
 
-            if ($available < $this->questionsPerSubject) {
-                $subject = Subject::find($subjectId);
+            if ($available < $questionCount) {
                 $name = $subject?->name ?? 'Subject';
-                $this->addError('selectedSubjects', "Not enough questions for {$name}. Needed {$this->questionsPerSubject}, available {$available}.");
+                $this->addError('selectedSubjects', "Not enough questions for {$name}. Needed {$questionCount}, available {$available}.");
                 return;
             }
         }
 
+        // Set time limit based on exam type
+        if ($isJamb) {
+            $timeLimit = 100; // 100 minutes total for JAMB
+        } elseif ($isSsce) {
+            $timeLimit = $totalTime; // Sum of individual subject times for SSCE
+        } else {
+            $timeLimit = 100; // Default
+        }
+
         return redirect()->route('mock.quiz', [
             'examType' => $this->examTypeId,
-            'year' => $this->selectedYear,
             'subjects' => implode(',', $this->selectedSubjects),
-            'timeLimit' => $this->timeLimit,
-            'questionsPerSubject' => $this->questionsPerSubject,
-            'showAnswers' => $this->showAnswersImmediately ? '1' : '0',
-            'showExplanations' => $this->showExplanations ? '1' : '0',
-            'shuffle' => $this->shuffleQuestions ? '1' : '0',
+            'questionsPerSubject' => json_encode($questionsPerSubject),
+            'timeLimit' => $timeLimit,
+            'showAnswers' => '0',
+            'showExplanations' => '0',
+            'shuffle' => '0',
         ]);
     }
 
@@ -134,8 +157,20 @@ class MockSetup extends Component
             ->orderBy('name')
             ->get();
 
+        // Determine current exam type category
+        $currentExamType = ExamType::find($this->examTypeId);
+        $examTypeName = strtoupper($currentExamType?->name ?? '');
+
+        $isJamb = stripos($examTypeName, 'JAMB') !== false;
+        $isSsce = stripos($examTypeName, 'WAEC') !== false ||
+                  stripos($examTypeName, 'NECO') !== false ||
+                  stripos($examTypeName, 'NAPTEB') !== false ||
+                  stripos($examTypeName, 'SSCE') !== false;
+
         return view('livewire.quizzes.mock-setup', [
             'examTypes' => $examTypes,
+            'isJamb' => $isJamb,
+            'isSsce' => $isSsce,
         ]);
     }
 }

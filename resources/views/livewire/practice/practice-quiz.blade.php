@@ -1,225 +1,5 @@
 <div class="space-y-4 md:space-y-6">
-    @if($showReview)
-    {{-- Review Mode --}}
-    <div class="space-y-6">
-        {{-- Review Header --}}
-        <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-white dark:bg-neutral-800">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <flux:heading size="lg" class="text-lg md:text-xl font-semibold">{{ __('Review Your Answers') }}</flux:heading>
-                    <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                        {{ __('Question') }} {{ $currentQuestionIndex + 1 }} {{ __('of') }} {{ $totalQuestions }}
-                    </flux:text>
-                </div>
-                <flux:button
-                    variant="ghost"
-                    icon="x-mark"
-                    wire:click="exitReview"
-                    class="text-sm"
-                >
-                    {{ __('Exit Review') }}
-                </flux:button>
-            </div>
-
-            {{-- Progress Bar --}}
-            <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-                <div class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all"
-                     style="width: {{ ($currentQuestionIndex + 1) / $totalQuestions * 100 }}%"></div>
-            </div>
-        </div>
-
-        @if(isset($questions[$currentQuestionIndex]))
-        @php
-            $question = $questions[$currentQuestionIndex];
-            $userSelectedId = $userAnswers[$currentQuestionIndex];
-            $correctOption = collect($question['options'])->firstWhere('is_correct', true);
-            $userOption = $userSelectedId ? collect($question['options'])->firstWhere('id', $userSelectedId) : null;
-            $isCorrect = $userOption && $userOption['is_correct'];
-        @endphp
-
-        {{-- Result Badge --}}
-        <div class="rounded-xl border-2 p-4 {{ $isCorrect ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-red-500 bg-red-50 dark:bg-red-950/20' }}">
-            <div class="flex items-center gap-3">
-                @if($isCorrect)
-                <div class="flex-shrink-0">
-                    <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div>
-                    <flux:heading size="sm" class="text-green-800 dark:text-green-300 font-semibold">{{ __('Correct Answer!') }}</flux:heading>
-                    <flux:text class="text-sm text-green-700 dark:text-green-400">{{ __('Great job! You got this question right.') }}</flux:text>
-                </div>
-                @else
-                <div class="flex-shrink-0">
-                    <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div>
-                    <flux:heading size="sm" class="text-red-800 dark:text-red-300 font-semibold">{{ __('Incorrect Answer') }}</flux:heading>
-                    <flux:text class="text-sm text-red-700 dark:text-red-400">{{ $userOption ? __('Review the correct answer below.') : __('You did not answer this question.') }}</flux:text>
-                </div>
-                @endif
-            </div>
-        </div>
-
-        {{-- Question Card --}}
-        <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-8 bg-white dark:bg-neutral-800 space-y-5">
-            {{-- Question Text --}}
-            <div>
-                <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed">{{ $question['question_text'] }}</flux:heading>
-                @if($question['question_image'])
-                <img src="{{ $question['question_image'] }}" alt="Question" class="mt-4 max-w-full h-auto rounded-lg">
-                @endif
-            </div>
-
-            {{-- Options Review --}}
-            <div class="space-y-3">
-                @foreach($question['options'] as $option)
-                @php
-                    $isUserAnswer = $userSelectedId === $option['id'];
-                    $isCorrectAnswer = $option['is_correct'];
-                    $borderClass = $isCorrectAnswer
-                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
-                        : ($isUserAnswer && !$isCorrectAnswer
-                            ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
-                            : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50');
-                @endphp
-                <div class="rounded-lg border-2 p-4 transition-all {{ $borderClass }}">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 mt-1">
-                            @if($isCorrectAnswer)
-                            <div class="w-6 h-6 rounded-full bg-green-500 dark:bg-green-600 flex items-center justify-center">
-                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                </svg>
-                            </div>
-                            @elseif($isUserAnswer && !$isCorrectAnswer)
-                            <div class="w-6 h-6 rounded-full bg-red-500 dark:bg-red-600 flex items-center justify-center">
-                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                                </svg>
-                            </div>
-                            @else
-                            <div class="w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600"></div>
-                            @endif
-                        </div>
-
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-start gap-2">
-                                @php
-                                    $textClass = $isCorrectAnswer
-                                        ? 'text-green-800 dark:text-green-300'
-                                        : ($isUserAnswer && !$isCorrectAnswer
-                                            ? 'text-red-800 dark:text-red-300'
-                                            : 'text-neutral-700 dark:text-neutral-300');
-                                @endphp
-                                <flux:text class="text-base leading-relaxed font-medium {{ $textClass }}">{{ $option['option_text'] }}</flux:text>
-
-                                @if($isCorrectAnswer)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-600 dark:bg-green-700 text-white">
-                                    {{ __('Correct') }}
-                                </span>
-                                @elseif($isUserAnswer && !$isCorrectAnswer)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-600 dark:bg-red-700 text-white">
-                                    {{ __('Your Answer') }}
-                                </span>
-                                @endif
-                            </div>
-
-                            @if($option['option_image'])
-                            <img src="{{ $option['option_image'] }}" alt="Option" class="mt-2 max-w-full h-auto rounded">
-                            @endif
-                        </div>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-
-            {{-- Explanation --}}
-            @if($question['explanation'])
-            <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4">
-                <div class="flex gap-3">
-                    <div class="flex-shrink-0">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-300 mb-1 font-semibold">{{ __('Explanation') }}</flux:heading>
-                        <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed">{{ $question['explanation'] }}</flux:text>
-                    </div>
-                </div>
-            </div>
-            @endif
-        </div>
-
-        {{-- Review Navigation --}}
-        <div class="grid grid-cols-2 gap-3">
-            <flux:button
-                variant="ghost"
-                icon="arrow-left"
-                wire:click="previousQuestion"
-                :disabled="$currentQuestionIndex === 0"
-                class="text-base min-h-[52px]"
-            >
-                {{ __('Previous') }}
-            </flux:button>
-
-            @if($currentQuestionIndex === $totalQuestions - 1)
-            <flux:button
-                variant="primary"
-                wire:click="exitReview"
-                class="text-base min-h-[52px] font-semibold"
-            >
-                {{ __('Back to Results') }}
-            </flux:button>
-            @else
-            <flux:button
-                variant="primary"
-                icon-trailing="arrow-right"
-                wire:click="nextQuestion"
-                class="text-base min-h-[52px]"
-            >
-                {{ __('Next') }}
-            </flux:button>
-            @endif
-        </div>
-
-        {{-- Quick Navigation Grid --}}
-        <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 bg-white dark:bg-neutral-800">
-            <flux:heading size="sm" class="mb-4 font-semibold">{{ __('Jump to Question') }}</flux:heading>
-            <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
-                @for($i = 0; $i < $totalQuestions; $i++)
-                @php
-                    $qUserAnswer = $userAnswers[$i];
-                    $qCorrect = false;
-                    if($qUserAnswer && isset($questions[$i])) {
-                        $qOption = collect($questions[$i]['options'])->firstWhere('id', $qUserAnswer);
-                        $qCorrect = $qOption && $qOption['is_correct'];
-                    }
-                @endphp
-                <button
-                    wire:click="jumpToQuestion({{ $i }})"
-                    class="aspect-square rounded-lg border-2 font-semibold text-sm transition-all
-                    {{ $currentQuestionIndex === $i
-                        ? 'border-blue-500 bg-blue-600 text-white'
-                        : ($qCorrect
-                            ? 'border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300'
-                            : ($qUserAnswer
-                                ? 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300'
-                                : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400'))
-                    }}"
-                >
-                    {{ $i + 1 }}
-                </button>
-                @endfor
-            </div>
-        </div>
-        @endif
-    </div>
-    @elseif(!$showResults)
+    @if(!$showResults)
     {{-- Quiz Taking Interface --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-6">
         {{-- Main Question Area --}}
@@ -253,49 +33,105 @@
                     @endif
                 </div>
 
-                {{-- Options --}}
+                {{-- Options with Instant Feedback --}}
                 <div class="space-y-3 md:space-y-3">
+                    @php
+                        $hasAnswered = $userAnswers[$currentQuestionIndex] !== null;
+                        $correctOption = collect($question['options'])->firstWhere('is_correct', true);
+                    @endphp
                     @foreach($question['options'] as $option)
-                    @php $isSelected = $userAnswers[$currentQuestionIndex] === $option['id']; @endphp
+                    @php
+                        $isSelected = $userAnswers[$currentQuestionIndex] === $option['id'];
+                        $isCorrect = $option['is_correct'];
+
+                        // Determine styling based on answer state
+                        if ($hasAnswered) {
+                            if ($isCorrect) {
+                                $borderClass = 'border-green-500 bg-green-50 dark:bg-green-950/20';
+                                $textClass = 'text-green-800 dark:text-green-300 font-medium';
+                            } elseif ($isSelected && !$isCorrect) {
+                                $borderClass = 'border-red-500 bg-red-50 dark:bg-red-950/20';
+                                $textClass = 'text-red-800 dark:text-red-300';
+                            } else {
+                                $borderClass = 'border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50 opacity-60';
+                                $textClass = 'text-neutral-700 dark:text-neutral-300';
+                            }
+                        } else {
+                            $borderClass = $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600';
+                            $textClass = $isSelected ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-neutral-700 dark:text-neutral-300';
+                        }
+                    @endphp
                     <button
                         wire:click="selectAnswer({{ $option['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="selectAnswer"
-                        class="w-full text-left rounded-lg border-2 p-4 md:p-4 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] {{ $isSelected ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-300 dark:ring-green-700' : 'border-neutral-200 dark:border-neutral-700 hover:border-green-400 dark:hover:border-green-600' }}"
+                        @if($hasAnswered) disabled @endif
+                        class="w-full text-left rounded-lg border-2 p-4 md:p-4 transition-all disabled:cursor-not-allowed {{ $borderClass }}"
                     >
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0 mt-1">
-                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {{ $isSelected ? 'border-green-500 dark:border-green-500 bg-green-500 dark:bg-green-600' : 'border-neutral-300 dark:border-neutral-600' }}">
-                                    @if($isSelected)
-                                    <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                                @if($hasAnswered)
+                                    @if($isCorrect)
+                                    <div class="w-6 h-6 rounded-full bg-green-500 dark:bg-green-600 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    @elseif($isSelected && !$isCorrect)
+                                    <div class="w-6 h-6 rounded-full bg-red-500 dark:bg-red-600 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    @else
+                                    <div class="w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600"></div>
                                     @endif
-                                </div>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <flux:text class="text-base md:text-base leading-relaxed {{ $isSelected ? 'text-green-700 dark:text-green-300 font-medium' : 'text-neutral-700 dark:text-neutral-300' }}">{{ $option['option_text'] }}</flux:text>
-                                @if($option['option_image'])
-                                <img src="{{ $option['option_image'] }}" alt="Option" class="mt-2 max-w-full h-auto rounded">
+                                @else
+                                    <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {{ $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-500 dark:bg-blue-600' : 'border-neutral-300 dark:border-neutral-600' }}">
+                                        @if($isSelected)
+                                        <div class="w-3 h-3 bg-white rounded-full"></div>
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
-                            {{-- Loading Indicator --}}
-                            <div wire:loading wire:target="selectAnswer" class="flex-shrink-0">
-                                <svg class="animate-spin h-5 w-5 text-green-500 dark:text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </div>
-                            {{-- Checkmark (shown when selected and not loading) --}}
-                            <div wire:loading.remove wire:target="selectAnswer" class="flex-shrink-0">
-                                @if($isSelected)
-                                <svg class="h-5 w-5 text-green-500 dark:text-green-400 animate-bounce" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-start gap-2">
+                                    <flux:text class="text-base md:text-base leading-relaxed {{ $textClass }}">{{ $option['option_text'] }}</flux:text>
+                                    @if($hasAnswered && $isCorrect)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-600 dark:bg-green-700 text-white whitespace-nowrap">
+                                        {{ __('Correct') }}
+                                    </span>
+                                    @elseif($hasAnswered && $isSelected && !$isCorrect)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-600 dark:bg-red-700 text-white whitespace-nowrap">
+                                        {{ __('Wrong') }}
+                                    </span>
+                                    @endif
+                                </div>
+                                @if($option['option_image'])
+                                <img src="{{ $option['option_image'] }}" alt="Option" class="mt-2 max-w-full h-auto rounded">
                                 @endif
                             </div>
                         </div>
                     </button>
                     @endforeach
                 </div>
+
+                {{-- Instant Explanation (shown after answering) --}}
+                @if($hasAnswered && $question['explanation'])
+                <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 animate-fade-in">
+                    <div class="flex gap-3">
+                        <div class="flex-shrink-0">
+                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <flux:heading size="sm" class="text-blue-900 dark:text-blue-300 mb-1 font-semibold">{{ __('Explanation') }}</flux:heading>
+                            <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed">{{ $question['explanation'] }}</flux:text>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
 
             {{-- Navigation Buttons --}}
@@ -508,26 +344,13 @@
         {{-- Action Buttons --}}
         <div class="flex flex-col gap-4">
             <flux:button
-                wire:click="startReview"
-                variant="primary"
-                class="w-full text-base min-h-[52px] font-semibold"
-            >
-                <span class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                    </svg>
-                    {{ __('Review Answers') }}
-                </span>
-            </flux:button>
-
-            <flux:button
                 href="{{ route('practice.home') }}"
-                variant="ghost"
+                variant="primary"
                 icon="arrow-left"
                 wire:navigate
-                class="w-full text-base min-h-[52px]"
+                class="w-full text-base min-h-[52px] font-semibold"
             >
-                {{ __('Try Another Test') }}
+                {{ __('Try Another Practice Exam') }}
             </flux:button>
 
             <flux:button

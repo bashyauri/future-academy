@@ -36,26 +36,24 @@ class JambQuiz extends Component
         $subjectsParam = request()->query('subjects');
         $this->timeLimit = (int)(request()->query('timeLimit') ?? 180);
         $this->questionsPerSubject = (int)(request()->query('questionsPerSubject') ?? 40);
-        $this->showAnswersImmediately = request()->query('showAnswers') === '1';
-        $this->showExplanations = request()->query('showExplanations') === '1';
-        $this->shuffleQuestions = request()->query('shuffle') !== '0';
-        
+        $this->shuffleQuestions = request()->query('shuffle') === '1';
+
         if ($subjectsParam) {
             $this->subjectIds = array_filter(explode(',', $subjectsParam));
         }
-        
+
         if (empty($this->subjectIds)) {
             return redirect()->route('practice.jamb.setup');
         }
-        
+
         $this->timeRemaining = $this->timeLimit * 60; // Convert to seconds
 
         // Load subjects and questions
         $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get();
-        
+
         // Update subjectIds to match the order of loaded subjects
         $this->subjectIds = $this->subjectsData->pluck('id')->toArray();
-        
+
         foreach ($this->subjectIds as $subjectId) {
             $this->questionsBySubject[$subjectId] = Question::where('exam_type_id', function($query) {
                     $query->select('id')
@@ -107,6 +105,7 @@ class JambQuiz extends Component
     {
         $currentSubjectId = $this->getCurrentSubjectId();
         $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
+        // Instant feedback - user stays on question to see answer and explanation
     }
 
     public function nextQuestion()
@@ -175,7 +174,7 @@ class JambQuiz extends Component
                     $answeredCount++;
                     $correctOption = $question->options->firstWhere('is_correct', true);
                     $isCorrect = $correctOption && $correctOption->id == $userAnswer;
-                    
+
                     if ($isCorrect) {
                         $score++;
                     }
@@ -225,11 +224,6 @@ class JambQuiz extends Component
             $scores[$subjectId] = $score;
         }
         return $scores;
-    }
-
-    public function toggleReview()
-    {
-        $this->showReview = !$this->showReview;
     }
 
     public function render()

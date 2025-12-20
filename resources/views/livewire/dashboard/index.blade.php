@@ -78,14 +78,14 @@
                     <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Mock Exams') }}</flux:text>
                 </a>
 
-                <!-- Practice -->
+                <!-- Practice Exams -->
                 <a href="{{ route('practice.home') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500 dark:hover:border-orange-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all">
                     <div class="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors mb-3">
                         <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Practice') }}</flux:text>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Practice Exams') }}</flux:text>
                 </a>
 
                 <!-- Analytics -->
@@ -148,25 +148,22 @@
             {{-- Mock Exams Taken --}}
             <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-neutral-800 hover:shadow-lg transition-shadow">
                 <div class="flex items-start justify-between mb-4">
-                    <div class="p-3 rounded-lg bg-green-100 dark:bg-green-900/30">
-                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 rounded-full">
-                        {{ $stats['total_quizzes'] > 0 ? round(($stats['quizzes_taken'] / $stats['total_quizzes']) * 100) : 0 }}%
+                    <span class="text-xs font-bold {{ $stats['best_mock_score'] >= 70 ? 'text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400' : 'text-purple-600 bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400' }} px-3 py-1 rounded-full">
+                        {{ $stats['mock_exams_taken'] > 0 ? 'Best: ' . number_format($stats['best_mock_score'], 0) . '%' : 'Start Now' }}
                     </span>
                 </div>
                 <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 font-medium mb-1">{{ __('Mock Exams Taken') }}</flux:text>
                 <div class="flex items-baseline gap-2 mb-3">
-                    <flux:heading size="xl" class="text-neutral-900 dark:text-white font-bold">{{ $stats['quizzes_taken'] }}</flux:heading>
-                    <flux:text class="text-neutral-500 dark:text-neutral-400">/ {{ $stats['total_quizzes'] }}</flux:text>
+                    <flux:heading size="xl" class="text-neutral-900 dark:text-white font-bold">{{ $stats['mock_exams_taken'] }}</flux:heading>
                 </div>
-                @if($stats['total_quizzes'] > 0)
-                <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 h-full transition-all" style="width: {{ ($stats['quizzes_taken'] / $stats['total_quizzes']) * 100 }}%"></div>
-                </div>
-                @endif
+                <flux:button href="{{ route('mock.setup') }}" variant="ghost" size="sm" class="w-full" wire:navigate>
+                    {{ __('Take Mock Exam') }} →
+                </flux:button>
             </div>
 
             {{-- Average Score --}}
@@ -227,19 +224,80 @@
         <div class="rounded-2xl border-0 p-8 bg-gradient-to-br from-orange-500 via-orange-400 to-amber-500 dark:from-orange-700 dark:via-orange-600 dark:to-amber-600 shadow-lg hover:shadow-xl transition-shadow">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                    <flux:heading size="lg" class="text-white mb-2 font-bold">{{ __('Practice Past Papers') }}</flux:heading>
-                    <flux:text class="text-orange-50">{{ __('Master exam questions by practicing JAMB, NECO, and other past papers by subject and year. Start with JAMB full-length tests!') }}</flux:text>
+                    <flux:heading size="lg" class="text-white mb-2 font-bold">{{ __('Practice Exams') }}</flux:heading>
+                    <flux:text class="text-orange-50">{{ __('Master exam questions by practicing JAMB, NECO, and other past papers by subject and year. Start with JAMB full-length practice exams!') }}</flux:text>
                 </div>
                 <flux:button
                     href="{{ route('practice.home') }}"
                     wire:navigate
                     class="flex-shrink-0 px-6 py-3 bg-white hover:bg-orange-50 text-orange-600 hover:text-orange-700 font-bold rounded-lg shadow-md hover:shadow-lg whitespace-nowrap"
                 >
-                    {{ __('Start Practice') }}
+                    {{ __('Start Practice Exam') }}
                     <svg class="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                     </svg>
                 </flux:button>
+            </div>
+        </div>
+
+        {{-- Mock Exam Section --}}
+        <div class="rounded-2xl border-0 p-8 bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-600 dark:from-purple-800 dark:via-purple-700 dark:to-indigo-800 shadow-xl hover:shadow-2xl transition-shadow">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div class="flex-1">
+                    <div class="inline-flex items-center px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-4">
+                        <svg class="w-4 h-4 text-white mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                        </svg>
+                        <flux:text class="text-xs font-bold text-white">{{ __('JAMB • NECO • WAEC') }}</flux:text>
+                    </div>
+                    <flux:heading size="xl" class="text-white mb-3 font-bold">{{ __('Take a Mock Examination') }}</flux:heading>
+                    <flux:text class="text-purple-100 mb-4">
+                        {{ __('Experience real exam formats with customizable settings:') }}
+                    </flux:text>
+                    <ul class="space-y-2 text-purple-50 text-sm">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span><strong class="font-semibold">Multiple Exam Types:</strong> JAMB, NECO, WAEC & more</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span><strong class="font-semibold">Flexible Questions:</strong> Choose your subjects & question count</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span><strong class="font-semibold">Custom Duration:</strong> Set your own time limits</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span>{{ __('Instant results with detailed review') }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="flex-shrink-0">
+                    <flux:button
+                        href="{{ route('mock.setup') }}"
+                        wire:navigate
+                        class="px-8 py-4 bg-white hover:bg-purple-50 text-purple-600 hover:text-purple-700 font-bold rounded-xl shadow-lg hover:shadow-xl transition-all whitespace-nowrap text-lg"
+                    >
+                        {{ __('Start Mock Exam') }}
+                        <svg class="w-5 h-5 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                        </svg>
+                    </flux:button>
+                    @if($stats['mock_exams_taken'] > 0)
+                    <flux:text class="text-xs text-purple-200 mt-3 text-center">
+                        {{ __('You\'ve taken :count mock exam(s)', ['count' => $stats['mock_exams_taken']]) }}
+                    </flux:text>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -298,52 +356,61 @@
                 </div>
             </div>
 
-            {{-- Available Mock Exams --}}
+            {{-- Mock Exam Progress & Available Mocks --}}
             <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div class="px-8 py-5 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-neutral-50 dark:bg-neutral-700/50">
+                <div class="px-8 py-5 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-purple-50 dark:bg-purple-900/20">
                     <div>
-                        <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Available Mock Exams') }}</flux:heading>
-                        <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{{ __('Test your knowledge') }}</flux:text>
+                        <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Mock Exam Progress') }}</flux:heading>
+                        <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{{ __('Your recent attempts') }}</flux:text>
                     </div>
-                    <a href="{{ route('quizzes.index') }}" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold whitespace-nowrap ml-4">
-                        {{ __('View All') }} →
+                    <a href="{{ route('mock.setup') }}" class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-semibold whitespace-nowrap ml-4">
+                        {{ __('Take Mock') }} →
                     </a>
                 </div>
                 <div class="p-6">
-                    @if($recentQuizzes->isEmpty())
+                    @if($recentMockAttempts->isEmpty())
                         <div class="text-center py-12">
-                            <svg class="w-16 h-16 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <flux:text class="text-neutral-500 dark:text-neutral-400 font-medium">{{ __('No mock exams available yet') }}</flux:text>
+                            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-900/30 mx-auto mb-4">
+                                <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <flux:text class="text-neutral-500 dark:text-neutral-400 font-medium mb-3">{{ __('No mock exams taken yet') }}</flux:text>
+                            <flux:button href="{{ route('mock.setup') }}" variant="primary" size="sm" wire:navigate>
+                                {{ __('Take Your First Mock Exam') }}
+                            </flux:button>
                         </div>
                     @else
                         <div class="space-y-3">
-                            @foreach($recentQuizzes as $quiz)
-                            <a href="{{ route('quiz.take', $quiz->id) }}" class="group flex items-start justify-between p-4 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors border border-neutral-200 dark:border-neutral-700/50">
-                                <div class="flex-1 min-w-0">
-                                    <flux:heading size="sm" class="font-semibold text-neutral-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                        {{ $quiz->title }}
-                                    </flux:heading>
-                                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                                        {{ $quiz->subject->name ?? 'Mixed Subjects' }}
-                                    </flux:text>
-                                    <div class="flex items-center space-x-3 mt-3">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                            {{ $quiz->total_questions }} Q's
-                                        </span>
-                                        @if($quiz->time_limit)
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                                            {{ $quiz->time_limit }}m
-                                        </span>
-                                        @endif
+                            @foreach($recentMockAttempts as $attempt)
+                            <div class="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/30">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex-1 min-w-0">
+                                        <flux:heading size="sm" class="font-semibold text-neutral-900 dark:text-white truncate">
+                                            {{ $attempt->quiz->title }}
+                                        </flux:heading>
+                                        <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                                            {{ $attempt->completed_at->format('M j, Y • g:i A') }}
+                                        </flux:text>
                                     </div>
+                                    <span class="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-bold {{ $attempt->score_percentage >= 70 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : ($attempt->score_percentage >= 50 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300') }}">
+                                        {{ number_format($attempt->score_percentage, 0) }}%
+                                    </span>
                                 </div>
-                                <svg class="h-5 w-5 text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0 mt-1 ml-4 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                                </svg>
-                            </a>
+                                <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                                    <span>{{ $attempt->correct_answers }}/{{ $attempt->total_questions }} correct</span>
+                                    <span>{{ $attempt->time_taken ? gmdate('i:s', $attempt->time_taken) : 'N/A' }}</span>
+                                </div>
+                                <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3 overflow-hidden">
+                                    <div class="h-full transition-all {{ $attempt->score_percentage >= 70 ? 'bg-gradient-to-r from-green-500 to-green-600' : ($attempt->score_percentage >= 50 ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-red-500 to-red-600') }}" style="width: {{ $attempt->score_percentage }}%"></div>
+                                </div>
+                            </div>
                             @endforeach
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                            <flux:button href="{{ route('mock.setup') }}" variant="subtle" size="sm" class="w-full" wire:navigate>
+                                {{ __('Take Another Mock Exam') }}
+                            </flux:button>
                         </div>
                     @endif
                 </div>

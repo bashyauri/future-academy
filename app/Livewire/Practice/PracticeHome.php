@@ -14,7 +14,8 @@ class PracticeHome extends Component
     public $selectedExamType = null;
     public $selectedSubject = null;
     public $selectedYear = null;
-    
+    public $shuffleQuestions = false;
+
     public $examTypes = [];
     public $subjects = [];
     public $filteredYears = [];
@@ -29,7 +30,7 @@ class PracticeHome extends Component
             })
             ->orderBy('sort_order')
             ->get();
-        
+
         // Initialize subjects as empty array
         $this->subjects = [];
     }
@@ -108,6 +109,7 @@ class PracticeHome extends Component
             'exam_type' => $this->selectedExamType,
             'subject' => $this->selectedSubject,
             'year' => $this->selectedYear,
+            'shuffle' => $this->shuffleQuestions ? '1' : '0',
         ]);
     }
 

@@ -3,7 +3,16 @@
     <div class="space-y-6 sm:space-y-8 py-6 sm:py-8">
         <div class="space-y-2">
             <flux:heading size="xl" level="1" class="leading-tight">Start a Mock Exam</flux:heading>
-            <flux:text class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Choose an exam type, pick your subjects (up to 4), and we will generate a mock that mirrors the real test format.</flux:text>
+            <flux:text class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                Choose your exam type and select up to 4 subjects.
+                @if($isJamb)
+                    The exam will automatically follow JAMB specifications: English (70 questions), other subjects (50 questions each), 100 minutes total.
+                @elseif($isSsce)
+                    The exam will follow SSCE specifications: English (110 questions, 50 mins), Maths/Further Maths (60 questions, 50 mins), others (60 questions, 35 mins).
+                @else
+                    The exam will automatically configure based on the selected exam type.
+                @endif
+            </flux:text>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 sm:gap-8">
@@ -35,26 +44,6 @@
                 </div>
 
                 <div class="space-y-3 sm:space-y-4">
-                    <flux:heading size="lg" level="2">Exam Year</flux:heading>
-                    @if($years && $years->count())
-                        <div class="flex flex-wrap gap-2 sm:gap-3">
-                            @foreach($years as $year)
-                                <button
-                                    wire:click="$set('selectedYear', {{ $year }})"
-                                    class="px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base {{ $selectedYear == $year ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 dark:bg-neutral-900 text-gray-700 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-neutral-800' }}">
-                                    {{ $year }}
-                                </button>
-                            @endforeach
-                        </div>
-                    @else
-                        <flux:text class="text-sm text-amber-600 dark:text-amber-300">No years available for this exam type yet.</flux:text>
-                    @endif
-                    @error('selectedYear')
-                        <flux:badge color="red" class="mt-1">{{ $message }}</flux:badge>
-                    @enderror
-                </div>
-
-                <div class="space-y-3 sm:space-y-4">
                     <div class="flex items-center justify-between gap-3 flex-wrap">
                         <flux:heading size="lg" level="2">Choose Subjects (max {{ $maxSubjects }})</flux:heading>
                         <flux:badge color="blue">{{ count($selectedSubjects) }}/{{ $maxSubjects }}</flux:badge>
@@ -64,13 +53,33 @@
                             @php
                                 $isSelected = in_array($subject->id, $selectedSubjects);
                                 $canSelect = count($selectedSubjects) < $maxSubjects || $isSelected;
+                                $isEnglish = stripos($subject->name, 'English') !== false;
+                                $isMaths = stripos($subject->name, 'Math') !== false || stripos($subject->name, 'Further') !== false;
+
+                                // Determine question count based on exam type
+                                if ($isJamb) {
+                                    $questionInfo = $isEnglish ? '70 questions' : '50 questions';
+                                } elseif ($isSsce) {
+                                    if ($isEnglish) {
+                                        $questionInfo = '110 questions • 50 mins';
+                                    } elseif ($isMaths) {
+                                        $questionInfo = '60 questions • 50 mins';
+                                    } else {
+                                        $questionInfo = '60 questions • 35 mins';
+                                    }
+                                } else {
+                                    $questionInfo = '50 questions';
+                                }
                             @endphp
                             <button
                                 wire:click="toggleSubject({{ $subject->id }})"
                                 class="w-full text-left p-4 rounded-xl border-2 transition-all shadow-sm {{ $isSelected ? 'border-green-500 bg-green-50 dark:bg-neutral-900 text-green-700 dark:text-green-200' : ($canSelect ? 'border-gray-200 dark:border-neutral-800 hover:border-green-400 dark:hover:border-green-500 text-gray-800 dark:text-gray-100' : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed') }}"
                                 {{ $canSelect ? '' : 'disabled' }}>
                                 <div class="flex items-center justify-between">
-                                    <span class="font-semibold text-base sm:text-lg">{{ $subject->name }}</span>
+                                    <div>
+                                        <span class="font-semibold text-base sm:text-lg">{{ $subject->name }}</span>
+                                        <flux:text class="text-xs text-gray-500 dark:text-gray-400">{{ $questionInfo }}</flux:text>
+                                    </div>
                                     @if($isSelected)
                                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 00-1.414-1.414L8 11.172 4.707 7.879a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l7-7z" clip-rule="evenodd"/></svg>
                                     @endif
@@ -85,50 +94,154 @@
             </div>
 
             <div class="space-y-5 sm:space-y-6">
-                <div class="p-5 rounded-2xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-4">
-                    <flux:heading size="md" level="3">Mock Settings</flux:heading>
+                <div class="p-5 rounded-2xl border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-neutral-900 shadow-sm space-y-4">
+                    <flux:heading size="md" level="3">
+                        @if($isJamb)
+                            JAMB Mock Specifications
+                        @elseif($isSsce)
+                            SSCE Mock Specifications
+                        @else
+                            Mock Exam Specifications
+                        @endif
+                    </flux:heading>
 
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <flux:label for="questionsPerSubject">Questions per Subject</flux:label>
-                            <flux:text class="font-semibold text-blue-600 dark:text-blue-300">{{ $questionsPerSubject }}</flux:text>
+                    <div class="space-y-3 text-sm">
+                        @if($isJamb)
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">English: 70 questions</div>
+                                    <div class="text-gray-600 dark:text-gray-400">All other subjects: 50 questions</div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Duration: 100 minutes</div>
+                                    <div class="text-gray-600 dark:text-gray-400">For all 4 subjects combined</div>
+                                </div>
+                            </div>
+                        @elseif($isSsce)
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">English: 110 questions</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Duration: 50 minutes</div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Maths & Further Maths: 60 questions</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Duration: 50 minutes each</div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">All other subjects: 60 questions</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Duration: 35 minutes each</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <div class="font-semibold text-gray-900 dark:text-gray-100">Mixed Questions</div>
+                                <div class="text-gray-600 dark:text-gray-400">
+                                    @if($isSsce)
+                                        From WAEC, NECO, and NAPTEB
+                                    @else
+                                        From all available years
+                                    @endif
+                                </div>
+                            </div>
                         </div>
-                        <input type="range" id="questionsPerSubject" min="5" max="100" step="5" wire:model.live="questionsPerSubject" class="w-full h-2 rounded-lg bg-gray-200 dark:bg-neutral-800 accent-blue-500" />
-                        <flux:text class="text-xs text-gray-500">5 - 100</flux:text>
-                    </div>
 
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <flux:label for="timeLimit">Time Limit (minutes)</flux:label>
-                            <flux:text class="font-semibold text-blue-600 dark:text-blue-300">{{ $timeLimit }}</flux:text>
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <div class="font-semibold text-gray-900 dark:text-gray-100">Real Exam Format</div>
+                                <div class="text-gray-600 dark:text-gray-400">Results shown after submission</div>
+                            </div>
                         </div>
-                        <input type="range" id="timeLimit" min="10" max="600" step="10" wire:model.live="timeLimit" class="w-full h-2 rounded-lg bg-gray-200 dark:bg-neutral-800 accent-blue-500" />
-                        <flux:text class="text-xs text-gray-500">10 - 600 minutes</flux:text>
-                    </div>
-
-                    <div class="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <flux:checkbox wire:model="shuffleQuestions" label="Shuffle questions" />
-                        <flux:checkbox wire:model="showAnswersImmediately" label="Show answers immediately" />
-                        <flux:checkbox wire:model="showExplanations" label="Show explanations" />
                     </div>
                 </div>
 
                 <div class="p-5 rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-neutral-900 shadow-sm space-y-3">
-                    <flux:heading size="sm" class="mb-1">Summary</flux:heading>
-                    <div class="flex items-center justify-between text-sm">
-                        <span>Total Questions</span>
-                        <span class="font-semibold text-blue-700 dark:text-blue-200">{{ count($selectedSubjects) * $questionsPerSubject }}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span>Time Allowed</span>
-                        <span class="font-semibold text-blue-700 dark:text-blue-200">{{ $timeLimit }} mins</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span>Per Question</span>
-                        <span class="font-semibold text-blue-700 dark:text-blue-200">
-                            {{ count($selectedSubjects) ? round(($timeLimit * 60) / max(count($selectedSubjects) * $questionsPerSubject, 1)) : 0 }}s
-                        </span>
-                    </div>
+                    <flux:heading size="sm" class="mb-1">Your Exam Summary</flux:heading>
+                    @if(count($selectedSubjects) > 0)
+                        @php
+                            $totalQuestions = 0;
+                            $totalTime = 0;
+
+                            foreach($selectedSubjects as $subjectId) {
+                                $subject = $subjects->find($subjectId);
+                                $subjectName = $subject?->name ?? '';
+                                $isEnglish = stripos($subjectName, 'English') !== false;
+                                $isMaths = stripos($subjectName, 'Math') !== false || stripos($subjectName, 'Further') !== false;
+
+                                if ($isJamb) {
+                                    $totalQuestions += $isEnglish ? 70 : 50;
+                                } elseif ($isSsce) {
+                                    if ($isEnglish) {
+                                        $totalQuestions += 110;
+                                        $totalTime += 50;
+                                    } elseif ($isMaths) {
+                                        $totalQuestions += 60;
+                                        $totalTime += 50;
+                                    } else {
+                                        $totalQuestions += 60;
+                                        $totalTime += 35;
+                                    }
+                                } else {
+                                    $totalQuestions += 50;
+                                }
+                            }
+
+                            if ($isJamb) {
+                                $totalTime = 100;
+                            } elseif (!$isSsce) {
+                                $totalTime = 100;
+                            }
+                        @endphp
+                        <div class="flex items-center justify-between text-sm">
+                            <span>Subjects Selected</span>
+                            <span class="font-semibold text-blue-700 dark:text-blue-200">{{ count($selectedSubjects) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span>Total Questions</span>
+                            <span class="font-semibold text-blue-700 dark:text-blue-200">{{ $totalQuestions }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span>Time Allowed</span>
+                            <span class="font-semibold text-blue-700 dark:text-blue-200">{{ $totalTime }} mins</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span>Per Question</span>
+                            <span class="font-semibold text-blue-700 dark:text-blue-200">{{ round(($totalTime * 60) / max($totalQuestions, 1)) }}s</span>
+                        </div>
+                    @else
+                        <flux:text class="text-sm text-gray-500 dark:text-gray-400">Select subjects to see exam details</flux:text>
+                    @endif
                 </div>
             </div>
         </div>

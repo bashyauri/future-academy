@@ -59,6 +59,9 @@ class QuizForm
                                     ->rules([
                                         'in:' . implode(',', QuizType::values()),
                                     ])
+                                    ->helperText(fn($get) => $get('type') === QuizType::Mock->value
+                                        ? 'Mock exams: JAMB English = 70 questions, all others = 50 questions. Duration: 100 minutes for all 4 subjects.'
+                                        : null)
                                     ->reactive(),
 
                                 TextInput::make('question_count')
@@ -66,7 +69,8 @@ class QuizForm
                                     ->required()
                                     ->numeric()
                                     ->minValue(1)
-                                    ->default(20),
+                                    ->default(20)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 TextInput::make('passing_score')
                                     ->label('Passing Score (%)')
@@ -121,14 +125,6 @@ class QuizForm
                                 'hard' => 'Hard',
                             ]),
 
-                        Select::make('years')
-                            ->label('Years (for Past Questions)')
-                            ->multiple()
-                            ->options(array_combine(
-                                range(date('Y'), date('Y') - 20),
-                                range(date('Y'), date('Y') - 20)
-                            ))
-                            ->visible(fn($get) => $get('type') === QuizType::Mock->value),
                     ])
                     ->columns(2)
                     ->collapsible(),
@@ -240,24 +236,29 @@ class QuizForm
                                 Toggle::make('randomize_questions')
                                     ->label('Randomize Question Selection')
                                     ->helperText('Select random questions matching criteria')
-                                    ->default(true),
+                                    ->default(true)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_questions')
                                     ->label('Shuffle Question Order')
                                     ->helperText('Show questions in random order')
-                                    ->default(true),
+                                    ->default(true)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_options')
                                     ->label('Shuffle Answer Options')
                                     ->helperText('Randomize A, B, C, D order')
-                                    ->default(true),
-                            ]),
+                                    ->default(true)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                            ])
+                            ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                         Grid::make(3)
                             ->schema([
                                 Toggle::make('show_answers_after_submit')
                                     ->label('Show Answers After Submit')
-                                    ->default(true),
+                                    ->default(true)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('allow_review')
                                     ->label('Allow Review After Completion')
@@ -265,8 +266,10 @@ class QuizForm
 
                                 Toggle::make('show_explanations')
                                     ->label('Show Explanations')
-                                    ->default(true),
-                            ]),
+                                    ->default(true)
+                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                            ])
+                            ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                         Grid::make(2)
                             ->schema([

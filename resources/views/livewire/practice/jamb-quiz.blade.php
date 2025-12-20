@@ -92,47 +92,107 @@
                         </div>
                     </div>
 
-                    <!-- Answer Options -->
+                    <!-- Answer Options with Instant Feedback -->
                     <div class="space-y-3 mb-8">
+                        @php
+                            $hasAnswered = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) !== null;
+                            $correctOption = $question->options->firstWhere('is_correct', true);
+                        @endphp
                         @foreach($question->options as $option)
-                            @php $isSelected = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) == $option->id; @endphp
+                            @php
+                                $isSelected = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) == $option->id;
+                                $isCorrect = $option->is_correct;
+
+                                // Determine styling based on answer state
+                                if ($hasAnswered) {
+                                    if ($isCorrect) {
+                                        $borderClass = 'border-green-500 bg-green-50 dark:bg-green-950/20';
+                                        $textClass = 'text-green-800 dark:text-green-300 font-medium';
+                                    } elseif ($isSelected && !$isCorrect) {
+                                        $borderClass = 'border-red-500 bg-red-50 dark:bg-red-950/20';
+                                        $textClass = 'text-red-800 dark:text-red-300';
+                                    } else {
+                                        $borderClass = 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 opacity-60';
+                                        $textClass = 'text-gray-700 dark:text-gray-300';
+                                    }
+                                } else {
+                                    $borderClass = $isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600';
+                                    $textClass = $isSelected ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-700 dark:text-gray-300';
+                                }
+                            @endphp
                             <button
                                 wire:click="selectAnswer({{ $option->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="selectAnswer"
-                                class="w-full p-4 rounded-lg border-2 text-left transition-all relative {{ $isSelected ? 'border-green-500 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-300 dark:ring-green-700' : 'border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600' }} disabled:opacity-50 disabled:cursor-not-allowed">
+                                @if($hasAnswered) disabled @endif
+                                class="w-full p-4 rounded-lg border-2 text-left transition-all disabled:cursor-not-allowed {{ $borderClass }}">
                                 <div class="flex items-start gap-3">
-                                    <!-- Radio Button -->
-                                    <div class="flex-shrink-0 w-6 h-6 rounded-full border-2 {{ $isSelected ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-green-400' }} flex items-center justify-center flex-shrink-0 mt-0.5 transition-all">
-                                        @if($isSelected)
-                                            <div class="w-2.5 h-2.5 bg-white rounded-full animate-pulse"></div>
+                                    <!-- Radio/Status Icon -->
+                                    <div class="flex-shrink-0 mt-0.5">
+                                        @if($hasAnswered)
+                                            @if($isCorrect)
+                                            <div class="w-6 h-6 rounded-full bg-green-500 dark:bg-green-600 flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </div>
+                                            @elseif($isSelected && !$isCorrect)
+                                            <div class="w-6 h-6 rounded-full bg-red-500 dark:bg-red-600 flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </div>
+                                            @else
+                                            <div class="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                                            @endif
+                                        @else
+                                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center {{ $isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600' }}">
+                                                @if($isSelected)
+                                                <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
+                                                @endif
+                                            </div>
                                         @endif
                                     </div>
                                     <!-- Option Text -->
-                                    <span class="flex-1 {{ $isSelected ? 'text-green-700 dark:text-green-300 font-medium' : 'text-gray-700 dark:text-gray-300' }}">{{ $option->option_text }}</span>
-                                    <!-- Loading Indicator -->
-                                    <div wire:loading wire:target="selectAnswer" class="flex-shrink-0">
-                                        <svg class="animate-spin h-5 w-5 text-green-500 dark:text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                    </div>
-                                    <!-- Checkmark (shown when selected and not loading) -->
-                                    <div wire:loading.remove wire:target="selectAnswer" class="flex-shrink-0">
-                                        @if($isSelected)
-                                            <svg class="h-5 w-5 text-green-500 dark:text-green-400 animate-bounce" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                            </svg>
-                                        @endif
+                                    <div class="flex-1">
+                                        <div class="flex items-start gap-2">
+                                            <span class="{{ $textClass }}">{{ $option->option_text }}</span>
+                                            @if($hasAnswered && $isCorrect)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-600 text-white whitespace-nowrap">
+                                                Correct
+                                            </span>
+                                            @elseif($hasAnswered && $isSelected && !$isCorrect)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-600 text-white whitespace-nowrap">
+                                                Wrong
+                                            </span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </button>
                         @endforeach
                     </div>
 
+                    <!-- Instant Explanation (shown after answering) -->
+                    @if($hasAnswered && $question->explanation)
+                    <div class="mb-8 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 animate-fade-in">
+                        <div class="flex gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <flux:heading size="sm" class="text-blue-900 dark:text-blue-300 mb-1 font-semibold">Explanation</flux:heading>
+                                <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed">{{ $question->explanation }}</flux:text>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Navigation Buttons -->
                     <div class="mt-8 flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <button 
+                        <button
                             wire:click="previousQuestion"
                             wire:loading.attr="disabled"
                             wire:target="previousQuestion"
@@ -318,15 +378,15 @@
                         </svg>
                     </span>
                 </button>
-                <flux:button 
-                    wire:navigate 
-                    href="{{ route('practice.jamb.setup') }}" 
+                <flux:button
+                    wire:navigate
+                    href="{{ route('practice.jamb.setup') }}"
                     variant="ghost">
                     Try Another Test
                 </flux:button>
-                <flux:button 
-                    wire:navigate 
-                    href="{{ route('dashboard') }}" 
+                <flux:button
+                    wire:navigate
+                    href="{{ route('dashboard') }}"
                     variant="outline">
                     Back to Dashboard
                 </flux:button>
@@ -353,7 +413,7 @@
                                             </flux:badge>
                                             <flux:text class="flex-1 font-medium">{{ $question->question_text }}</flux:text>
                                         </div>
-                                        
+
                                         @if($userAnswer)
                                             <div class="ml-12 space-y-2">
                                                 <div>

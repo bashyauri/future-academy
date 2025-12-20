@@ -33,7 +33,7 @@
             <div class="space-y-2 md:space-y-3">
                 <flux:heading size="sm" class="text-sm md:text-base">{{ __('Exam Type') }}</flux:heading>
                 <div class="relative">
-                    <flux:select 
+                    <flux:select
                         wire:model.live="selectedExamType"
                         placeholder="{{ __('Choose exam...') }}"
                         class="text-sm md:text-base"
@@ -59,7 +59,7 @@
             <div class="space-y-2 md:space-y-3">
                 <flux:heading size="sm" class="text-sm md:text-base">{{ __('Subject') }}</flux:heading>
                 <div class="relative">
-                    <flux:select 
+                    <flux:select
                         wire:model.live="selectedSubject"
                         placeholder="{{ __('Choose subject...') }}"
                         :disabled="!$selectedExamType"
@@ -86,7 +86,7 @@
             <div class="space-y-2 md:space-y-3">
                 <flux:heading size="sm" class="text-sm md:text-base">{{ __('Exam Year') }}</flux:heading>
                 <div class="relative">
-                    <flux:select 
+                    <flux:select
                         wire:model="selectedYear"
                         placeholder="{{ __('Choose year...') }}"
                         :disabled="!$selectedExamType || !$selectedSubject"
@@ -109,11 +109,43 @@
                 </flux:text>
             </div>
         </div>
+        {{-- Shuffle Option --}}
+        <div class="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input
+                    type="checkbox"
+                    wire:model="shuffleQuestions"
+                    class="mt-1 h-5 w-5 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600 dark:bg-neutral-700 cursor-pointer"
+                >
+                <div class="flex-1">
+                    <flux:heading size="sm" class="text-sm font-semibold">{{ __('Shuffle Questions') }}</flux:heading>
+                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                        {{ __('Randomize the order of questions in your practice exam') }}
+                    </flux:text>
+                </div>
+            </label>
+        </div>
+        {{-- Shuffle Option --}}
+        <div class="mt-6 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input
+                    type="checkbox"
+                    wire:model="shuffleQuestions"
+                    class="mt-1 h-5 w-5 rounded border-neutral-300 dark:border-neutral-600 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-600 dark:bg-neutral-700 cursor-pointer"
+                >
+                <div class="flex-1">
+                    <flux:heading size="sm" class="text-sm font-semibold">{{ __('Shuffle Questions') }}</flux:heading>
+                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                        {{ __('Randomize the order of questions in your practice exam') }}
+                    </flux:text>
+                </div>
+            </label>
+        </div>
 
         {{-- Start Button --}}
         <div class="mt-6 md:mt-8 flex flex-col sm:flex-row gap-3 md:gap-4">
-            <flux:button 
-                variant="primary" 
+            <flux:button
+                variant="primary"
                 wire:click="startPractice"
                 icon="play"
                 class="w-full sm:w-auto text-sm md:text-base py-3 md:py-2"

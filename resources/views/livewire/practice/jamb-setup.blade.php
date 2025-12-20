@@ -13,7 +13,7 @@
                 <div>
                     <flux:heading size="lg" level="2" class="mb-2">Select Exam Year</flux:heading>
                     <flux:text class="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose which year's JAMB questions you want to practice</flux:text>
-                    
+
                     @if($years->count() > 0)
                         <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
                             @foreach($years as $year)
@@ -87,51 +87,16 @@
             <div class="space-y-6">
                 <!-- Quiz Settings -->
                 <div class="space-y-6">
-                    <div>
-                        <flux:heading size="lg" level="2" class="mb-4">Quiz Settings</flux:heading>
-                        
-                        <!-- Questions Per Subject -->
-                        <div class="space-y-2 mb-6">
-                            <div class="flex justify-between items-end">
-                                <flux:label for="questions">Questions per Subject</flux:label>
-                                <flux:text class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ $questionsPerSubject }}</flux:text>
-                            </div>
-                            <input type="range" id="questions" 
-                                   wire:model.live="questionsPerSubject"
-                                   min="5" max="100" step="5"
-                                   class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                            <flux:text class="text-xs text-gray-500 dark:text-gray-400">5 - 100 questions</flux:text>
-                        </div>
-
-                        <!-- Time Limit -->
-                        <div class="space-y-2 mb-6">
-                            <div class="flex justify-between items-end">
-                                <flux:label for="time">Time Limit</flux:label>
-                                <flux:text class="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                    {{ intdiv($timeLimit, 60) }}:{{ str_pad($timeLimit % 60, 2, '0', STR_PAD_LEFT) }}
-                                </flux:text>
-                            </div>
-                            <input type="range" id="time"
-                                   wire:model.live="timeLimit"
-                                   min="10" max="600" step="10"
-                                   class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                            <flux:text class="text-xs text-gray-500 dark:text-gray-400">10 - 600 minutes</flux:text>
-                        </div>
-                    </div>
+                    <flux:heading size="lg" level="2" class="mb-4">Quiz Settings</flux:heading>
 
                     <!-- Options -->
-                    <div class="space-y-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <flux:checkbox 
-                            wire:model="showAnswersImmediately"
-                            label="Show answers immediately" />
-                        
-                        <flux:checkbox 
-                            wire:model="showExplanations"
-                            label="Show explanations" />
-                        
-                        <flux:checkbox 
+                    <div class="space-y-3">
+                        <flux:checkbox
                             wire:model="shuffleQuestions"
                             label="Shuffle questions" />
+                        <flux:text class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Answers and explanations will be shown automatically after selecting an option
+                        </flux:text>
                     </div>
                 </div>
 
@@ -141,15 +106,15 @@
                     <div class="space-y-3 text-sm">
                         <div class="flex justify-between items-center">
                             <flux:text class="text-gray-600 dark:text-gray-400">Total Questions:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ $questionsPerSubject * 4 }}</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">160</flux:text>
                         </div>
                         <div class="flex justify-between items-center">
                             <flux:text class="text-gray-600 dark:text-gray-400">Time Allowed:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ $timeLimit }} mins</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">180 mins (3 hours)</flux:text>
                         </div>
                         <div class="flex justify-between items-center">
                             <flux:text class="text-gray-600 dark:text-gray-400">Per Question:</flux:text>
-                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">{{ round(($timeLimit * 60) / ($questionsPerSubject * 4)) }}s</flux:text>
+                            <flux:text class="font-bold text-blue-600 dark:text-blue-400">67s</flux:text>
                         </div>
                     </div>
                 </div>
@@ -158,7 +123,7 @@
 
         <!-- Actions -->
         <div class="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button 
+            <button
                 wire:click="startJambTest"
                 wire:loading.attr="disabled"
                 wire:target="startJambTest"
@@ -173,8 +138,8 @@
                     Starting...
                 </span>
             </button>
-            <flux:button 
-                wire:navigate href="{{ route('practice.home') }}" 
+            <flux:button
+                wire:navigate href="{{ route('practice.home') }}"
                 variant="ghost">
                 Back to Practice
             </flux:button>

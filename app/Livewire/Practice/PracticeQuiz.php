@@ -21,12 +21,15 @@ class PracticeQuiz extends Component
     #[Url]
     public $year;
 
+    #[Url]
+    public $shuffle = 0;
+
     public $questions = [];
     public $currentQuestionIndex = 0;
     public $userAnswers = [];
+    public $selectedAnswers = []; // Track which option was selected for each question
     public $timeStarted;
     public $showResults = false;
-    public $showReview = false;
     public $score = 0;
     public $totalQuestions = 0;
 
@@ -35,22 +38,32 @@ class PracticeQuiz extends Component
         $this->timeStarted = now();
 
         // Load questions
-        $this->questions = Question::where('exam_type_id', $this->exam_type)
+        $query = Question::where('exam_type_id', $this->exam_type)
             ->where('subject_id', $this->subject)
             ->where('exam_year', $this->year)
-            ->with('options')
-            ->get()
-            ->toArray();
+            ->with('options');
+
+        // Shuffle if requested
+        if ($this->shuffle == 1) {
+            $query->inRandomOrder();
+        }
+
+        $this->questions = $query->get()->toArray();
 
         $this->totalQuestions = count($this->questions);
 
         // Initialize user answers array
         $this->userAnswers = array_fill(0, $this->totalQuestions, null);
+        $this->selectedAnswers = array_fill(0, $this->totalQuestions, null);
     }
 
     public function selectAnswer($optionId)
     {
+        // Store the selected option for this question
         $this->userAnswers[$this->currentQuestionIndex] = $optionId;
+        $this->selectedAnswers[$this->currentQuestionIndex] = $optionId;
+
+        // No auto-advance - user stays on question to see feedback
     }
 
     public function nextQuestion()
@@ -81,15 +94,9 @@ class PracticeQuiz extends Component
         $this->saveAttempt();
     }
 
-    public function startReview()
-    {
-        $this->showReview = true;
-        $this->currentQuestionIndex = 0;
-    }
-
     public function exitReview()
     {
-        $this->showReview = false;
+        return redirect()->route('practice.home');
     }
 
     private function calculateScore()
