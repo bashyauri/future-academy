@@ -93,38 +93,23 @@
                             <button
                                 wire:click="selectAnswer({{ $option->id }})"
                                 wire:loading.attr="disabled"
-                                wire:loading.class="opacity-70 cursor-wait"
                                 wire:target="selectAnswer"
                                 class="w-full p-4 rounded-xl border-2 text-left transition-all relative {{ $isSelected ? 'border-green-500 bg-green-50 dark:bg-neutral-900 ring-2 ring-green-300 dark:ring-green-700' : 'border-gray-200 dark:border-neutral-800 hover:border-green-400 dark:hover:border-green-500' }}">
                                 <div class="flex items-start gap-3">
                                     <div class="flex-shrink-0 w-6 h-6 rounded-full border-2 {{ $isSelected ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-700' }} flex items-center justify-center mt-0.5 transition-all">
                                         @if($isSelected)
-                                            <div class="w-2.5 h-2.5 bg-white rounded-full animate-pulse"></div>
+                                            <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
                                         @endif
-                                    </div>
-                                    <span class="flex-1 {{ $isSelected ? 'text-green-700 dark:text-green-200 font-medium' : 'text-gray-800 dark:text-gray-200' }}">{{ $option->option_text }}</span>
-                                    <div class="flex items-center gap-2">
-                                        @if($isSelected)
-                                            <svg class="h-5 w-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                        @endif
-                                        <svg wire:loading wire:target="selectAnswer" class="h-4 w-4 text-gray-500 dark:text-gray-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <!-- Loading spinner when clicking -->
+                                        <svg wire:loading wire:target="selectAnswer" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
                                     </div>
-                                </div>
-                            </button>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-8 flex justify-between items-center pt-6 border-t border-gray-200 dark:border-neutral-800">
-                        <button
-                            wire:click="previousQuestion"
-                            wire:loading.attr="disabled"
-                            wire:loading.class="opacity-70 cursor-wait"
-                            wire:target="previousQuestion"
-                            class="px-4 py-2 border border-gray-300 dark:border-neutral-800 text-gray-800 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'opacity-50 cursor-not-allowed' : '' }}"
-                            {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'disabled' : '' }}>
+                                    <span class="flex-1 {{ $isSelected ? 'text-green-700 dark:text-green-200 font-medium' : 'text-gray-800 dark:text-gray-200' }}">{{ $option->option_text }}</span>
+                                    @if($isSelected)
+                                        <svg class="h-5 w-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    @endif
                             <span wire:loading.remove wire:target="previousQuestion">← Previous</span>
                             <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
                                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
