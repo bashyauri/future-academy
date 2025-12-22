@@ -20,22 +20,13 @@ class ExamTypeSeeder extends Seeder
                 'sort_order' => 1,
             ],
             [
-                'name' => 'WAEC (SSCE)',
-                'slug' => 'waec',
-                'code' => 'WAEC',
-                'description' => 'West African Examinations Council - Senior School Certificate Examination',
+                'name' => 'WAEC/NECO(SSCE)',
+                'slug' => 'waec-neco-ssce',
+                'code' => 'SSCE',
+                'description' => 'Senior School Certificate Examination - West African Examinations Council (WAEC) and National Examinations Council (NECO)',
                 'color' => '#10B981',
                 'is_active' => true,
                 'sort_order' => 2,
-            ],
-            [
-                'name' => 'NECO (SSCE)',
-                'slug' => 'neco',
-                'code' => 'NECO',
-                'description' => 'National Examinations Council - Senior School Certificate Examination',
-                'color' => '#8B5CF6',
-                'is_active' => true,
-                'sort_order' => 3,
             ],
         ];
 
