@@ -1,6 +1,43 @@
-<div class="space-y-4 md:space-y-6">
+<div class="space-y-4 md:space-y-6" x-data="{ showProgressGrid: false }">
     @if(!$showResults)
     {{-- Quiz Taking Interface --}}
+
+    <!-- Mobile Progress Toggle Button -->
+    <div class="lg:hidden flex justify-center">
+        <button
+            @click="showProgressGrid = !showProgressGrid"
+            class="px-4 py-2 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M4 10h16"/>
+            </svg>
+            <span x-text="showProgressGrid ? 'Hide Progress' : 'Show Progress'"></span>
+        </button>
+    </div>
+
+    <!-- Mobile Progress Grid -->
+    <div x-show="showProgressGrid" x-transition x-cloak class="lg:hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+        <div class="mb-3">
+            <flux:text class="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase mb-3">Question Progress</flux:text>
+            <div class="grid grid-cols-10 gap-1">
+                @for($i = 0; $i < $totalQuestions; $i++)
+                    @php
+                        $isAnswered = ($userAnswers[$i] ?? null) !== null;
+                        $isCurrent = $currentQuestionIndex == $i;
+                    @endphp
+                    <button
+                        wire:click="jumpToQuestion({{ $i }})"
+                        @click="showProgressGrid = false"
+                        wire:loading.attr="disabled"
+                        wire:target="jumpToQuestion"
+                        title="Q{{ $i + 1 }}"
+                        class="aspect-square h-6 w-6 p-0 flex items-center justify-center rounded text-xs font-medium transition-all {{ $isCurrent ? 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700' : ($isAnswered ? 'bg-green-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400') }}">
+                        {{ $i + 1 }}
+                    </button>
+                @endfor
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-6">
         {{-- Main Question Area --}}
         <div class="lg:col-span-2 space-y-6">
@@ -388,4 +425,5 @@
         </div>
     </div>
     @endif
+</div>
 </div>

@@ -168,7 +168,7 @@
                                     @if($isSsce)
                                         From WAEC, NECO, and NAPTEB
                                     @else
-                                        From all available years
+                                        Curated from multiple sources
                                     @endif
                                 </div>
                             </div>
