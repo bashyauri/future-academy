@@ -1,4 +1,47 @@
-<div class="space-y-4 md:space-y-6" x-data="{ showProgressGrid: false }">
+<div class="space-y-4 md:space-y-6" x-data="{
+    startEpoch: {{ $timeStarted?->timestamp ?? 0 }},
+    durationSeconds: {{ ($time ?? 0) * 60 }},
+    timeLeft: {{ $timeRemaining ?? 0 }},
+    tickTimer: null,
+    syncTimer: null,
+    showProgressGrid: false,
+    init() {
+        // Fallback if server timestamp is missing
+        if (!this.startEpoch || this.startEpoch < 1000000000) {
+            this.startEpoch = Math.floor(Date.now() / 1000);
+        }
+        // If timeLeft is invalid, reset to full duration
+        if (!Number.isFinite(this.timeLeft) || this.timeLeft <= 0) {
+            this.timeLeft = this.durationSeconds;
+        }
+        this.resync();
+        // Tick every second
+        this.tickTimer = setInterval(() => this.resync(), 1000);
+        // Sync with server every 5 seconds
+        @if($time)
+        this.syncTimer = setInterval(() => $wire.dispatch('update-timer'), 5000);
+        @endif
+    },
+    resync() {
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = this.durationSeconds - (now - this.startEpoch);
+        this.timeLeft = remaining > 0 ? remaining : 0;
+        if (this.timeLeft === 0 && this.durationSeconds > 0) {
+            this.stopTicking();
+            $wire.dispatch('timer-expired');
+        }
+    },
+    stopTicking() {
+        if (this.tickTimer) clearInterval(this.tickTimer);
+        if (this.syncTimer) clearInterval(this.syncTimer);
+    },
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        const result = mins + ':' + (secs < 10 ? '0' : '') + secs;
+        return result;
+    }
+}">
     @if(!$showResults)
     {{-- Quiz Taking Interface --}}
 
@@ -49,11 +92,11 @@
                     </flux:heading>
                     <div class="flex items-center gap-4">
                         @if($time)
-                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" wire:ignore>
                             <svg class="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            <flux:text class="text-sm font-semibold text-blue-700 dark:text-blue-300">{{ $time }} min</flux:text>
+                            <flux:text class="text-sm font-semibold text-blue-700 dark:text-blue-300" x-text="formatTime(timeLeft)"></flux:text>
                         </div>
                         @endif
                         <flux:text class="text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-medium">
