@@ -1,24 +1,35 @@
 <div x-data="{
-    // Use static initial value to avoid entanglement network traffic
-    timeRemaining: {{ $timeRemaining }},
-    timer: null,
+    startEpoch: {{ $timerStartedAt?->timestamp ?? 0 }},
+    durationSeconds: {{ $timeLimit * 60 }},
+    timeLeft: {{ $timeRemaining }},
+    tickTimer: null,
     showProgressGrid: false,
     init() {
-        this.startTimer();
+        // Fallback if server timestamp is missing
+        if (!this.startEpoch || this.startEpoch < 1000000000) {
+            this.startEpoch = Math.floor(Date.now() / 1000);
+        }
+        // If timeLeft is invalid, reset to full duration
+        if (!Number.isFinite(this.timeLeft) || this.timeLeft <= 0) {
+            this.timeLeft = this.durationSeconds;
+        }
+        this.resync();
+        this.tickTimer = setInterval(() => this.resync(), 1000);
     },
-    startTimer() {
-        this.stopTimer();
-        this.timer = setInterval(() => {
-            if (this.timeRemaining > 0) {
-                this.timeRemaining--;
-            } else {
-                this.stopTimer();
-                $wire.call('handleTimerEnd');
-            }
-        }, 1000);
+    resync() {
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = this.durationSeconds - (now - this.startEpoch);
+        this.timeLeft = remaining > 0 ? remaining : 0;
+        if (this.timeLeft === 0) {
+            this.stopTicking();
+            $wire.call('handleTimerEnd');
+        }
     },
-    stopTimer() {
-        if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    stopTicking() {
+        if (this.tickTimer) {
+            clearInterval(this.tickTimer);
+            this.tickTimer = null;
+        }
     },
     formatTime(seconds) {
         const hours = Math.floor(seconds / 3600);
@@ -38,9 +49,9 @@
                     <flux:text class="text-neutral-600 dark:text-neutral-400 text-sm">{{ $subjectsData[$currentSubjectIndex]->name }}</flux:text>
                 </div>
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full md:w-auto">
-                    <div class="text-left">
+                    <div class="text-left" wire:ignore>
                         <flux:text class="text-neutral-600 dark:text-neutral-400 text-xs md:text-sm">Time Remaining</flux:text>
-                        <div class="text-2xl md:text-3xl font-bold font-mono" :class="timeRemaining < 600 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'" x-text="formatTime(timeRemaining)"></div>
+                        <div class="text-2xl md:text-3xl font-bold font-mono" :class="timeLeft < 600 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'" x-text="formatTime(timeLeft)"></div>
                     </div>
                     <button
                         wire:click="submitQuiz"
