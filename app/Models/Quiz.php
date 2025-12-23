@@ -171,16 +171,8 @@ class Quiz extends Model
             return false;
         }
 
-        if ($this->max_attempts === null) {
-            return true;
-        }
-
-        $userAttempts = $this->attempts()
-            ->where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->count();
-
-        return $userAttempts < $this->max_attempts;
+        // Allow unlimited attempts for all quizzes
+        return true;
     }
 
     public function getNextAttemptNumber(User $user): int

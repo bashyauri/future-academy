@@ -21,6 +21,9 @@ class TakeQuiz extends Component
     public $timeRemaining = null;
     public $showResults = false;
     public $showFeedback = []; // Track which questions show feedback
+    public $autoSaveStatus = 'idle'; // idle, saving, saved
+    public $lastSavedTime = null;
+    public $autoSaveInterval = 15; // Auto-save every 15 seconds
 
     public function mount($id)
     {
@@ -31,16 +34,44 @@ class TakeQuiz extends Component
             abort(403, 'This quiz is not currently available.');
         }
 
+        // Check for active quiz attempt (in_progress status)
+        // Get the LATEST attempt, not the oldest
+        $activeAttempt = $this->quiz->attempts()
+            ->where('user_id', auth()->id())
+            ->where('status', 'in_progress')
+            ->latest('created_at')
+            ->first();
+
+        if ($activeAttempt) {
+            // Load existing attempt instead of creating a new one
+            $this->attempt = $activeAttempt;
+            $this->loadAttemptQuestions();
+
+            // Calculate remaining time from server: (started_at + duration) - now
+            if ($this->quiz->isTimed()) {
+                $this->timeRemaining = $this->calculateRemainingSeconds();
+
+                // If time has expired, auto-submit
+                if ($this->timeRemaining <= 0) {
+                    $this->handleTimerExpired();
+                }
+            }
+            return;
+        }
+
+        // No active attempt exists, user can start a new one
         if (!$this->quiz->canUserAttempt(auth()->user())) {
             abort(403, 'You have reached the maximum number of attempts for this quiz.');
         }
     }
 
-    public function startQuiz()
+    private function loadAttemptQuestions()
     {
-        $service = app(QuizGeneratorService::class);
+        if (!$this->attempt) {
+            return;
+        }
 
-        $this->attempt = $service->generateAttempt($this->quiz, auth()->user());
+        $service = app(QuizGeneratorService::class);
 
         // Load questions in the order specified by the attempt
         $questionIds = $this->attempt->getQuestionIds();
@@ -59,8 +90,76 @@ class TakeQuiz extends Component
             $this->shuffledOptions[$question->id] = $service->getShuffledOptions($this->quiz, $question);
         }
 
+        // Load user's saved answers
+        $answers = $this->attempt->answers()
+            ->pluck('option_id', 'question_id')
+            ->toArray();
+        $this->answers = $answers;
+    }
+
+    private function calculateRemainingSeconds()
+    {
+        if (!$this->attempt || !$this->quiz->isTimed()) {
+            return null;
+        }
+
+        // Ensure started_at and duration_minutes are set
+        if (!$this->attempt->started_at || !$this->quiz->duration_minutes) {
+            \Log::warning('Quiz timer issue', [
+                'attempt_id' => $this->attempt->id,
+                'started_at' => $this->attempt->started_at,
+                'duration_minutes' => $this->quiz->duration_minutes,
+            ]);
+            return null;
+        }
+        // Use timestamps to avoid Carbon diff quirks and clamp to a valid range
+        $durationSeconds = (int) ($this->quiz->duration_minutes * 60);
+        $endTimestamp = $this->attempt->started_at->getTimestamp() + $durationSeconds;
+        $nowTimestamp = now()->getTimestamp();
+
+        $remaining = $endTimestamp - $nowTimestamp;
+
+        if ($remaining <= 0) {
+            return 0;
+        }
+
+        // Guard against clock skew pushing the timer back up
+        if ($remaining > $durationSeconds) {
+            $remaining = $durationSeconds;
+        }
+
+        return $remaining;
+    }
+
+    #[On('update-timer')]
+    public function updateTimerFromServer()
+    {
+        if (!$this->attempt || !$this->quiz->isTimed()) {
+            return;
+        }
+
+        // Recalculate remaining time from server
+        $this->timeRemaining = $this->calculateRemainingSeconds();
+
+        // Push the updated value to the browser timer
+        $this->dispatch('update-timer-value', value: $this->timeRemaining);
+
+        // Auto-submit if time has expired
+        if ($this->timeRemaining <= 0) {
+            $this->handleTimerExpired();
+        }
+    }
+
+    public function startQuiz()
+    {
+        $service = app(QuizGeneratorService::class);
+
+        $this->attempt = $service->generateAttempt($this->quiz, auth()->user());
+
+        $this->loadAttemptQuestions();
+
         if ($this->quiz->isTimed()) {
-            $this->timeRemaining = $this->attempt->getRemainingSeconds();
+            $this->timeRemaining = $this->calculateRemainingSeconds();
         }
     }
 
@@ -77,6 +176,41 @@ class TakeQuiz extends Component
 
         $service = app(QuizGeneratorService::class);
         $service->submitAnswer($this->attempt, $questionId, $optionId);
+
+        // Auto-save immediately after answer
+        $this->autoSaveAnswers();
+    }
+
+    public function autoSaveAnswers()
+    {
+        if (!$this->attempt || $this->attempt->isCompleted()) {
+            return;
+        }
+
+        try {
+            $this->autoSaveStatus = 'saving';
+            $service = app(QuizGeneratorService::class);
+
+            // Save all current answers
+            foreach ($this->answers as $questionId => $optionId) {
+                $service->submitAnswer($this->attempt, $questionId, $optionId);
+            }
+
+            $this->lastSavedTime = now()->format('H:i:s');
+            $this->autoSaveStatus = 'saved';
+
+            // Reset saved status after 2 seconds
+            $this->dispatch('resetAutoSaveStatus');
+        } catch (\Throwable $e) {
+            \Log::error('Quiz auto-save failed: ' . $e->getMessage());
+            $this->autoSaveStatus = 'idle';
+        }
+    }
+
+    #[On('reset-auto-save-status')]
+    public function resetAutoSaveStatus()
+    {
+        $this->autoSaveStatus = 'idle';
     }
 
     public function nextQuestion()
@@ -127,6 +261,9 @@ class TakeQuiz extends Component
         if (!$this->attempt || $this->attempt->isCompleted()) {
             return;
         }
+
+        // Final auto-save before submit
+        $this->autoSaveAnswers();
 
         $service = app(QuizGeneratorService::class);
 

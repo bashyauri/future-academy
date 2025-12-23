@@ -290,29 +290,48 @@
             <div class="lg:col-span-1">
                 <div class="sticky top-4 space-y-4">
                     {{-- Timer --}}
-                    @if($quiz->isTimed() && $timeRemaining)
+                    @if($quiz->isTimed() && $timeRemaining !== null)
                         <div
                             class="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
                             <flux:text class="text-sm text-center text-neutral-500 mb-2">{{ __('Time Remaining') }}</flux:text>
-                            <div id="timer" class="text-3xl font-bold text-center" x-data="{
-                                                                                     timeLeft: {{ $timeRemaining }},
-                                                                                     timer: null,
-                                                                                     init() {
-                                                                                         this.timer = setInterval(() => {
-                                                                                             this.timeLeft--;
-                                                                                             if (this.timeLeft <= 0) {
-                                                                                                 clearInterval(this.timer);
-                                                                                                 $wire.dispatch('timer-expired');
-                                                                                             }
-                                                                                         }, 1000);
-                                                                                     },
-                                                                                     formatTime() {
-                                                                                         let minutes = Math.floor(this.timeLeft / 60);
-                                                                                         let seconds = this.timeLeft % 60;
-                                                                                         return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-                                                                                     }
-                                                                                 }" x-text="formatTime()"
-                                :class="timeLeft < 60 ? 'text-red-600 dark:text-red-400' : 'text-neutral-900 dark:text-neutral-100'">
+                            <div id="timer" class="text-3xl font-bold text-center" wire:ignore x-data="{
+                                timeLeft: {{ $timeRemaining }},
+                                timer: null,
+                                serverSyncTimer: null,
+                                init() {
+                                    this.startTimer();
+                                    // Sync with server every 5 seconds to handle browser close/refresh
+                                    this.serverSyncTimer = setInterval(() => {
+                                        $wire.dispatch('update-timer');
+                                    }, 5000);
+                                },
+                                startTimer() {
+                                    this.stopTimer();
+                                    this.timer = setInterval(() => {
+                                        if (this.timeLeft > 0) {
+                                            this.timeLeft--;
+                                        }
+                                    }, 1000);
+                                },
+                                stopTimer() {
+                                    if (this.timer) {
+                                        clearInterval(this.timer);
+                                        this.timer = null;
+                                    }
+                                    if (this.serverSyncTimer) {
+                                        clearInterval(this.serverSyncTimer);
+                                        this.serverSyncTimer = null;
+                                    }
+                                },
+                                formatTime() {
+                                    let minutes = Math.floor(this.timeLeft / 60);
+                                    let seconds = this.timeLeft % 60;
+                                    return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                                }
+                            }"
+                            @update-timer-value.window="if ($event.detail && typeof $event.detail.value === 'number') { timeLeft = Math.min(timeLeft, $event.detail.value); }"
+                            x-text="formatTime()"
+                                :class="timeLeft < 300 ? (timeLeft < 60 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-orange-600 dark:text-orange-400') : 'text-neutral-900 dark:text-neutral-100'">
                             </div>
                         </div>
                     @endif
