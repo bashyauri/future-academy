@@ -4,6 +4,7 @@
     timeLeft: {{ $timeRemaining }},
     tickTimer: null,
     showProgressGrid: false,
+    hasResults: {{ $showResults ? 'true' : 'false' }},
     init() {
         // Fallback if server timestamp is missing
         if (!this.startEpoch || this.startEpoch < 1000000000) {
@@ -14,9 +15,14 @@
             this.timeLeft = this.durationSeconds;
         }
         this.resync();
+        if (this.hasResults) {
+            this.stopTicking();
+            return;
+        }
         this.tickTimer = setInterval(() => this.resync(), 1000);
     },
     resync() {
+        if (this.hasResults) return;
         const now = Math.floor(Date.now() / 1000);
         const remaining = this.durationSeconds - (now - this.startEpoch);
         this.timeLeft = remaining > 0 ? remaining : 0;
@@ -451,18 +457,12 @@
                         </svg>
                     </span>
                 </button>
-                <flux:button
-                    wire:navigate
-                    href="{{ route('practice.jamb.setup') }}"
-                    variant="ghost">
+                <a href="{{ route('practice.jamb.setup') }}" class="px-6 py-2 text-gray-700 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all inline-flex items-center justify-center gap-2">
                     Try Another Test
-                </flux:button>
-                <flux:button
-                    wire:navigate
-                    href="{{ route('dashboard') }}"
-                    variant="outline">
+                </a>
+                <a href="{{ route('dashboard') }}" class="px-6 py-2 text-gray-700 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all inline-flex items-center justify-center gap-2">
                     Back to Dashboard
-                </flux:button>
+                </a>
             </div>
 
             <!-- Answer Review -->

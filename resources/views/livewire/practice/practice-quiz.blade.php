@@ -5,6 +5,7 @@
     tickTimer: null,
     syncTimer: null,
     showProgressGrid: false,
+    hasResults: {{ $showResults ? 'true' : 'false' }},
     init() {
         // Fallback if server timestamp is missing
         if (!this.startEpoch || this.startEpoch < 1000000000) {
@@ -15,6 +16,10 @@
             this.timeLeft = this.durationSeconds;
         }
         this.resync();
+        if (this.hasResults) {
+            this.stopTicking();
+            return;
+        }
         // Tick every second
         this.tickTimer = setInterval(() => this.resync(), 1000);
         // Sync with server every 5 seconds
@@ -23,6 +28,7 @@
         @endif
     },
     resync() {
+        if (this.hasResults) return;
         const now = Math.floor(Date.now() / 1000);
         const remaining = this.durationSeconds - (now - this.startEpoch);
         this.timeLeft = remaining > 0 ? remaining : 0;
@@ -456,15 +462,9 @@
                 {{ __('Try Another Practice Exam') }}
             </flux:button>
 
-            <flux:button
-                href="{{ route('dashboard') }}"
-                variant="ghost"
-                icon="home"
-                wire:navigate
-                class="w-full text-base min-h-[52px]"
-            >
+            <a href="{{ route('dashboard') }}" class="w-full text-base min-h-[52px] px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all inline-flex items-center justify-center gap-2">
                 {{ __('Back to Dashboard') }}
-            </flux:button>
+            </a>
         </div>
     </div>
     @endif
