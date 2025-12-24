@@ -66,6 +66,14 @@ class ListQuestions extends ListRecords
                         ->searchable()
                         ->prefixIcon('heroicon-o-book-open')
                         ->columnSpan(1),
+
+                    \Filament\Forms\Components\TextInput::make('batch_name')
+                        ->label('Batch Name (Optional)')
+                        ->placeholder('e.g., WAEC 2024 Math, Dec 2025 Import')
+                        ->helperText('Give this import batch a memorable name for easy tracking')
+                        ->maxLength(100)
+                        ->prefixIcon('heroicon-o-tag')
+                        ->columnSpanFull(),
                 ])
                 ->modalHeading('📤 Import Questions from CSV/Excel')
                 ->modalDescription('Upload a CSV or Excel file to bulk import questions. Download the template below to see the exact format.')
@@ -91,7 +99,8 @@ class ListQuestions extends ListRecords
                         $import = new QuestionsImport(
                             $data['default_exam_type_id'] ?? null,
                             $data['default_subject_id'] ?? null,
-                            \Filament\Facades\Filament::auth()->id()
+                            \Filament\Facades\Filament::auth()->id(),
+                            $data['batch_name'] ?? null
                         );
 
                         // Import with Laravel Excel

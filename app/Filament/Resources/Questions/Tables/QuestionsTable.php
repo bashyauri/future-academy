@@ -32,17 +32,26 @@ class QuestionsTable
 
                 TextColumn::make('question_text')
                     ->label('Question')
-                    ->limit(70)
+                    ->formatStateUsing(function (Question $record): string {
+                        $prefix = "Q#{$record->id}";
+                        $text = $record->question_text;
+
+                        // Truncate if too long
+                        if (strlen($text) > 60) {
+                            $text = substr($text, 0, 60) . '...';
+                        }
+
+                        return "{$prefix}: {$text}";
+                    })
+                    ->description(fn(Question $record): string =>
+                        $record->subject?->name . ($record->topic ? " › {$record->topic->name}" : '')
+                    )
                     ->searchable()
                     ->weight('medium')
                     ->wrap()
-                    ->tooltip(function (TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 70) {
-                            return null;
-                        }
-                        return $state;
-                    }),
+                    ->tooltip(fn(Question $record): string =>
+                        "Q#{$record->id}\n\n{$record->question_text}"
+                    ),
 
                 TextColumn::make('examType.name')
                     ->label('Exam')
@@ -120,11 +129,31 @@ class QuestionsTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('System'),
 
-                TextColumn::make('upload_batch')
-                    ->label('Upload Batch')
-                    ->copyable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->placeholder('-'),
+                TextColumn::make('batch_name')
+                    ->label('Batch')
+                    ->formatStateUsing(function (Question $record): ?string {
+                        if ($record->batch_name) {
+                            return $record->batch_name;
+                        }
+
+                        // Fallback to formatted upload_batch if no batch_name
+                        if ($record->upload_batch && strlen($record->upload_batch) >= 10 && is_numeric(substr($record->upload_batch, 0, 10))) {
+                            $timestamp = substr($record->upload_batch, 0, 10);
+                            $date = date('M d, Y H:i', (int)$timestamp);
+                            return $date;
+                        }
+
+                        return null;
+                    })
+                    ->description(fn(Question $record): ?string =>
+                        $record->upload_batch ? "ID: ···" . substr($record->upload_batch, -8) : null
+                    )
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable()
+                    ->placeholder('No batch')
+                    ->icon('heroicon-o-tag')
+                    ->wrap(),
 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -187,15 +216,36 @@ class QuestionsTable
                     })
                     ->multiple(),
 
-                SelectFilter::make('upload_batch')
-                    ->label('Upload Batch')
-                    ->options(fn() => Question::query()
-                        ->select('upload_batch')
-                        ->whereNotNull('upload_batch')
-                        ->distinct()
-                        ->orderBy('upload_batch')
-                        ->pluck('upload_batch', 'upload_batch'))
+                SelectFilter::make('batch_name')
+                    ->label('Batch')
+                    ->options(function () {
+                        return Question::query()
+                            ->select('batch_name', 'upload_batch', 'created_at')
+                            ->where(function ($query) {
+                                $query->whereNotNull('batch_name')
+                                      ->orWhereNotNull('upload_batch');
+                            })
+                            ->orderByDesc('created_at')
+                            ->get()
+                            ->unique(fn($q) => $q->batch_name ?: $q->upload_batch)
+                            ->mapWithKeys(function ($question) {
+                                if ($question->batch_name) {
+                                    return [$question->batch_name => $question->batch_name];
+                                }
+
+                                // Fallback for old records without batch_name
+                                if ($question->upload_batch && strlen($question->upload_batch) >= 10 && is_numeric(substr($question->upload_batch, 0, 10))) {
+                                    $timestamp = substr($question->upload_batch, 0, 10);
+                                    $date = date('M d, Y H:i', (int)$timestamp);
+                                    return [$question->upload_batch => $date];
+                                }
+
+                                return [];
+                            })
+                            ->filter();
+                    })
                     ->searchable()
+                    ->multiple()
                     ->placeholder('All Batches'),
 
                 TernaryFilter::make('is_active')

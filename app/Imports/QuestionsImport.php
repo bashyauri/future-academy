@@ -31,16 +31,27 @@ class QuestionsImport implements
     protected $defaultSubjectId;
     protected $userId;
     protected string $batchKey;
+    protected ?string $batchName;
     protected $errors = [];
     protected $imported = 0;
     protected $skipped = 0;
 
-    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null)
+    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null)
     {
         $this->defaultExamTypeId = $defaultExamTypeId;
         $this->defaultSubjectId = $defaultSubjectId;
         $this->userId = $userId ?? \Illuminate\Support\Facades\Auth::id();
-        $this->batchKey = 'import-' . (string) \Str::uuid();
+        $this->batchKey = time() . '_' . \Str::random(8);
+        $userName = null;
+        if ($this->userId) {
+            $user = \App\Models\User::find($this->userId);
+            $userName = $user ? $user->name : null;
+        }
+        if ($batchName && trim($batchName)) {
+            $this->batchName = trim($batchName);
+        } else {
+            $this->batchName = 'Imported ' . date('Y-m-d H:i') . ($userName ? ' by ' . $userName : '');
+        }
     }
 
     /**
@@ -117,6 +128,7 @@ class QuestionsImport implements
                 'status' => 'pending',
                 'created_by' => $this->userId,
                 'upload_batch' => $this->batchKey,
+                'batch_name' => $this->batchName,
                 'is_active' => true,
             ]);
 

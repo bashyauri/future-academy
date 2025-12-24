@@ -24,6 +24,7 @@ class Question extends Model
         'status',
         'created_by',
         'upload_batch',
+        'batch_name',
         'approved_by',
         'approved_at',
         'rejection_reason',
