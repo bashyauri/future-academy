@@ -326,6 +326,7 @@ class QuestionsTable
                                 }
                             }
                         })
+                        ->accessSelectedRecords()
                         ->deselectRecordsAfterCompletion(),
 
                     DeleteBulkAction::make()
