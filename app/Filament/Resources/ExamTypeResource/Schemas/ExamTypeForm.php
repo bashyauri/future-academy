@@ -31,15 +31,23 @@ class ExamTypeForm
                                     ->prefixIcon('heroicon-o-academic-cap')
                                     ->placeholder('e.g., WAEC, NECO, JAMB')
                                     ->helperText('Full name of the examination')
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($state, callable $set, $get) {
+                                        if (empty($get('slug'))) {
+                                            $set('slug', \Illuminate\Support\Str::slug($state));
+                                        }
+                                        if (empty($get('code'))) {
+                                            $set('code', strtoupper(substr(\Illuminate\Support\Str::slug($state), 0, 10)));
+                                        }
+                                    })
                                     ->columnSpan(1),
 
                                 TextInput::make('code')
                                     ->label('Exam Code')
-                                    ->required()
                                     ->maxLength(10)
                                     ->unique(ignoreRecord: true)
                                     ->prefixIcon('heroicon-o-hashtag')
-                                    ->placeholder('e.g., WAEC')
+                                    ->placeholder('Auto-generated')
                                     ->helperText('Short code (auto-generated from name if empty)')
                                     ->columnSpan(1),
                             ])
