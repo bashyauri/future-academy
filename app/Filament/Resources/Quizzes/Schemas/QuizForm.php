@@ -25,14 +25,20 @@ class QuizForm
         return $schema
             ->components([
                 Section::make('Basic Information')
+                    ->description('Core details about this quiz')
+                    ->icon('heroicon-o-document-text')
                     ->schema([
                         TextInput::make('title')
+                            ->label('Quiz Title')
                             ->required()
                             ->maxLength(255)
+                            ->placeholder('e.g., JAMB Mathematics Practice Test')
                             ->columnSpanFull(),
 
                         Textarea::make('description')
+                            ->label('Description')
                             ->rows(3)
+                            ->placeholder('Brief description of this quiz...')
                             ->columnSpanFull(),
 
                         Select::make('lesson_id')
@@ -46,23 +52,23 @@ class QuizForm
                             ->searchable()
                             ->preload()
                             ->default(fn() => request()->integer('lesson_id'))
-                            ->placeholder('Optional')
-                            ->helperText('Link this quiz to a specific lesson; defaults when opened from a lesson page.')
+                            ->placeholder('None (standalone quiz)')
+                            ->helperText('Optional: Link to a lesson. This quiz will appear on that lesson page.')
                             ->columnSpanFull(),
 
-                        Grid::make(3)
+                        Grid::make(2)
                             ->schema([
                                 Select::make('type')
+                                    ->label('Quiz Type')
                                     ->options(QuizType::options())
                                     ->required()
                                     ->default(QuizType::Practice->value)
                                     ->rules([
                                         'in:' . implode(',', QuizType::values()),
                                     ])
-                                    ->helperText(fn($get) => $get('type') === QuizType::Mock->value
-                                        ? 'Mock exams: JAMB English = 70 questions, all others = 50 questions. Duration: 100 minutes for all 4 subjects.'
-                                        : null)
-                                    ->reactive(),
+                                    ->helperText('Mock exams auto-configure: English=70Q, Others=50Q, 100min total')
+                                    ->reactive()
+                                    ->columnSpan(fn($get) => $get('type') === QuizType::Mock->value ? 2 : 1),
 
                                 TextInput::make('question_count')
                                     ->label('Number of Questions')
@@ -70,100 +76,123 @@ class QuizForm
                                     ->numeric()
                                     ->minValue(1)
                                     ->default(20)
+                                    ->placeholder('20')
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                            ]),
 
+                        Grid::make(2)
+                            ->schema([
                                 TextInput::make('passing_score')
-                                    ->label('Passing Score (%)')
+                                    ->label('Passing Score')
                                     ->required()
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(100)
                                     ->default(50)
-                                    ->suffix('%'),
+                                    ->suffix('%')
+                                    ->helperText('Minimum percentage to pass')
+                                    ->columnSpan(1),
+
+                                TextInput::make('duration_minutes')
+                                    ->label('Duration (Minutes)')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->placeholder('60')
+                                    ->suffix('min')
+                                    ->helperText('Time limit for this quiz')
+                                    ->required(fn($get) => $get('type') === QuizType::Timed->value)
+                                    ->visible(fn($get) => $get('type') === QuizType::Timed->value)
+                                    ->columnSpan(1),
                             ]),
-
-                        TextInput::make('duration_minutes')
-                            ->label('Duration (Minutes)')
-                            ->numeric()
-                            ->minValue(1)
-                            ->helperText('Leave empty for untimed practice tests')
-                            ->required(fn($get) => $get('type') === QuizType::Timed->value)
-                            ->visible(fn($get) => $get('type') === QuizType::Timed->value),
                     ])
-                    ->columns(2),
-
-                Section::make('Question Selection Criteria')
-                    ->description('Define which questions should be included in this quiz')
-                    ->schema([
-                        Select::make('subject_ids')
-                            ->label('Subjects')
-                            ->multiple()
-                            ->options(Subject::pluck('name', 'id'))
-                            ->searchable()
-                            ->preload(),
-
-                        Select::make('topic_ids')
-                            ->label('Topics')
-                            ->multiple()
-                            ->options(Topic::pluck('name', 'id'))
-                            ->searchable()
-                            ->preload(),
-
-                        Select::make('exam_type_ids')
-                            ->label('Exam Types')
-                            ->multiple()
-                            ->options(ExamType::pluck('name', 'id'))
-                            ->searchable()
-                            ->preload(),
-
-                        Select::make('difficulty_levels')
-                            ->label('Difficulty Levels')
-                            ->multiple()
-                            ->options([
-                                'easy' => 'Easy',
-                                'medium' => 'Medium',
-                                'hard' => 'Hard',
-                            ]),
-
-                    ])
-                    ->columns(2)
                     ->collapsible(),
 
-                Section::make('Manual Question Assignment (Optional)')
-                    ->description('Manually select specific questions for this quiz. If questions are assigned here, the criteria above will be ignored.')
+                Section::make('Question Selection Criteria')
+                    ->description('Choose which questions to include automatically')
+                    ->icon('heroicon-o-funnel')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('subject_ids')
+                                    ->label('Subjects')
+                                    ->multiple()
+                                    ->options(Subject::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('All subjects')
+                                    ->helperText('Filter by specific subjects'),
+
+                                Select::make('topic_ids')
+                                    ->label('Topics')
+                                    ->multiple()
+                                    ->options(Topic::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('All topics')
+                                    ->helperText('Filter by specific topics'),
+
+                                Select::make('exam_type_ids')
+                                    ->label('Exam Types')
+                                    ->multiple()
+                                    ->options(ExamType::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->placeholder('All exam types')
+                                    ->helperText('Filter by exam type (WAEC, JAMB, etc.)'),
+
+                                Select::make('difficulty_levels')
+                                    ->label('Difficulty Levels')
+                                    ->multiple()
+                                    ->options([
+                                        'easy' => 'Easy',
+                                        'medium' => 'Medium',
+                                        'hard' => 'Hard',
+                                    ])
+                                    ->placeholder('All levels')
+                                    ->helperText('Filter by difficulty'),
+                            ]),
+                    ])
+                    ->collapsible(),
+
+                Section::make('Manual Question Assignment')
+                    ->description('Override automatic selection by choosing specific questions')
+                    ->icon('heroicon-o-clipboard-document-list')
                     ->schema([
                         Repeater::make('questions')
                             ->relationship('questions')
                             ->schema([
-                                Grid::make(3)
-                                    ->schema([
-                                        Select::make('filter_subject_id')
-                                            ->label('Filter by Subject')
-                                            ->options(Subject::pluck('name', 'id'))
-                                            ->searchable()
-                                            ->live()
-                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
-                                            ->helperText('Optional: narrow down search'),
+                                Select::make('filter_subject_id')
+                                    ->label('Filter by Subject')
+                                    ->options(Subject::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->live()
+                                    ->placeholder('All subjects')
+                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->helperText('Optional: narrow down search')
+                                    ->columnSpanFull(),
 
-                                        Select::make('filter_difficulty')
-                                            ->label('Filter by Difficulty')
-                                            ->options([
-                                                'easy' => 'Easy',
-                                                'medium' => 'Medium',
-                                                'hard' => 'Hard',
-                                            ])
-                                            ->live()
-                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
-                                            ->helperText('Optional: narrow down search'),
+                                Select::make('filter_difficulty')
+                                    ->label('Filter by Difficulty')
+                                    ->options([
+                                        'easy' => 'Easy',
+                                        'medium' => 'Medium',
+                                        'hard' => 'Hard',
+                                    ])
+                                    ->live()
+                                    ->placeholder('All difficulties')
+                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->helperText('Optional: narrow down search')
+                                    ->columnSpanFull(),
 
-                                        Select::make('filter_exam_type_id')
-                                            ->label('Filter by Exam Type')
-                                            ->options(ExamType::pluck('name', 'id'))
-                                            ->searchable()
-                                            ->live()
-                                            ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
-                                            ->helperText('Optional: narrow down search'),
-                                    ]),
+                                Select::make('filter_exam_type_id')
+                                    ->label('Filter by Exam Type')
+                                    ->options(ExamType::pluck('name', 'id'))
+                                    ->searchable()
+                                    ->live()
+                                    ->placeholder('All exam types')
+                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->helperText('Optional: narrow down search')
+                                    ->columnSpanFull(),
 
                                 Select::make('question_id')
                                     ->label('Question')
@@ -230,25 +259,30 @@ class QuizForm
                     ->collapsed(),
 
                 Section::make('Quiz Settings')
+                    ->description('Control quiz behavior and student experience')
+                    ->icon('heroicon-o-cog-6-tooth')
                     ->schema([
                         Grid::make(3)
                             ->schema([
                                 Toggle::make('randomize_questions')
                                     ->label('Randomize Question Selection')
-                                    ->helperText('Select random questions matching criteria')
+                                    ->helperText('Select random questions from criteria')
                                     ->default(true)
+                                    ->inline(false)
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_questions')
                                     ->label('Shuffle Question Order')
-                                    ->helperText('Show questions in random order')
+                                    ->helperText('Display questions in random order')
                                     ->default(true)
+                                    ->inline(false)
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_options')
                                     ->label('Shuffle Answer Options')
                                     ->helperText('Randomize A, B, C, D order')
                                     ->default(true)
+                                    ->inline(false)
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
                             ])
                             ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
@@ -257,16 +291,22 @@ class QuizForm
                             ->schema([
                                 Toggle::make('show_answers_after_submit')
                                     ->label('Show Answers After Submit')
+                                    ->helperText('Display correct answers immediately')
                                     ->default(true)
+                                    ->inline(false)
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('allow_review')
                                     ->label('Allow Review After Completion')
-                                    ->default(true),
+                                    ->helperText('Let students review their answers')
+                                    ->default(true)
+                                    ->inline(false),
 
                                 Toggle::make('show_explanations')
                                     ->label('Show Explanations')
+                                    ->helperText('Display answer explanations')
                                     ->default(true)
+                                    ->inline(false)
                                     ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
                             ])
                             ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
@@ -277,25 +317,35 @@ class QuizForm
                                     ->label('Maximum Attempts')
                                     ->numeric()
                                     ->minValue(1)
+                                    ->placeholder('Unlimited')
                                     ->helperText('Leave empty for unlimited attempts'),
 
                                 Toggle::make('is_active')
                                     ->label('Active')
-                                    ->default(true),
+                                    ->helperText('Make quiz available to students')
+                                    ->default(true)
+                                    ->inline(false),
                             ]),
-                    ]),
+                    ])
+                    ->collapsible(),
 
                 Section::make('Availability Schedule')
+                    ->description('Set when this quiz is available to students')
+                    ->icon('heroicon-o-calendar')
                     ->schema([
-                        DateTimePicker::make('available_from')
-                            ->label('Available From')
-                            ->helperText('Leave empty to make available immediately'),
+                        Grid::make(2)
+                            ->schema([
+                                DateTimePicker::make('available_from')
+                                    ->label('Available From')
+                                    ->placeholder('Select start date/time')
+                                    ->helperText('Quiz becomes available at this date/time'),
 
-                        DateTimePicker::make('available_until')
-                            ->label('Available Until')
-                            ->helperText('Leave empty for no expiration'),
+                                DateTimePicker::make('available_until')
+                                    ->label('Available Until')
+                                    ->placeholder('Select end date/time')
+                                    ->helperText('Quiz expires at this date/time'),
+                            ]),
                     ])
-                    ->columns(2)
                     ->collapsible(),
             ]);
     }
