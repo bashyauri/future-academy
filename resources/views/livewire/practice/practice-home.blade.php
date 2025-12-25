@@ -38,7 +38,7 @@
                         placeholder="{{ __('Choose exam...') }}"
                         class="text-sm md:text-base"
                     >
-                        <option value="">{{ __('Choose exam...') }}</option>
+                        <option value="">{{ __('All Exam Types') }}</option>
                         @foreach($examTypes as $exam)
                             <option value="{{ $exam->id }}">{{ $exam->name }}</option>
                         @endforeach
@@ -88,11 +88,11 @@
                 <div class="relative">
                     <flux:select
                         wire:model="selectedYear"
-                        placeholder="{{ __('Choose year...') }}"
+                        placeholder="{{ __('(Optional) Choose year...') }}"
                         :disabled="!$selectedExamType || !$selectedSubject"
                         class="text-sm md:text-base"
                     >
-                        <option value="">{{ __('Choose year...') }}</option>
+                        <option value="">{{ __('(All Years)') }}</option>
                         @foreach($filteredYears as $year)
                             <option value="{{ $year }}">{{ $year }}</option>
                         @endforeach

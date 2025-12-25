@@ -49,14 +49,23 @@ class PracticeHome extends Component
             // Load subjects that have questions for selected exam type
             $this->subjects = Subject::where('is_active', true)
                 ->whereHas('questions', function ($query) {
-                    $query->where('exam_type_id', $this->selectedExamType)
-                        ->where('is_active', true)
+                    if ($this->selectedExamType) {
+                        $query->where('exam_type_id', $this->selectedExamType);
+                    }
+                    $query->where('is_active', true)
                         ->where('status', 'approved');
                 })
                 ->orderBy('name')
                 ->get();
         } else {
-            $this->subjects = [];
+            // All exam types: show subjects with any active, approved questions
+            $this->subjects = Subject::where('is_active', true)
+                ->whereHas('questions', function ($query) {
+                    $query->where('is_active', true)
+                        ->where('status', 'approved');
+                })
+                ->orderBy('name')
+                ->get();
         }
     }
 
@@ -68,16 +77,21 @@ class PracticeHome extends Component
 
         if ($this->selectedExamType && $this->selectedSubject) {
             // Filter years available for selected exam type and subject
-            $this->filteredYears = Question::where('exam_type_id', $this->selectedExamType)
-                ->where('subject_id', $this->selectedSubject)
+            $years = Question::where('subject_id', $this->selectedSubject)
+                ->when($this->selectedExamType, function ($query) {
+                    $query->where('exam_type_id', $this->selectedExamType);
+                })
                 ->where('is_active', true)
                 ->where('status', 'approved')
-                ->distinct()
-                ->orderByDesc('exam_year')
-                ->pluck('exam_year')
+                ->get()
+                ->map(function ($q) {
+                    return $q->exam_year ?: $q->year;
+                })
                 ->filter()
                 ->unique()
+                ->sortDesc()
                 ->values();
+            $this->filteredYears = $years;
         } else {
             $this->filteredYears = [];
         }
@@ -103,20 +117,30 @@ class PracticeHome extends Component
         $this->validate([
             'selectedExamType' => 'required',
             'selectedSubject' => 'required',
-            'selectedYear' => 'required',
+            // 'selectedYear' => 'required', // Remove required for year
         ], [
             'selectedExamType.required' => 'Please select an exam type',
             'selectedSubject.required' => 'Please select a subject',
-            'selectedYear.required' => 'Please select a year',
+            // 'selectedYear.required' => 'Please select a year',
         ]);
 
         // Verify that questions exist for this combination
-        $questionCount = Question::where('exam_type_id', $this->selectedExamType)
+        $questionQuery = Question::query()
             ->where('subject_id', $this->selectedSubject)
-            ->where('exam_year', $this->selectedYear)
+            ->when($this->selectedExamType, function ($query) {
+                $query->where('exam_type_id', $this->selectedExamType);
+            })
             ->where('is_active', true)
-            ->where('status', 'approved')
-            ->count();
+            ->where('status', 'approved');
+        if ($this->selectedYear) {
+            $questionQuery->where(function ($q) {
+                $q->where('exam_year', $this->selectedYear)
+                  ->orWhere(function ($sub) {
+                      $sub->whereNull('exam_year')->where('year', $this->selectedYear);
+                  });
+            });
+        }
+        $questionCount = $questionQuery->count();
 
         if ($questionCount === 0) {
             $this->addError('selectedYear', 'No questions available for this combination. Please select a different option.');

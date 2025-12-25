@@ -182,20 +182,34 @@ class PracticeQuiz extends Component
 
     private function loadQuestions(): void
     {
-        $query = Question::where('exam_type_id', $this->exam_type)
+        $query = Question::query()
             ->where('subject_id', $this->subject)
-            ->where('exam_year', $this->year)
-            ->with('options');
+            ->where('is_active', true)
+            ->where('status', 'approved');
+
+        if ($this->exam_type) {
+            $query->where('exam_type_id', $this->exam_type);
+        }
+
+        if ($this->year) {
+            $query->where(function ($q) {
+                $q->where('exam_year', $this->year)
+                  ->orWhere(function ($sub) {
+                      $sub->whereNull('exam_year')->where('year', $this->year);
+                  });
+            });
+        }
+        // If no year is selected, fetch all questions regardless of year (including those with null year fields)
+
+        $questions = $query->with('options')->get();
 
         if ($this->shuffle == 1) {
-            $query->inRandomOrder();
+            $questions = $questions->shuffle();
+        } elseif ($this->limit && $this->limit > 0) {
+            $questions = $questions->take($this->limit);
         }
 
-        if ($this->limit && $this->limit > 0) {
-            $query->limit($this->limit);
-        }
-
-        $this->questions = $query->get()->toArray();
+        $this->questions = $questions->toArray();
         $this->questionIds = array_column($this->questions, 'id');
         $this->totalQuestions = count($this->questions);
         $this->userAnswers = array_fill(0, $this->totalQuestions, null);
