@@ -23,6 +23,59 @@
         </div>
     </div>
 
+    {{-- Resume In-Progress Quizzes --}}
+    @if(!empty($allResumeAttempts) && count($allResumeAttempts) > 0)
+        <div class="rounded-xl border border-green-300 bg-white/90 dark:bg-neutral-900/90 shadow-lg p-4 md:p-6 mb-6">
+            <flux:heading size="md" class="mb-3 text-green-900 dark:text-green-100 flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                {{ __('Resume In-Progress Quizzes') }}
+            </flux:heading>
+            <div class="flex flex-col gap-3">
+                @foreach($allResumeAttempts as $attempt)
+                    @if($attempt->status === 'in_progress')
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-white dark:bg-neutral-800 border border-green-100 dark:border-green-800 shadow-sm transition hover:shadow-md">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                <span class="font-semibold text-green-700 dark:text-green-300 truncate">{{ $attempt->exam_type_id ? ($examTypes->firstWhere('id', $attempt->exam_type_id)?->name ?? 'Exam') : 'Exam' }}</span>
+                                @if($attempt->exam_year)
+                                    <span class="ml-2 text-xs text-neutral-500">{{ $attempt->exam_year }}</span>
+                                @endif
+                                <span class="ml-2 text-xs text-neutral-500">{{ __('Started') }} {{ $attempt->started_at->diffForHumans() }}</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                <span>{{ __('Questions') }}: {{ $attempt->total_questions }}</span>
+                                @if($attempt->time_taken_seconds)
+                                    <span class="px-2 py-0.5 rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">{{ __('Timed') }}</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-2 sm:mt-0">
+                            <flux:button
+                                variant="primary"
+                                wire:key="resume-{{ $attempt->id }}"
+                                onclick="window.location='{{ route('practice.quiz', ['exam_type' => $attempt->exam_type_id, 'subject' => $attempt->subject_id, 'year' => $attempt->exam_year, 'attempt' => $attempt->id]) }}'"
+                                icon="arrow-path"
+                                class="flex-1 sm:flex-none text-sm md:text-base py-2 min-w-[100px]"
+                            >
+                                {{ __('Resume') }}
+                            </flux:button>
+                            <flux:button
+                                variant="ghost"
+                                wire:click="dismissResumeAttempt({{ $attempt->id }})"
+                                wire:key="dismiss-{{ $attempt->id }}"
+                                icon="x-mark"
+                                class="flex-1 sm:flex-none text-xs md:text-sm py-2 text-red-600 hover:text-red-800 border border-red-100 dark:border-red-800 min-w-[80px]"
+                            >
+                                {{ __('Dismiss') }}
+                            </flux:button>
+                        </div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- Main Selection Panel --}}
     <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 md:p-8 bg-white dark:bg-neutral-800">
         <flux:heading size="lg" class="mb-4 md:mb-6 text-base md:text-lg">{{ __('Select Your Practice Test') }}</flux:heading>
@@ -192,6 +245,18 @@
 
         {{-- Start Button --}}
         <div class="mt-6 md:mt-8 flex flex-col sm:flex-row gap-3 md:gap-4">
+            {{-- Resume Button --}}
+            @if($resumeAttempt)
+                <flux:button
+                    variant="success"
+                    wire:click="resumePractice"
+                    icon="arrow-path"
+                    class="w-full sm:w-auto text-sm md:text-base py-3 md:py-2 mb-2"
+                    wire:loading.attr="disabled"
+                >
+                    {{ __('Resume In-Progress Test') }}
+                </flux:button>
+            @endif
             <flux:button
                 variant="primary"
                 wire:click="startPractice"

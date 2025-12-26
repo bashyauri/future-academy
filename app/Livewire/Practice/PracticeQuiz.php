@@ -14,6 +14,18 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class PracticeQuiz extends Component
 {
+    /**
+     * Exit the quiz and allow user to continue later (without submitting).
+     */
+    public function exitQuiz()
+    {
+        // Persist current question index if authenticated and in-progress
+        if (auth()->check() && $this->quizAttempt && $this->quizAttempt->status === 'in_progress') {
+            $this->persistCurrentQuestionIndex();
+        }
+        // Redirect to practice home (or any other page as needed)
+        return redirect()->route('practice.home');
+    }
     #[Url]
     public $exam_type;
 
@@ -52,33 +64,38 @@ class PracticeQuiz extends Component
 
     public function mount()
     {
-        $this->showResults = $this->results;
-
+        $this->showResults = false;
         // For authenticated users, try to restore or create a persistent attempt
         if (auth()->check()) {
             $attemptFromQuery = $this->attempt ? QuizAttempt::find($this->attempt) : null;
-
             // If showing results, use the provided attempt (completed or in_progress)
-            if ($this->showResults && $attemptFromQuery) {
+            if ($this->results && $attemptFromQuery) {
                 $this->quizAttempt = $attemptFromQuery;
                 $this->hydrateFromAttempt($attemptFromQuery);
+                $this->showResults = true;
                 return;
             }
-
             // Otherwise, find existing in_progress attempt
             if ($attemptFromQuery && $attemptFromQuery->status === 'in_progress') {
                 $this->quizAttempt = $attemptFromQuery;
                 $this->hydrateFromAttempt($attemptFromQuery);
+                $this->showResults = false;
                 return;
             }
-
             $activeAttempt = $this->findActiveAttempt();
             if ($activeAttempt) {
                 $this->quizAttempt = $activeAttempt;
                 $this->hydrateFromAttempt($activeAttempt);
+                $this->showResults = false;
                 return;
             }
-
+            // If attempt is completed, show results
+            if ($attemptFromQuery && $attemptFromQuery->status === 'completed') {
+                $this->quizAttempt = $attemptFromQuery;
+                $this->hydrateFromAttempt($attemptFromQuery);
+                $this->showResults = true;
+                return;
+            }
             // Only start new attempt if not showing results
             if (!$this->showResults) {
                 $this->startNewAttempt();
@@ -105,6 +122,8 @@ class PracticeQuiz extends Component
     {
         $this->quizAttempt = $attempt;
         $this->attempt = $attempt->id;
+        // Restore current question index from DB
+        $this->currentQuestionIndex = $attempt->current_question_index ?? 0;
 
         // Flatten question_order if it's nested (from JAMB-style storage)
         $questionOrder = $attempt->question_order ?? [];
@@ -166,6 +185,7 @@ class PracticeQuiz extends Component
         $this->quizAttempt = QuizAttempt::create([
             'user_id' => auth()->id(),
             'exam_type_id' => $this->exam_type,
+            'subject_id' => $this->subject,
             'exam_year' => $this->year,
             'total_questions' => $this->totalQuestions,
             'correct_answers' => 0,
@@ -174,6 +194,7 @@ class PracticeQuiz extends Component
             'started_at' => $this->timeStarted,
             'time_taken_seconds' => 0,
             'question_order' => $this->questionIds,
+            'current_question_index' => 0,
         ]);
 
         $this->attempt = $this->quizAttempt->id;
@@ -271,24 +292,59 @@ class PracticeQuiz extends Component
     }
 
 
+
     public function nextQuestion()
     {
+        // Persist current answer before moving
+        $this->persistCurrentAnswer();
         if ($this->currentQuestionIndex < $this->totalQuestions - 1) {
             $this->currentQuestionIndex++;
+            $this->persistCurrentQuestionIndex();
         }
     }
+
 
     public function previousQuestion()
     {
+        // Persist current answer before moving
+        $this->persistCurrentAnswer();
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
+            $this->persistCurrentQuestionIndex();
         }
     }
 
+
     public function jumpToQuestion($index)
     {
+        // Persist current answer before moving
+        $this->persistCurrentAnswer();
         if ($index >= 0 && $index < $this->totalQuestions) {
             $this->currentQuestionIndex = $index;
+            $this->persistCurrentQuestionIndex();
+        }
+    }
+
+    /**
+     * Persist the answer for the current question (if any) to the database.
+     */
+    private function persistCurrentAnswer(): void
+    {
+        if (auth()->check() && $this->quizAttempt) {
+            $questionId = $this->questions[$this->currentQuestionIndex]['id'] ?? null;
+            $optionId = $this->userAnswers[$this->currentQuestionIndex] ?? null;
+            if ($questionId && $optionId) {
+                $this->persistAnswer($questionId, $optionId);
+            }
+        }
+    }
+
+    private function persistCurrentQuestionIndex(): void
+    {
+        if (auth()->check() && $this->quizAttempt) {
+            $this->quizAttempt->update([
+                'current_question_index' => $this->currentQuestionIndex,
+            ]);
         }
     }
 

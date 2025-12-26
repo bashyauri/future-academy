@@ -12,6 +12,7 @@ class QuizAttempt extends Model
         'quiz_id',
         'user_id',
         'exam_type_id',
+        'subject_id',
         'exam_year',
         'attempt_number',
         'started_at',
@@ -27,6 +28,7 @@ class QuizAttempt extends Model
         'passed',
         'status',
         'question_order',
+        'current_question_index',
     ];
 
     protected $casts = [
@@ -34,6 +36,7 @@ class QuizAttempt extends Model
         'completed_at' => 'datetime',
         'passed' => 'boolean',
         'question_order' => 'array',
+        'current_question_index' => 'integer',
     ];
 
     // Relationships

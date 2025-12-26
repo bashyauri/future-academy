@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\Subject;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app')]
 class PracticeHome extends Component
@@ -22,6 +23,8 @@ class PracticeHome extends Component
     public $subjects = [];
     public $filteredYears = [];
     public $availableQuestionCount = 0;
+    public $resumeAttempt = null;
+    public $allResumeAttempts = [];
 
     public function mount()
     {
@@ -36,6 +39,29 @@ class PracticeHome extends Component
 
         // Initialize subjects as empty array
         $this->subjects = [];
+
+        // Load all in-progress attempts for the user
+        $this->allResumeAttempts = [];
+        if (Auth::check()) {
+            $this->allResumeAttempts = \App\Models\QuizAttempt::where('user_id', Auth::id())
+                ->where('status', 'in_progress')
+                ->orderByDesc('created_at')
+                ->get()
+                ->filter(function ($attempt) {
+                    // If the quiz is timed and time has expired, do not show
+                    if ($attempt->time_taken_seconds && $attempt->time_taken_seconds > 0 && $attempt->time_taken_seconds <= now()->diffInSeconds($attempt->started_at)) {
+                        return false;
+                    }
+                    if ($attempt->started_at && $attempt->time_taken_seconds) {
+                        $elapsed = now()->diffInSeconds($attempt->started_at);
+                        if ($attempt->time_taken_seconds > 0 && $elapsed >= $attempt->time_taken_seconds) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                ->values();
+        }
     }
 
     public function updatedSelectedExamType()
@@ -110,6 +136,17 @@ class PracticeHome extends Component
         } else {
             $this->availableQuestionCount = 0;
         }
+        // Check for in-progress attempt for resume
+        $this->resumeAttempt = null;
+        if (Auth::check() && $this->selectedExamType) {
+            $query = \App\Models\QuizAttempt::where('user_id', Auth::id())
+                ->where('exam_type_id', $this->selectedExamType)
+                ->where('status', 'in_progress');
+            if ($this->selectedYear) {
+                $query->where('exam_year', $this->selectedYear);
+            }
+            $this->resumeAttempt = $query->latest('created_at')->first();
+        }
     }
 
     public function startPractice()
@@ -164,9 +201,37 @@ class PracticeHome extends Component
         ]);
     }
 
+    public function resumePractice()
+    {
+        if ($this->resumeAttempt) {
+            return redirect()->route('practice.quiz', [
+                'exam_type' => $this->selectedExamType,
+                'subject' => $this->selectedSubject,
+                'year' => $this->selectedYear,
+                'attempt' => $this->resumeAttempt->id,
+            ]);
+        }
+    }
+
+    public function dismissResumeAttempt($attemptId)
+    {
+        $attempt = \App\Models\QuizAttempt::where('id', $attemptId)
+            ->where('user_id', Auth::id())
+            ->where('status', 'in_progress')
+            ->first();
+        if ($attempt) {
+            $attempt->delete();
+            // Refresh the list
+            $this->allResumeAttempts = $this->allResumeAttempts->filter(fn($a) => $a->id !== $attemptId)->values();
+        }
+    }
+
     public function render()
     {
-        return view('livewire.practice.practice-home');
+        return view('livewire.practice.practice-home', [
+            'resumeAttempt' => $this->resumeAttempt,
+            'allResumeAttempts' => $this->allResumeAttempts,
+        ]);
     }
 }
 
