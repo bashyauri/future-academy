@@ -27,10 +27,17 @@
             @if($lesson->video_url)
                 <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-black">
                     <div class="aspect-video">
-                        <iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen>
-                        </iframe>
+                        @if(Str::startsWith($lesson->video_url, ['lessons/videos/', 'storage/']))
+                            <video class="w-full h-full" controls>
+                                <source src="{{ asset('storage/' . ltrim($lesson->video_url, 'storage/')) }}" type="video/mp4">
+                                {{ __('Your browser does not support the video tag.') }}
+                            </video>
+                        @else
+                            <iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen>
+                            </iframe>
+                        @endif
                     </div>
                 </div>
             @endif
