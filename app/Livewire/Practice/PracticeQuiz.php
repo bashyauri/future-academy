@@ -251,8 +251,11 @@ class PracticeQuiz extends Component
     #[On('timer-expired')]
     public function handleTimerExpired()
     {
-        $this->timeRemaining = 0;
-        $this->submitQuiz();
+        // Only submit if a time limit is set and time has truly expired
+        if ($this->time && $this->time > 0 && $this->timeRemaining <= 0) {
+            $this->timeRemaining = 0;
+            $this->submitQuiz();
+        }
     }
 
     public function selectAnswer($optionId)
