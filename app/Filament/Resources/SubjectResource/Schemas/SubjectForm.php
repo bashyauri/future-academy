@@ -35,13 +35,20 @@ class SubjectForm
                                     ->helperText('Full name of the subject')
                                     ->columnSpan(1),
 
-                                TextInput::make('icon')
-                                    ->label('Icon/Emoji')
-                                    ->maxLength(50)
-                                    ->prefixIcon('heroicon-o-face-smile')
-                                    ->placeholder('📐 or heroicon-o-calculator')
-                                    ->helperText('Emoji or icon class')
-                                    ->columnSpan(1),
+                                    TextInput::make('code')
+                                        ->label('Subject Code')
+                                        ->required()
+                                        ->maxLength(50)
+                                        ->helperText('Unique code for this subject (required).')
+                                        ->columnSpan(1),
+
+                                    TextInput::make('icon')
+                                        ->label('Icon/Emoji')
+                                        ->maxLength(50)
+                                        ->prefixIcon('heroicon-o-face-smile')
+                                        ->placeholder('📐 or heroicon-o-calculator')
+                                        ->helperText('Emoji or icon class')
+                                        ->columnSpan(1),
                             ])
                             ->columns(2),
 
