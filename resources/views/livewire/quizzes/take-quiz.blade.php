@@ -12,31 +12,39 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 py-6">
-                    <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                        <flux:text class="text-sm text-neutral-500">{{ __('Questions') }}</flux:text>
-                        <flux:heading size="lg">{{ $quiz->question_count }}</flux:heading>
-                    </div>
-
-                    @if($quiz->isTimed())
+                    @if(!$this->hasAvailableQuestions)
+                        <div class="col-span-2 text-center p-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
+                            <flux:heading size="lg" class="text-red-700 dark:text-red-300">
+                                {{ __('This quiz has no questions available. Please contact your instructor or try another quiz.') }}
+                            </flux:heading>
+                        </div>
+                    @else
                         <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                            <flux:text class="text-sm text-neutral-500">{{ __('Duration') }}</flux:text>
-                            <flux:heading size="lg">{{ $quiz->duration_minutes }} min</flux:heading>
+                            <flux:text class="text-sm text-neutral-500">{{ __('Questions') }}</flux:text>
+                            <flux:heading size="lg">{{ $quiz->question_count }}</flux:heading>
+                        </div>
+
+                        @if($quiz->isTimed())
+                            <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                                <flux:text class="text-sm text-neutral-500">{{ __('Duration') }}</flux:text>
+                                <flux:heading size="lg">{{ $quiz->duration_minutes }} min</flux:heading>
+                            </div>
+                        @endif
+
+                        <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                            <flux:text class="text-sm text-neutral-500">{{ __('Passing Score') }}</flux:text>
+                            <flux:heading size="lg">{{ $quiz->passing_score }}%</flux:heading>
+                        </div>
+
+                        <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                            @php
+                                $typeEnum = $quiz->type instanceof \App\Enums\QuizType ? $quiz->type : \App\Enums\QuizType::tryFrom((string) $quiz->type);
+                                $typeLabel = $typeEnum?->label() ?? (is_scalar($quiz->type) ? ucfirst((string) $quiz->type) : '-');
+                            @endphp
+                            <flux:text class="text-sm text-neutral-500">{{ __('Quiz Type') }}</flux:text>
+                            <flux:heading size="lg">{{ $typeLabel }}</flux:heading>
                         </div>
                     @endif
-
-                    <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                        <flux:text class="text-sm text-neutral-500">{{ __('Passing Score') }}</flux:text>
-                        <flux:heading size="lg">{{ $quiz->passing_score }}%</flux:heading>
-                    </div>
-
-                    <div class="text-center p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                        @php
-                            $typeEnum = $quiz->type instanceof \App\Enums\QuizType ? $quiz->type : \App\Enums\QuizType::tryFrom((string) $quiz->type);
-                            $typeLabel = $typeEnum?->label() ?? (is_scalar($quiz->type) ? ucfirst((string) $quiz->type) : '-');
-                        @endphp
-                        <flux:text class="text-sm text-neutral-500">{{ __('Quiz Type') }}</flux:text>
-                        <flux:heading size="lg">{{ $typeLabel }}</flux:heading>
-                    </div>
                 </div>
 
                 <div
@@ -57,21 +65,23 @@
                 </div>
 
                 <div class="flex gap-4 justify-center">
-                    <flux:button wire:click="startQuiz" wire:target="startQuiz" wire:loading.attr="disabled"
-                        wire:loading.class="opacity-75 cursor-wait" variant="primary" size="base" class="h-12 text-base">
-                        <span wire:loading.remove wire:target="startQuiz">{{ __('Start Quiz') }}</span>
-                        <span wire:loading wire:target="startQuiz" class="flex items-center gap-2">
-                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                                </circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                </path>
-                            </svg>
-                            {{ __('Loading...') }}
-                        </span>
-                    </flux:button>
+                    @if($this->hasAvailableQuestions)
+                        <flux:button wire:click="startQuiz" wire:target="startQuiz" wire:loading.attr="disabled"
+                            wire:loading.class="opacity-75 cursor-wait" variant="primary" size="base" class="h-12 text-base">
+                            <span wire:loading.remove wire:target="startQuiz">{{ __('Start Quiz') }}</span>
+                            <span wire:loading wire:target="startQuiz" class="flex items-center gap-2">
+                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                                    </circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                {{ __('Loading...') }}
+                            </span>
+                        </flux:button>
+                    @endif
                     <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
                         {{ __('Back to Quizzes') }}
                     </flux:button>
@@ -79,7 +89,23 @@
             </div>
         </div>
 
-    @elseif($showResults)
+
+    @elseif($quiz->questions->isEmpty())
+        <div class="max-w-3xl mx-auto">
+            <div class="rounded-xl border border-red-200 dark:border-red-700 p-8 space-y-6 bg-red-50 dark:bg-red-900/30">
+                <div class="text-center space-y-4">
+                    <flux:heading size="2xl" class="text-red-700 dark:text-red-300">
+                        {{ __('This quiz has no questions available. Please contact your instructor or try another quiz.') }}
+                    </flux:heading>
+                </div>
+                <div class="flex gap-4 justify-center mt-6">
+                    <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
+                        {{ __('Back to Quizzes') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @elseif($showResults && !($noQuestions ?? false))
         {{-- Results Screen --}}
         <div class="max-w-4xl mx-auto">
             <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-8 space-y-6">

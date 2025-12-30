@@ -12,6 +12,11 @@ use Livewire\Attributes\On;
 
 class TakeQuiz extends Component
 {
+    // Computed property for Blade: are there any attached questions?
+    public function getHasAvailableQuestionsProperty()
+    {
+        return $this->quiz->questions()->count() > 0;
+    }
     public Quiz $quiz;
     public ?QuizAttempt $attempt = null;
     public $currentQuestionIndex = 0;
