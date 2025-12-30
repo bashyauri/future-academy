@@ -189,9 +189,12 @@ class QuestionsRelationManager extends RelationManager
                         return $data;
                     })
                     ->after(function ($record) {
-                        // Attach the newly created question to this lesson with the order
+                        // Attach the newly created question to this lesson with the order, only if not already attached
                         $order = request()->input('data.order') ?? $this->getOwnerRecord()->questions()->max('order') + 1;
-                        $this->getOwnerRecord()->questions()->attach($record->id, ['order' => $order]);
+                        $lesson = $this->getOwnerRecord();
+                        if (!$lesson->questions()->where('questions.id', $record->id)->exists()) {
+                            $lesson->questions()->attach($record->id, ['order' => $order]);
+                        }
                     }),
 
                 Actions\AttachAction::make()
