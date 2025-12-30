@@ -65,7 +65,10 @@ return [
 
     'temporary_file_upload' => [
         'disk' => 'local',        // Use local disk explicitly
-        'rules' => null,          // keep defaults
+        // Allow uploads up to 500MB (512000 KB)
+        // IMPORTANT: Also set upload_max_filesize and post_max_size in php.ini to 512M or higher
+        //            And web server (nginx/apache) body size limits if needed
+        'rules' => ['max:512000'],
         'directory' => 'livewire-tmp',   // Under storage/app/private/livewire-tmp (local root)
         'middleware' => null,     // keep defaults
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...

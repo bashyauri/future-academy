@@ -206,11 +206,28 @@
             <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">
                 <flux:heading size="lg" class="mb-4">{{ __('Lesson Quiz') }}</flux:heading>
 
-                @if($lessonQuiz)
+                @php
+                    // Defensive: check for multiple quizzes linked to this lesson
+                    $lessonQuizzes = $lesson->quizzes ?? null;
+                    $hasMultipleQuizzes = $lessonQuizzes && $lessonQuizzes->count() > 1;
+                @endphp
+
+                @if($hasMultipleQuizzes)
+                    <div class="mb-4 p-3 rounded bg-red-100 text-red-800 border border-red-300">
+                        <strong>{{ __('Data Error:') }}</strong> {{ __('Multiple quizzes are linked to this lesson. Please contact the administrator to resolve this data integrity issue. Only the first quiz will be shown below.') }}
+                    </div>
+                @endif
+
+                @php
+                    // Use only the first quiz if multiple exist
+                    $displayQuiz = $hasMultipleQuizzes ? $lessonQuizzes->first() : ($lessonQuiz ?? null);
+                @endphp
+
+                @if($displayQuiz)
                     @php
-                        $typeEnum = $lessonQuiz->type instanceof \App\Enums\QuizType
-                            ? $lessonQuiz->type
-                            : \App\Enums\QuizType::tryFrom((string) $lessonQuiz->type);
+                        $typeEnum = $displayQuiz->type instanceof \App\Enums\QuizType
+                            ? $displayQuiz->type
+                            : \App\Enums\QuizType::tryFrom((string) $displayQuiz->type);
 
                         $typeColor = match ($typeEnum?->value) {
                             'practice' => 'blue',
@@ -220,14 +237,14 @@
                         };
 
                         $typeLabel = $typeEnum?->label()
-                            ?? (is_scalar($lessonQuiz->type) ? ucfirst((string) $lessonQuiz->type) : '-');
+                            ?? (is_scalar($displayQuiz->type) ? ucfirst((string) $displayQuiz->type) : '-');
                     @endphp
 
                     <div class="space-y-3">
                         <div class="flex items-start justify-between">
                             <div>
                                 <flux:text class="text-sm text-neutral-500">{{ __('Linked to this lesson') }}</flux:text>
-                                <flux:heading size="md">{{ $lessonQuiz->title }}</flux:heading>
+                                <flux:heading size="md">{{ $displayQuiz->title }}</flux:heading>
                             </div>
                             <flux:badge :color="$typeColor">{{ $typeLabel }}</flux:badge>
                         </div>
@@ -235,40 +252,40 @@
                         <div class="grid grid-cols-2 gap-3 text-sm">
                             <div>
                                 <flux:text class="text-xs text-neutral-500">{{ __('Questions') }}</flux:text>
-                                <flux:text class="font-semibold">{{ $lessonQuiz->question_count }}</flux:text>
+                                <flux:text class="font-semibold">{{ $displayQuiz->question_count }}</flux:text>
                             </div>
 
                             <div>
                                 <flux:text class="text-xs text-neutral-500">{{ __('Attempts') }}</flux:text>
                                 <flux:text class="font-semibold">
-                                    {{ $lessonQuiz->user_stats['total_attempts'] ?? 0 }}
-                                    @if($lessonQuiz->max_attempts)
-                                        / {{ $lessonQuiz->max_attempts }}
+                                    {{ $displayQuiz->user_stats['total_attempts'] ?? 0 }}
+                                    @if($displayQuiz->max_attempts)
+                                        / {{ $displayQuiz->max_attempts }}
                                     @endif
                                 </flux:text>
                             </div>
 
-                            @if(($lessonQuiz->user_stats['best_score'] ?? null) !== null)
+                            @if(($displayQuiz->user_stats['best_score'] ?? null) !== null)
                                 <div>
                                     <flux:text class="text-xs text-neutral-500">{{ __('Best Score') }}</flux:text>
                                     <flux:text class="font-semibold">
-                                        {{ round($lessonQuiz->user_stats['best_score'], 1) }}%
+                                        {{ round($displayQuiz->user_stats['best_score'], 1) }}%
                                     </flux:text>
                                 </div>
                             @endif
 
-                            @if($lessonQuiz->isTimed())
+                            @if($displayQuiz->isTimed())
                                 <div>
                                     <flux:text class="text-xs text-neutral-500">{{ __('Duration') }}</flux:text>
-                                    <flux:text class="font-semibold">{{ $lessonQuiz->duration_minutes }} min</flux:text>
+                                    <flux:text class="font-semibold">{{ $displayQuiz->duration_minutes }} min</flux:text>
                                 </div>
                             @endif
                         </div>
 
-                        @if($lessonQuiz->can_attempt ?? false)
-                            <flux:button href="{{ route('quiz.take', $lessonQuiz) }}" variant="primary" class="w-full"
+                        @if($displayQuiz->can_attempt ?? false)
+                            <flux:button href="{{ route('quiz.take', $displayQuiz) }}" variant="primary" class="w-full"
                                 icon="play">
-                                {{ ($lessonQuiz->user_stats['total_attempts'] ?? 0) > 0 ? __('Retake Quiz') : __('Start Quiz') }}
+                                {{ ($displayQuiz->user_stats['total_attempts'] ?? 0) > 0 ? __('Retake Quiz') : __('Start Quiz') }}
                             </flux:button>
                         @else
                             <flux:button variant="ghost" disabled class="w-full">
