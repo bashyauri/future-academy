@@ -13,6 +13,27 @@ class Quiz extends Model
 {
     use SoftDeletes;
 
+    protected static function booted()
+    {
+        static::deleting(function (self $quiz) {
+            // Detach all related questions from the pivot table
+            $quiz->questions()->detach();
+
+            // Soft delete all related quiz attempts
+            if (method_exists($quiz, 'attempts')) {
+                $quiz->attempts()->each(function ($attempt) {
+                    $attempt->delete();
+                });
+            }
+
+            // Nullify lesson_id to avoid unique constraint violation
+            if (!is_null($quiz->lesson_id)) {
+                $quiz->lesson_id = null;
+                $quiz->saveQuietly();
+            }
+        });
+    }
+
     protected $fillable = [
         'title',
         'description',
