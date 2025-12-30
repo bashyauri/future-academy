@@ -29,6 +29,7 @@ class QuestionsImport implements
 {
     protected $defaultExamTypeId;
     protected $defaultSubjectId;
+    protected $defaultTopicId;
     protected $userId;
     protected string $batchKey;
     protected ?string $batchName;
@@ -36,10 +37,11 @@ class QuestionsImport implements
     protected $imported = 0;
     protected $skipped = 0;
 
-    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null)
+    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null, $defaultTopicId = null)
     {
         $this->defaultExamTypeId = $defaultExamTypeId;
         $this->defaultSubjectId = $defaultSubjectId;
+        $this->defaultTopicId = $defaultTopicId;
         $this->userId = $userId ?? \Illuminate\Support\Facades\Auth::id();
         $this->batchKey = time() . '_' . \Str::random(8);
         $userName = null;
@@ -82,14 +84,12 @@ class QuestionsImport implements
             throw new \Exception("Missing required fields (question, option_a, option_b)");
         }
 
-        // Resolve Exam Type (accepts ID or name)
+        // Resolve Exam Type (accepts ID or name) - now optional
         $examTypeId = $this->resolveExamType($data['exam_type'] ?? $data['exam_type_id'] ?? null);
         if (!$examTypeId) {
             $examTypeId = $this->defaultExamTypeId;
         }
-        if (!$examTypeId) {
-            throw new \Exception("Invalid or missing exam_type (use name like 'WAEC' or ID)");
-        }
+        // examTypeId is now optional, do not throw if missing
 
         // Resolve Subject (accepts ID or name)
         $subjectId = $this->resolveSubject($data['subject'] ?? $data['subject_id'] ?? null);
@@ -102,6 +102,9 @@ class QuestionsImport implements
 
         // Resolve Topic (accepts ID or name) - optional
         $topicId = $this->resolveTopic($data['topic'] ?? $data['topic_id'] ?? null, $subjectId);
+        if (!$topicId) {
+            $topicId = $this->defaultTopicId;
+        }
 
         // Validate difficulty
         $difficulty = strtolower($data['difficulty'] ?? 'medium');
@@ -117,10 +120,9 @@ class QuestionsImport implements
 
         // Create question
         DB::transaction(function () use ($data, $examTypeId, $subjectId, $topicId, $difficulty, $correctAnswer) {
-            $question = Question::create([
+            $questionData = [
                 'question_text' => $this->cleanText($data['question_text']),
                 'explanation' => $this->cleanText($data['explanation'] ?? null),
-                'exam_type_id' => $examTypeId,
                 'subject_id' => $subjectId,
                 'topic_id' => $topicId,
                 'difficulty' => $difficulty,
@@ -130,7 +132,11 @@ class QuestionsImport implements
                 'upload_batch' => $this->batchKey,
                 'batch_name' => $this->batchName,
                 'is_active' => true,
-            ]);
+            ];
+            if ($examTypeId) {
+                $questionData['exam_type_id'] = $examTypeId;
+            }
+            $question = Question::create($questionData);
 
             // Create options (A-F)
             $options = [

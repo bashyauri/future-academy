@@ -46,10 +46,11 @@ class ListQuestions extends ListRecords
 
                     Textarea::make('instructions')
                         ->label('📋 How to Format Your CSV File')
-                        ->default("REQUIRED COLUMNS:\n• question_text - The question\n• option_a, option_b - At least 2 options (up to option_f for 6 options)\n• correct_answer - A, B, C, D, E, or F\n• exam_type - Name (e.g., WAEC, NECO, JAMB)\n• subject - Name (e.g., Mathematics, English)\n\nOPTIONAL COLUMNS:\n• topic - Subtopic name (e.g., Algebra)\n• explanation - Why the answer is correct\n• difficulty - easy, medium, or hard\n• year - Past question year\n\nSPECIAL CHARACTERS SUPPORTED:\n✓ Nigerian Naira: ₦\n✓ Math symbols: √, π, ∑, ∞, ∫\n✓ Fractions: ½, ¼, ¾\n✓ Exponents: ², ³")
+                        ->default("REQUIRED COLUMNS:\n• question_text - The question\n• option_a, option_b - At least 2 options (up to option_f for 6 options)\n• correct_answer - A, B, C, D, E, or F\n• subject - Name (e.g., Mathematics, English)\n\nOPTIONAL COLUMNS:\n• exam_type - Name (e.g., WAEC, NECO, JAMB)\n• topic - Subtopic name (e.g., Algebra)\n• explanation - Why the answer is correct\n• difficulty - easy, medium, or hard\n• year - Past question year\n\nYou can also select a default topic from the dropdown below. If a topic is selected, it will be used for all rows that do not specify a topic.\nExam type is now optional and can be set per row or left blank.\n\nSPECIAL CHARACTERS SUPPORTED:\n✓ Nigerian Naira: ₦\n✓ Math symbols: √, π, ∑, ∞, ∫\n✓ Fractions: ½, ¼, ¾\n✓ Exponents: ², ³")
                         ->disabled()
-                        ->rows(10)
+                        ->rows(12)
                         ->columnSpanFull(),
+
 
                     Select::make('default_exam_type_id')
                         ->label('Default Exam Type (Optional)')
@@ -65,6 +66,21 @@ class ListQuestions extends ListRecords
                         ->helperText('Used for rows without subject column')
                         ->searchable()
                         ->prefixIcon('heroicon-o-book-open')
+                        ->columnSpan(1),
+
+                    Select::make('default_topic_id')
+                        ->label('Default Topic (Optional)')
+                        ->options(function ($get) {
+                            $subjectId = $get('default_subject_id');
+                            $query = \App\Models\Topic::query()->where('is_active', true);
+                            if ($subjectId) {
+                                $query->where('subject_id', $subjectId);
+                            }
+                            return $query->pluck('name', 'id');
+                        })
+                        ->helperText('Used for rows without topic column. Filtered by subject if selected.')
+                        ->searchable()
+                        ->prefixIcon('heroicon-o-bookmark')
                         ->columnSpan(1),
 
                     \Filament\Forms\Components\TextInput::make('batch_name')
@@ -100,7 +116,8 @@ class ListQuestions extends ListRecords
                             $data['default_exam_type_id'] ?? null,
                             $data['default_subject_id'] ?? null,
                             \Filament\Facades\Filament::auth()->id(),
-                            $data['batch_name'] ?? null
+                            $data['batch_name'] ?? null,
+                            $data['default_topic_id'] ?? null
                         );
 
                         // Import with Laravel Excel
