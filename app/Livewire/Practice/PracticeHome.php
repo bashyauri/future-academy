@@ -28,17 +28,19 @@ class PracticeHome extends Component
 
     public function mount()
     {
-        // Load exam types that have questions
-        $this->examTypes = ExamType::where('is_active', true)
+        // Load all subjects with questions
+        $this->subjects = Subject::where('is_active', true)
             ->whereHas('questions', function ($query) {
                 $query->where('is_active', true)
                     ->where('status', 'approved');
             })
-            ->orderBy('sort_order')
+            ->orderBy('name')
             ->get();
 
-        // Initialize subjects as empty array
-        $this->subjects = [];
+        // Load all exam types (optional, can be filtered by subject if needed)
+        $this->examTypes = ExamType::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
         // Load all in-progress attempts for the user
         $this->allResumeAttempts = [];
@@ -64,36 +66,6 @@ class PracticeHome extends Component
         }
     }
 
-    public function updatedSelectedExamType()
-    {
-        // Reset dependent fields
-        $this->selectedSubject = null;
-        $this->selectedYear = null;
-        $this->filteredYears = [];
-
-        if ($this->selectedExamType) {
-            // Load subjects that have questions for selected exam type
-            $this->subjects = Subject::where('is_active', true)
-                ->whereHas('questions', function ($query) {
-                    if ($this->selectedExamType) {
-                        $query->where('exam_type_id', $this->selectedExamType);
-                    }
-                    $query->where('is_active', true)
-                        ->where('status', 'approved');
-                })
-                ->orderBy('name')
-                ->get();
-        } else {
-            // All exam types: show subjects with any active, approved questions
-            $this->subjects = Subject::where('is_active', true)
-                ->whereHas('questions', function ($query) {
-                    $query->where('is_active', true)
-                        ->where('status', 'approved');
-                })
-                ->orderBy('name')
-                ->get();
-        }
-    }
 
     public function updatedSelectedSubject()
     {
@@ -152,13 +124,9 @@ class PracticeHome extends Component
     public function startPractice()
     {
         $this->validate([
-            'selectedExamType' => 'required',
             'selectedSubject' => 'required',
-            // 'selectedYear' => 'required', // Remove required for year
         ], [
-            'selectedExamType.required' => 'Please select an exam type',
             'selectedSubject.required' => 'Please select a subject',
-            // 'selectedYear.required' => 'Please select a year',
         ]);
 
         // Verify that questions exist for this combination

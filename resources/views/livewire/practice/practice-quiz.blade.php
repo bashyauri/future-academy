@@ -48,116 +48,124 @@
         return result;
     }
 }">
-    @if(!$showResults)
-    {{-- Quiz Taking Interface --}}
-
-    <!-- Mobile Progress Toggle Button -->
-    <div class="lg:hidden flex justify-center">
-        <button
-            @click="showProgressGrid = !showProgressGrid"
-            class="px-4 py-2 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M4 10h16"/>
-            </svg>
-            <span x-text="showProgressGrid ? 'Hide Progress' : 'Show Progress'"></span>
-        </button>
-    </div>
-
-    <!-- Mobile Progress Grid -->
-    <div x-show="showProgressGrid" x-transition x-cloak class="lg:hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
-        <div class="mb-3">
-            <flux:text class="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase mb-3">Question Progress</flux:text>
-            <div class="grid grid-cols-10 gap-1">
-                @for($i = 0; $i < $totalQuestions; $i++)
-                    @php
-                        $isAnswered = ($userAnswers[$i] ?? null) !== null;
-                        $isCurrent = $currentQuestionIndex == $i;
-                    @endphp
-                    <button
-                        wire:click="jumpToQuestion({{ $i }})"
-                        @click="showProgressGrid = false"
-                        wire:loading.attr="disabled"
-                        wire:target="jumpToQuestion"
-                        title="Q{{ $i + 1 }}"
-                        class="aspect-square h-6 w-6 p-0 flex items-center justify-center rounded text-xs font-medium transition-all {{ $isCurrent ? 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700' : ($isAnswered ? 'bg-green-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400') }}">
-                        {{ $i + 1 }}
-                    </button>
-                @endfor
+    @if($totalQuestions === 0 && !$showResults)
+        <div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 p-8 text-center">
+            <flux:heading size="lg" class="text-red-700 dark:text-red-200 mb-2">No Questions Available</flux:heading>
+            <flux:text class="text-base text-red-800 dark:text-red-300">There are no questions for the selected subject, exam type, or year. Please go back and adjust your selection.</flux:text>
+            <div class="mt-6">
+                <a href="{{ route('practice.home') }}" class="inline-block px-6 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">Back to Practice Selection</a>
             </div>
         </div>
-    </div>
+    @elseif(!$showResults)
+        {{-- Quiz Taking Interface --}}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-6">
-        {{-- Main Question Area --}}
-        <div class="lg:col-span-2 space-y-6">
-            {{-- Progress Header --}}
-            <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-white dark:bg-neutral-800">
-                <div class="flex items-center justify-between mb-4">
-                    <flux:heading size="sm" class="text-base md:text-lg font-semibold">
-                        Question {{ $currentQuestionIndex + 1 }} of {{ $totalQuestions }}
-                    </flux:heading>
-                    <div class="flex items-center gap-4">
-                        @if($time)
-                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" wire:ignore>
-                            <svg class="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            <flux:text class="text-sm font-semibold text-blue-700 dark:text-blue-300" x-text="formatTime(timeLeft)"></flux:text>
-                        </div>
-                        @endif
-                        <flux:text class="text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-medium">
-                            {{ round(($currentQuestionIndex + 1) / $totalQuestions * 100) }}%
-                        </flux:text>
-                    </div>
-                </div>
-                <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-3">
-                    <div class="bg-blue-600 dark:bg-blue-500 h-3 rounded-full transition-all"
-                         style="width: {{ ($currentQuestionIndex + 1) / $totalQuestions * 100 }}%"></div>
+        <!-- Mobile Progress Toggle Button -->
+        <div class="lg:hidden flex justify-center">
+            <button
+                @click="showProgressGrid = !showProgressGrid"
+                class="px-4 py-2 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M4 10h16"/>
+                </svg>
+                <span x-text="showProgressGrid ? 'Hide Progress' : 'Show Progress'"></span>
+            </button>
+        </div>
+
+        <!-- Mobile Progress Grid -->
+        <div x-show="showProgressGrid" x-transition x-cloak class="lg:hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+            <div class="mb-3">
+                <flux:text class="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase mb-3">Question Progress</flux:text>
+                <div class="grid grid-cols-10 gap-1">
+                    @for($i = 0; $i < $totalQuestions; $i++)
+                        @php
+                            $isAnswered = ($userAnswers[$i] ?? null) !== null;
+                            $isCurrent = $currentQuestionIndex == $i;
+                        @endphp
+                        <button
+                            wire:click="jumpToQuestion({{ $i }})"
+                            @click="showProgressGrid = false"
+                            wire:loading.attr="disabled"
+                            wire:target="jumpToQuestion"
+                            title="Q{{ $i + 1 }}"
+                            class="aspect-square h-6 w-6 p-0 flex items-center justify-center rounded text-xs font-medium transition-all {{ $isCurrent ? 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700' : ($isAnswered ? 'bg-green-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400') }}">
+                            {{ $i + 1 }}
+                        </button>
+                    @endfor
                 </div>
             </div>
+        </div>
 
-            {{-- Current Question --}}
-            @if(isset($questions[$currentQuestionIndex]))
-            @php $question = $questions[$currentQuestionIndex]; @endphp
-
-            <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-8 bg-white dark:bg-neutral-800 space-y-5 md:space-y-6">
-                {{-- Question Text --}}
-                <div>
-                    <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed">{{ $question['question_text'] }}</flux:heading>
-                    @if($question['question_image'])
-                    <img src="{{ $question['question_image'] }}" alt="Question" class="mt-3 md:mt-4 max-w-full h-auto rounded-lg">
-                    @endif
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-6">
+            {{-- Main Question Area --}}
+            <div class="lg:col-span-2 space-y-6">
+                {{-- Progress Header --}}
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-white dark:bg-neutral-800">
+                    <div class="flex items-center justify-between mb-4">
+                        <flux:heading size="sm" class="text-base md:text-lg font-semibold">
+                            Question {{ $currentQuestionIndex + 1 }} of {{ $totalQuestions }}
+                        </flux:heading>
+                        <div class="flex items-center gap-4">
+                            @if($time)
+                            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" wire:ignore>
+                                <svg class="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <flux:text class="text-sm font-semibold text-blue-700 dark:text-blue-300" x-text="formatTime(timeLeft)"></flux:text>
+                            </div>
+                            @endif
+                            <flux:text class="text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-medium">
+                                {{ $totalQuestions > 0 ? round(($currentQuestionIndex + 1) / $totalQuestions * 100) : 0 }}%
+                            </flux:text>
+                        </div>
+                    </div>
+                    <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-3">
+                        <div class="bg-blue-600 dark:bg-blue-500 h-3 rounded-full transition-all"
+                             style="width: {{ $totalQuestions > 0 ? (($currentQuestionIndex + 1) / $totalQuestions * 100) : 0 }}%"></div>
+                    </div>
                 </div>
 
-                {{-- Options with Instant Feedback --}}
-                <div class="space-y-3 md:space-y-3">
-                    @php
-                        $hasAnswered = $userAnswers[$currentQuestionIndex] !== null;
-                        $correctOption = collect($question['options'])->firstWhere('is_correct', true);
-                    @endphp
-                    @foreach($question['options'] as $option)
-                    @php
-                        $isSelected = $userAnswers[$currentQuestionIndex] === $option['id'];
-                        $isCorrect = $option['is_correct'];
+                {{-- Current Question --}}
+                @if(isset($questions[$currentQuestionIndex]))
+                @php $question = $questions[$currentQuestionIndex]; @endphp
 
-                        // Determine styling based on answer state
-                        if ($hasAnswered) {
-                            if ($isCorrect) {
-                                $borderClass = 'border-green-500 bg-green-50 dark:bg-green-950/20';
-                                $textClass = 'text-green-800 dark:text-green-300 font-medium';
-                            } elseif ($isSelected && !$isCorrect) {
-                                $borderClass = 'border-red-500 bg-red-50 dark:bg-red-950/20';
-                                $textClass = 'text-red-800 dark:text-red-300';
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-8 bg-white dark:bg-neutral-800 space-y-5 md:space-y-6">
+                    {{-- Question Text --}}
+                    <div>
+                        <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed">{{ $question['question_text'] }}</flux:heading>
+                        @if($question['question_image'])
+                        <img src="{{ $question['question_image'] }}" alt="Question" class="mt-3 md:mt-4 max-w-full h-auto rounded-lg">
+                        @endif
+                    </div>
+
+                    {{-- Options with Instant Feedback --}}
+                    <div class="space-y-3 md:space-y-3">
+                        @php
+                            $hasAnswered = $userAnswers[$currentQuestionIndex] !== null;
+                            $correctOption = collect($question['options'])->firstWhere('is_correct', true);
+                        @endphp
+                        @foreach($question['options'] as $option)
+                        @php
+                            $isSelected = $userAnswers[$currentQuestionIndex] === $option['id'];
+                            $isCorrect = $option['is_correct'];
+
+                            // Determine styling based on answer state
+                            if ($hasAnswered) {
+                                if ($isCorrect) {
+                                    $borderClass = 'border-green-500 bg-green-50 dark:bg-green-950/20';
+                                    $textClass = 'text-green-800 dark:text-green-300 font-medium';
+                                } elseif ($isSelected && !$isCorrect) {
+                                    $borderClass = 'border-red-500 bg-red-50 dark:bg-red-950/20';
+                                    $textClass = 'text-red-800 dark:text-red-300';
+                                } else {
+                                    $borderClass = 'border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50 opacity-60';
+                                    $textClass = 'text-neutral-700 dark:text-neutral-300';
+                                }
                             } else {
-                                $borderClass = 'border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50 opacity-60';
-                                $textClass = 'text-neutral-700 dark:text-neutral-300';
+                                $borderClass = $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600';
+                                $textClass = $isSelected ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-neutral-700 dark:text-neutral-300';
                             }
-                        } else {
-                            $borderClass = $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600';
-                            $textClass = $isSelected ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-neutral-700 dark:text-neutral-300';
-                        }
-                    @endphp
-                    <button
+                        @endphp
+                        <button
                         wire:click="selectAnswer({{ $option['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="selectAnswer"

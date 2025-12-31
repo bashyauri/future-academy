@@ -208,10 +208,13 @@ class PracticeQuiz extends Component
             ->where('is_active', true)
             ->where('status', 'approved');
 
+        // If exam_type is selected, filter by it
         if ($this->exam_type) {
             $query->where('exam_type_id', $this->exam_type);
         }
 
+        // If year is selected, filter by it (with fallback for null exam_year)
+        // Only apply year filter if year is set (not null/empty)
         if ($this->year) {
             $query->where(function ($q) {
                 $q->where('exam_year', $this->year)
@@ -220,7 +223,7 @@ class PracticeQuiz extends Component
                   });
             });
         }
-        // If no year is selected, fetch all questions regardless of year (including those with null year fields)
+        // If subject and exam_type are selected but year is not, do NOT filter by year (show all years for that subject and exam_type)
 
         $questions = $query->with('options')->get();
 

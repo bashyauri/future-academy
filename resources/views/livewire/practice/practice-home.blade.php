@@ -82,13 +82,40 @@
 
         {{-- Selection Grid --}}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {{-- Exam Type Selection --}}
+
+            {{-- Subject Selection --}}
             <div class="space-y-2 md:space-y-3">
-                <flux:heading size="sm" class="text-sm md:text-base">{{ __('Exam Type') }}</flux:heading>
+                <flux:heading size="sm" class="text-sm md:text-base">{{ __('Subject') }}</flux:heading>
+                <div class="relative">
+                    <flux:select
+                        wire:model.live="selectedSubject"
+                        placeholder="{{ __('Choose subject...') }}"
+                        class="text-sm md:text-base"
+                    >
+                        <option value="">{{ __('Choose subject...') }}</option>
+                        @foreach($subjects as $subject)
+                            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                        @endforeach
+                    </flux:select>
+                    <div wire:loading wire:target="selectedSubject" class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg class="animate-spin h-4 md:h-5 w-4 md:w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
+                    {{ __('Select your subject') }}
+                </flux:text>
+            </div>
+
+            {{-- Exam Type Selection (Optional) --}}
+            <div class="space-y-2 md:space-y-3">
+                <flux:heading size="sm" class="text-sm md:text-base">{{ __('Exam Type (Optional)') }}</flux:heading>
                 <div class="relative">
                     <flux:select
                         wire:model.live="selectedExamType"
-                        placeholder="{{ __('Choose exam...') }}"
+                        placeholder="{{ __('(Optional) Choose exam...') }}"
                         class="text-sm md:text-base"
                     >
                         <option value="">{{ __('All Exam Types') }}</option>
@@ -105,33 +132,6 @@
                 </div>
                 <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
                     {{ __('e.g., JAMB, NECO, WAEC') }}
-                </flux:text>
-            </div>
-
-            {{-- Subject Selection --}}
-            <div class="space-y-2 md:space-y-3">
-                <flux:heading size="sm" class="text-sm md:text-base">{{ __('Subject') }}</flux:heading>
-                <div class="relative">
-                    <flux:select
-                        wire:model.live="selectedSubject"
-                        placeholder="{{ __('Choose subject...') }}"
-                        :disabled="!$selectedExamType"
-                        class="text-sm md:text-base"
-                    >
-                        <option value="">{{ __('Choose subject...') }}</option>
-                        @foreach($subjects as $subject)
-                            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
-                        @endforeach
-                    </flux:select>
-                    <div wire:loading wire:target="selectedSubject,updatedSelectedExamType" class="absolute right-3 top-1/2 -translate-y-1/2">
-                        <svg class="animate-spin h-4 md:h-5 w-4 md:w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                </div>
-                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
-                    {{ __('Select your subject') }}
                 </flux:text>
             </div>
 
