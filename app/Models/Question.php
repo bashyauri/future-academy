@@ -29,11 +29,13 @@ class Question extends Model
         'approved_at',
         'rejection_reason',
         'is_active',
+        'is_mock',
         'times_used',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_mock' => 'boolean',
         'times_used' => 'integer',
         'year' => 'integer',
         'approved_at' => 'datetime',

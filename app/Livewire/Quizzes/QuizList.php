@@ -15,6 +15,7 @@ class QuizList extends Component
     public function render()
     {
         $quizzes = Quiz::query()
+            ->where('is_mock', false)
             ->active()
             ->available()
             ->when($this->search, function ($query) {

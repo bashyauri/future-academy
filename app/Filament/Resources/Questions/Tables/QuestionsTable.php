@@ -118,6 +118,16 @@ class QuestionsTable
                     ->sortable()
                     ->toggleable(),
 
+                IconColumn::make('is_mock')
+                    ->label('Mock')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-beaker')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('warning')
+                    ->falseColor('gray')
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('times_used')
                     ->label('Used')
                     ->sortable()
@@ -162,6 +172,11 @@ class QuestionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TernaryFilter::make('is_mock')
+                    ->label('Mock Question')
+                    ->placeholder('All')
+                    ->trueLabel('Mock Only')
+                    ->falseLabel('Non-Mock Only'),
                 SelectFilter::make('exam_type_id')
                     ->label('Exam Type')
                     ->relationship('examType', 'name')

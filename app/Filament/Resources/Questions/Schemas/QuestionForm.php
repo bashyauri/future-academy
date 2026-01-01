@@ -177,6 +177,12 @@ class QuestionForm
 
                         Grid::make()
                             ->schema([
+                                Toggle::make('is_mock')
+                                    ->label('Mock Question')
+                                    ->helperText('Mark this question as a mock exam question. Mock questions will not appear in regular practice or quizzes.')
+                                    ->default(false)
+                                    ->inline(false)
+                                    ->columnSpan(1),
                                 Select::make('difficulty')
                                     ->label('Difficulty Level')
                                     ->required()

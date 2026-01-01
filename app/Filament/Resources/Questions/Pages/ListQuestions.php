@@ -46,9 +46,9 @@ class ListQuestions extends ListRecords
 
                     Textarea::make('instructions')
                         ->label('📋 How to Format Your CSV File')
-                        ->default("REQUIRED COLUMNS:\n• question_text - The question\n• option_a, option_b - At least 2 options (up to option_f for 6 options)\n• correct_answer - A, B, C, D, E, or F\n• subject - Name (e.g., Mathematics, English)\n\nOPTIONAL COLUMNS:\n• exam_type - Name (e.g., WAEC, NECO, JAMB)\n• topic - Subtopic name (e.g., Algebra)\n• explanation - Why the answer is correct\n• difficulty - easy, medium, or hard\n• year - Past question year\n\nYou can also select a default topic from the dropdown below. If a topic is selected, it will be used for all rows that do not specify a topic.\nExam type is now optional and can be set per row or left blank.\n\nSPECIAL CHARACTERS SUPPORTED:\n✓ Nigerian Naira: ₦\n✓ Math symbols: √, π, ∑, ∞, ∫\n✓ Fractions: ½, ¼, ¾\n✓ Exponents: ², ³")
+                        ->default("REQUIRED COLUMNS:\n• question_text - The question\n• option_a, option_b - At least 2 options (up to option_f for 6 options)\n• correct_answer - A, B, C, D, E, or F\n• subject - Name (e.g., Mathematics, English)\n\nOPTIONAL COLUMNS:\n• exam_type - Name (e.g., WAEC, NECO, JAMB)\n• topic - Subtopic name (e.g., Algebra)\n• explanation - Why the answer is correct\n• difficulty - easy, medium, or hard\n• year - Past question year\n• is_mock - true/false (mark as mock question)\n\nYou can also select a default topic or mark all as mock using the checkboxes below. If a topic is selected, it will be used for all rows that do not specify a topic. If 'Mark All as Mock' is checked, all questions will be mock regardless of the column. Exam type is now optional and can be set per row or left blank.\n\nSPECIAL CHARACTERS SUPPORTED:\n✓ Nigerian Naira: ₦\n✓ Math symbols: √, π, ∑, ∞, ∫\n✓ Fractions: ½, ¼, ¾\n✓ Exponents: ², ³")
                         ->disabled()
-                        ->rows(12)
+                        ->rows(14)
                         ->columnSpanFull(),
 
 
@@ -90,6 +90,12 @@ class ListQuestions extends ListRecords
                         ->maxLength(100)
                         ->prefixIcon('heroicon-o-tag')
                         ->columnSpanFull(),
+
+                    \Filament\Forms\Components\Toggle::make('default_is_mock')
+                        ->label('Mark All as Mock Questions')
+                        ->helperText('If checked, all imported questions will be tagged as mock (overrides is_mock column in file).')
+                        ->default(false)
+                        ->columnSpanFull(),
                 ])
                 ->modalHeading('📤 Import Questions from CSV/Excel')
                 ->modalDescription('Upload a CSV or Excel file to bulk import questions. Download the template below to see the exact format.')
@@ -117,7 +123,8 @@ class ListQuestions extends ListRecords
                             $data['default_subject_id'] ?? null,
                             \Filament\Facades\Filament::auth()->id(),
                             $data['batch_name'] ?? null,
-                            $data['default_topic_id'] ?? null
+                            $data['default_topic_id'] ?? null,
+                            $data['default_is_mock'] ?? false
                         );
 
                         // Import with Laravel Excel

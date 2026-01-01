@@ -36,8 +36,9 @@ class QuestionsImport implements
     protected $errors = [];
     protected $imported = 0;
     protected $skipped = 0;
+    protected $defaultIsMock = false;
 
-    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null, $defaultTopicId = null)
+    public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null, $defaultTopicId = null, $defaultIsMock = false)
     {
         $this->defaultExamTypeId = $defaultExamTypeId;
         $this->defaultSubjectId = $defaultSubjectId;
@@ -54,6 +55,7 @@ class QuestionsImport implements
         } else {
             $this->batchName = 'Imported ' . date('Y-m-d H:i') . ($userName ? ' by ' . $userName : '');
         }
+        $this->defaultIsMock = $defaultIsMock;
     }
 
     /**
@@ -132,6 +134,7 @@ class QuestionsImport implements
                 'upload_batch' => $this->batchKey,
                 'batch_name' => $this->batchName,
                 'is_active' => true,
+                'is_mock' => $this->defaultIsMock ? true : (isset($data['is_mock']) ? (filter_var($data['is_mock'], FILTER_VALIDATE_BOOLEAN) ? true : false) : false),
             ];
             if ($examTypeId) {
                 $questionData['exam_type_id'] = $examTypeId;
@@ -186,6 +189,7 @@ class QuestionsImport implements
             'subject_id' => $row['subject_id'] ?? null,
             'topic' => $row['topic'] ?? $row['topic_name'] ?? null,
             'topic_id' => $row['topic_id'] ?? null,
+            'is_mock' => $row['is_mock'] ?? false,
         ];
     }
 

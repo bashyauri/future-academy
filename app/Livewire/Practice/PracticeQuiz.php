@@ -206,7 +206,8 @@ class PracticeQuiz extends Component
         $query = Question::query()
             ->where('subject_id', $this->subject)
             ->where('is_active', true)
-            ->where('status', 'approved');
+            ->where('status', 'approved')
+            ->where('is_mock', false);
 
         // If exam_type is selected, filter by it
         if ($this->exam_type) {
