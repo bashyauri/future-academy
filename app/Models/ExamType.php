@@ -15,6 +15,7 @@ class ExamType extends Model
         'code',
         'description',
         'color',
+        'exam_format',
         'is_active',
         'sort_order',
     ];

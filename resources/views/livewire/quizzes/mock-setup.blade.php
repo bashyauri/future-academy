@@ -1,6 +1,11 @@
 <div class="bg-white dark:bg-neutral-950 min-h-screen">
 <flux:container class="pb-24 sm:pb-12">
     <div class="space-y-6 sm:space-y-8 py-6 sm:py-8">
+        @if(session('error'))
+            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-100 px-4 py-3">
+                {{ session('error') }}
+            </div>
+        @endif
         <div class="space-y-2">
             <flux:heading size="xl" level="1" class="leading-tight">Start a Mock Exam</flux:heading>
             <flux:text class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">

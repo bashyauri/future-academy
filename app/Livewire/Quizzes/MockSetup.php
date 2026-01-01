@@ -3,6 +3,7 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\ExamType;
+use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\Subject;
 use Livewire\Attributes\Layout;
@@ -19,12 +20,8 @@ class MockSetup extends Component
 
     public function mount(): void
     {
-        $defaultExamType = ExamType::where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->first();
-
-        $this->examTypeId = $defaultExamType?->id;
+        // Don't preselect exam type - let user choose
+        $this->examTypeId = null;
 
         $this->loadOptions();
     }
@@ -66,6 +63,7 @@ class MockSetup extends Component
 
     public function startMock()
     {
+
         $this->validate([
             'examTypeId' => 'required|exists:exam_types,id',
             'selectedSubjects' => 'required|array|min:1|max:' . $this->maxSubjects,
@@ -73,14 +71,11 @@ class MockSetup extends Component
 
         // Get exam type to determine specifications
         $examType = ExamType::find($this->examTypeId);
-        $examTypeName = strtoupper($examType?->name ?? '');
+        $examFormat = $examType?->exam_format ?? 'default';
 
-        // Check if this is JAMB or SSCE/WAEC/NECO
-        $isJamb = stripos($examTypeName, 'JAMB') !== false;
-        $isSsce = stripos($examTypeName, 'WAEC') !== false ||
-                  stripos($examTypeName, 'NECO') !== false ||
-                  stripos($examTypeName, 'NAPTEB') !== false ||
-                  stripos($examTypeName, 'SSCE') !== false;
+        // Use exam format field instead of name detection
+        $isJamb = $examFormat === 'jamb';
+        $isSsce = $examFormat === 'ssce';
 
         // Auto-calculate question counts and time limits based on exam type
         $questionsPerSubject = [];
@@ -88,21 +83,21 @@ class MockSetup extends Component
 
         foreach ($this->selectedSubjects as $subjectId) {
             $subject = Subject::find($subjectId);
-            $subjectName = $subject?->name ?? '';
+            $subjectName = strtolower($subject?->name ?? '');
 
             if ($isJamb) {
                 // JAMB: English = 70, others = 50, total time = 100 mins
-                $questionCount = (stripos($subjectName, 'English') !== false) ? 70 : 50;
+                $questionCount = str_contains($subjectName, 'english') ? 70 : 50;
                 $questionsPerSubject[$subjectId] = $questionCount;
             } elseif ($isSsce) {
                 // SSCE (WAEC/NECO/NAPTEB):
                 // English = 110 questions, 50 minutes
                 // Maths/Further Maths = 60 questions, 50 minutes
                 // All others = 60 questions, 35 minutes
-                if (stripos($subjectName, 'English') !== false) {
+                if (str_contains($subjectName, 'english')) {
                     $questionCount = 110;
                     $totalTime += 50;
-                } elseif (stripos($subjectName, 'Math') !== false || stripos($subjectName, 'Further') !== false) {
+                } elseif (str_contains($subjectName, 'math') || str_contains($subjectName, 'further')) {
                     $questionCount = 60;
                     $totalTime += 50;
                 } else {
@@ -116,16 +111,18 @@ class MockSetup extends Component
                 $questionsPerSubject[$subjectId] = $questionCount;
             }
 
-            // Verify availability (mixed years)
+            // Verify availability of mock questions only
             $available = Question::where('exam_type_id', $this->examTypeId)
                 ->where('subject_id', $subjectId)
+                ->where('is_mock', true)
                 ->where('is_active', true)
                 ->where('status', 'approved')
                 ->count();
 
+
             if ($available < $questionCount) {
                 $name = $subject?->name ?? 'Subject';
-                $this->addError('selectedSubjects', "Not enough questions for {$name}. Needed {$questionCount}, available {$available}.");
+                $this->addError('selectedSubjects', "Not enough mock questions for {$name}. Needed {$questionCount}, available {$available}. Try another subject combination.");
                 return;
             }
         }
@@ -139,15 +136,21 @@ class MockSetup extends Component
             $timeLimit = 100; // Default
         }
 
-        return redirect()->route('mock.quiz', [
-            'examType' => $this->examTypeId,
-            'subjects' => implode(',', $this->selectedSubjects),
-            'questionsPerSubject' => json_encode($questionsPerSubject),
-            'timeLimit' => $timeLimit,
-            'showAnswers' => '0',
-            'showExplanations' => '0',
-            'shuffle' => '0',
+        // Create secure mock session in database
+        $session = MockSession::create([
+            'user_id' => auth()->id(),
+            'exam_type_id' => $this->examTypeId,
+            'subject_ids' => $this->selectedSubjects,
+            'questions_per_subject' => $questionsPerSubject,
+            'time_limit' => $timeLimit,
+            'selected_year' => null,
+            'shuffle' => false,
+            'status' => 'active',
+            'expires_at' => now()->addHours(24), // Expire after 24 hours
         ]);
+
+        // Redirect with only session ID - secure and clean URL
+        return redirect()->route('mock.quiz', ['session' => $session->id]);
     }
 
     public function render()
@@ -159,13 +162,10 @@ class MockSetup extends Component
 
         // Determine current exam type category
         $currentExamType = ExamType::find($this->examTypeId);
-        $examTypeName = strtoupper($currentExamType?->name ?? '');
+        $examFormat = $currentExamType?->exam_format ?? 'default';
 
-        $isJamb = stripos($examTypeName, 'JAMB') !== false;
-        $isSsce = stripos($examTypeName, 'WAEC') !== false ||
-                  stripos($examTypeName, 'NECO') !== false ||
-                  stripos($examTypeName, 'NAPTEB') !== false ||
-                  stripos($examTypeName, 'SSCE') !== false;
+        $isJamb = $examFormat === 'jamb';
+        $isSsce = $examFormat === 'ssce';
 
         return view('livewire.quizzes.mock-setup', [
             'examTypes' => $examTypes,

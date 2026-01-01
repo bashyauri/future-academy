@@ -110,6 +110,18 @@
                                     @if($isSelected)
                                         <svg class="h-5 w-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                                     @endif
+                                </div>
+                            </button>
+                        @endforeach
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3 mb-6">
+                        <button
+                            wire:click="previousQuestion"
+                            wire:loading.attr="disabled"
+                            wire:target="previousQuestion"
+                            :disabled="$currentQuestionIndex === 0"
+                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span wire:loading.remove wire:target="previousQuestion">← Previous</span>
                             <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
                                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

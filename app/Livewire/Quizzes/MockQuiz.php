@@ -3,6 +3,7 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\ExamType;
+use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
@@ -30,26 +31,37 @@ class MockQuiz extends Component
 
     public int $timeRemaining = 0; // seconds
     public int $timeLimit = 180; // minutes
-    public int $questionsPerSubject = 40;
+    public array $questionsPerSubject = []; // Per-subject question counts
     public bool $showAnswersImmediately = false;
     public bool $showExplanations = false;
     public bool $shuffleQuestions = true;
 
     public function mount()
     {
-        $this->examTypeId = (int) (request()->query('examType') ?? 0);
-        $this->selectedYear = request()->query('year');
-        $subjectsParam = request()->query('subjects');
+        $sessionId = request()->query('session');
 
-        $this->timeLimit = (int) (request()->query('timeLimit') ?? 180);
-        $this->questionsPerSubject = (int) (request()->query('questionsPerSubject') ?? 40);
-        $this->showAnswersImmediately = request()->query('showAnswers') === '1';
-        $this->showExplanations = request()->query('showExplanations') === '1';
-        $this->shuffleQuestions = request()->query('shuffle') !== '0';
-
-        if ($subjectsParam) {
-            $this->subjectIds = array_filter(explode(',', $subjectsParam));
+        if (!$sessionId) {
+            return $this->redirectToSetup();
         }
+
+        // Load session from database (secure, tamper-proof)
+        $session = MockSession::where('id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->where('status', 'active')
+            ->first();
+
+        if (!$session || $session->isExpired()) {
+            session()->flash('error', 'Mock session expired or invalid. Please start a new mock.');
+            return $this->redirectToSetup();
+        }
+
+        // Load configuration from secure session
+        $this->examTypeId = $session->exam_type_id;
+        $this->subjectIds = $session->subject_ids;
+        $this->questionsPerSubject = $session->questions_per_subject;
+        $this->timeLimit = $session->time_limit;
+        $this->selectedYear = $session->selected_year;
+        $this->shuffleQuestions = $session->shuffle;
 
         if (empty($this->examTypeId) || empty($this->subjectIds)) {
             return $this->redirectToSetup();
@@ -77,8 +89,13 @@ class MockQuiz extends Component
         $this->subjectIds = $this->subjectsData->pluck('id')->toArray();
 
         foreach ($this->subjectIds as $subjectId) {
+            // Get question count for this specific subject (or default to 40)
+            $questionCount = $this->questionsPerSubject[$subjectId] ?? 40;
+
+            // Only pull mock questions for this mock quiz flow
             $query = Question::where('exam_type_id', $this->examTypeId)
                 ->where('subject_id', $subjectId)
+                ->where('is_mock', true)
                 ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
                 ->where('is_active', true)
                 ->where('status', 'approved')
@@ -88,10 +105,20 @@ class MockQuiz extends Component
                 $query->inRandomOrder();
             }
 
-            $questions = $query->take($this->questionsPerSubject)->get();
+            $questions = $query->take($questionCount)->get();
 
             if ($questions->count() === 0) {
-                $this->addError('subjects', 'No questions available for one of the selected subjects.');
+                // Log for debugging
+                \Log::warning('No mock questions found', [
+                    'exam_type_id' => $this->examTypeId,
+                    'subject_id' => $subjectId,
+                    'year' => $this->selectedYear,
+                    'questions_requested' => $questionCount,
+                ]);
+
+                // Keep user informed before sending back to setup
+                session()->flash('error', 'No mock questions are available for the selected subjects. Only mock exams are supported. Please try another subject combination.');
+                $this->addError('subjects', 'No mock questions available for one of the selected subjects.');
                 return $this->redirectToSetup();
             }
 
