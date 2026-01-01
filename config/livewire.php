@@ -95,6 +95,34 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Cache Middleware (Performance Optimization)
+    |---------------------------------------------------------------------------
+    |
+    | Enable caching of Livewire components to improve performance in production.
+    | This requires Redis or Memcached to be configured.
+    |
+    */
+
+    'cache' => [
+        'driver' => env('CACHE_STORE', 'database'),
+        'prefix' => env('CACHE_PREFIX', 'livewire:'),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Defer Updater Timeout
+    |---------------------------------------------------------------------------
+    |
+    | Livewire defers certain updates to improve performance. This timeout
+    | determines how long to wait before actually processing the updates.
+    | Value is in milliseconds.
+    |
+    */
+
+    'defer_updater_timeout' => 60000,
+
+    /*
+    |---------------------------------------------------------------------------
     | Eloquent Model Binding
     |---------------------------------------------------------------------------
     |

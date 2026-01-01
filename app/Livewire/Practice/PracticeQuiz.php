@@ -7,8 +7,10 @@ use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\UserAnswer;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 #[Layout('components.layouts.app')]
@@ -27,12 +29,15 @@ class PracticeQuiz extends Component
         return redirect()->route('practice.home');
     }
     #[Url]
+    #[Locked]
     public $exam_type;
 
     #[Url]
+    #[Locked]
     public $subject;
 
     #[Url]
+    #[Locked]
     public $year;
 
     #[Url]
@@ -59,8 +64,22 @@ class PracticeQuiz extends Component
     public $showResults = false;
     public $score = 0;
     public $totalQuestions = 0;
+    #[Locked]
     public ?QuizAttempt $quizAttempt = null;
+    #[Locked]
     public array $questionIds = [];
+
+    #[Computed]
+    public function currentQuestion()
+    {
+        return $this->questions[$this->currentQuestionIndex] ?? null;
+    }
+
+    #[Computed]
+    public function currentAnswerId()
+    {
+        return $this->userAnswers[$this->currentQuestionIndex] ?? null;
+    }
 
     public function mount()
     {
@@ -234,7 +253,24 @@ class PracticeQuiz extends Component
             $questions = $questions->take($this->limit);
         }
 
-        $this->questions = $questions->toArray();
+        // Optimize payload: only include necessary fields
+        $this->questions = $questions->map(function ($question) {
+            return [
+                'id' => $question->id,
+                'question_text' => $question->question_text,
+                'question_image' => $question->question_image,
+                'explanation' => $question->explanation,
+                'options' => $question->options->map(function ($option) {
+                    return [
+                        'id' => $option->id,
+                        'option_text' => $option->option_text,
+                        'option_image' => $option->option_image,
+                        'is_correct' => $option->is_correct,
+                    ];
+                })->toArray(),
+            ];
+        })->toArray();
+
         $this->questionIds = array_column($this->questions, 'id');
         $this->totalQuestions = count($this->questions);
         $this->userAnswers = array_fill(0, $this->totalQuestions, null);
@@ -262,8 +298,17 @@ class PracticeQuiz extends Component
         }
     }
 
+    public $lastAnswerTime = 0;
+
     public function selectAnswer($optionId)
     {
+        // Throttle: prevent rapid-fire requests (max once every 300ms)
+        $now = microtime(true);
+        if ($now - $this->lastAnswerTime < 0.3) {
+            return;
+        }
+        $this->lastAnswerTime = $now;
+
         $this->userAnswers[$this->currentQuestionIndex] = $optionId;
         $this->selectedAnswers[$this->currentQuestionIndex] = $optionId;
 

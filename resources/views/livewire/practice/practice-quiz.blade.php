@@ -99,7 +99,7 @@
             {{-- Main Question Area --}}
             <div class="lg:col-span-2 space-y-6">
                 {{-- Progress Header --}}
-                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-white dark:bg-neutral-800">
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-white dark:bg-neutral-800" wire:key="progress-{{ $currentQuestionIndex }}">
                     <div class="flex items-center justify-between mb-4">
                         <flux:heading size="sm" class="text-base md:text-lg font-semibold">
                             Question {{ $currentQuestionIndex + 1 }} of {{ $totalQuestions }}
@@ -128,9 +128,9 @@
                 @if(isset($questions[$currentQuestionIndex]))
                 @php $question = $questions[$currentQuestionIndex]; @endphp
 
-                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-8 bg-white dark:bg-neutral-800 space-y-5 md:space-y-6">
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-8 bg-white dark:bg-neutral-800 space-y-5 md:space-y-6" wire:key="question-{{ $question['id'] }}-attempt-{{ $attemptId ?? 0 }}">
                     {{-- Question Text --}}
-                    <div>
+                    <div wire:ignore>
                         <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed">{{ $question['question_text'] }}</flux:heading>
                         @if($question['question_image'])
                         <img src="{{ $question['question_image'] }}" alt="Question" class="mt-3 md:mt-4 max-w-full h-auto rounded-lg">
@@ -138,12 +138,12 @@
                     </div>
 
                     {{-- Options with Instant Feedback --}}
-                    <div class="space-y-3 md:space-y-3">
+                    <div class="space-y-3 md:space-y-3" wire:key="options-{{ $question['id'] }}">
                         @php
                             $hasAnswered = $userAnswers[$currentQuestionIndex] !== null;
                             $correctOption = collect($question['options'])->firstWhere('is_correct', true);
                         @endphp
-                        @foreach($question['options'] as $option)
+                        @foreach($question['options'] as $optIdx => $option)
                         @php
                             $isSelected = $userAnswers[$currentQuestionIndex] === $option['id'];
                             $isCorrect = $option['is_correct'];
@@ -169,6 +169,7 @@
                         wire:click="selectAnswer({{ $option['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="selectAnswer"
+                        wire:key="option-{{ $option['id'] }}"
                         @if($hasAnswered) disabled @endif
                         class="w-full text-left rounded-lg border-2 p-4 md:p-4 transition-all disabled:cursor-not-allowed {{ $borderClass }}"
                     >
@@ -362,31 +363,53 @@
             <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-neutral-800 sticky top-20">
                 <flux:heading size="sm" class="mb-4">{{ __('Questions') }}</flux:heading>
 
+                {{-- Show only current window of 5 buttons to avoid rendering all 227 --}}
                 <div class="grid grid-cols-5 gap-2 mb-6">
+                    @php
+                        $windowStart = max(0, $currentQuestionIndex - 2);
+                        $windowEnd = min($totalQuestions - 1, $currentQuestionIndex + 2);
+                    @endphp
                     @for($i = 0; $i < $totalQuestions; $i++)
-                    <button
-                        wire:click="jumpToQuestion({{ $i }})"
-                        wire:loading.attr="disabled"
-                        wire:target="jumpToQuestion"
-                        class="aspect-square rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500') }}"
-                    >
-                        {{ $i + 1 }}
-                    </button>
+                        @if($i >= $windowStart && $i <= $windowEnd)
+                        <button
+                            wire:click="jumpToQuestion({{ $i }})"
+                            wire:loading.attr="disabled"
+                            wire:target="jumpToQuestion"
+                            wire:key="sidebar-q-{{ $i }}"
+                            class="aspect-square rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500') }}"
+                        >
+                            {{ $i + 1 }}
+                        </button>
+                        @elseif($i < $windowStart && $currentQuestionIndex - $i <= 10)
+                        <!-- Placeholder for hidden early questions -->
+                        @elseif($i > $windowEnd && $i - $currentQuestionIndex <= 10)
+                        <!-- Placeholder for hidden later questions -->
+                        @endif
                     @endfor
                 </div>
 
+                {{-- Show answer statistics instead --}}
+                @php
+                    $answered = collect($userAnswers)->filter(fn($a) => $a !== null)->count();
+                    $unanswered = $totalQuestions - $answered;
+                @endphp
                 <div class="space-y-3 text-xs">
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full bg-blue-600"></div>
-                        <flux:text>{{ __('Current') }}</flux:text>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-green-600"></div>
+                            <flux:text>{{ __('Answered') }}</flux:text>
+                        </div>
+                        <flux:text class="font-semibold">{{ $answered }}/{{ $totalQuestions }}</flux:text>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full bg-green-600"></div>
-                        <flux:text>{{ __('Answered') }}</flux:text>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full border-2 border-neutral-300"></div>
+                            <flux:text>{{ __('Not Answered') }}</flux:text>
+                        </div>
+                        <flux:text class="font-semibold">{{ $unanswered }}</flux:text>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full border-2 border-neutral-300"></div>
-                        <flux:text>{{ __('Not Answered') }}</flux:text>
+                    <div class="flex items-center justify-between pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                        <flux:text class="font-semibold text-neutral-600 dark:text-neutral-400">Q {{ $currentQuestionIndex + 1 }} of {{ $totalQuestions }}</flux:text>
                     </div>
                 </div>
             </div>
@@ -397,34 +420,48 @@
             <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 bg-white dark:bg-neutral-800">
                 <flux:heading size="sm" class="mb-4 text-base font-semibold">{{ __('Questions Progress') }}</flux:heading>
 
-                {{-- Horizontal Scrollable Question Grid --}}
+                {{-- Horizontal Scrollable Question Grid - Limited Window --}}
                 <div class="overflow-x-auto -mx-5 px-5 mb-4">
                     <div class="flex gap-3 pb-2">
+                        @php
+                            $mobileWindowStart = max(0, $currentQuestionIndex - 5);
+                            $mobileWindowEnd = min($totalQuestions - 1, $currentQuestionIndex + 5);
+                        @endphp
                         @for($i = 0; $i < $totalQuestions; $i++)
-                        <button
-                            wire:click="jumpToQuestion({{ $i }})"
-                            wire:loading.attr="disabled"
-                            wire:target="jumpToQuestion"
-                            class="flex-shrink-0 w-12 h-12 rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600') }}"
-                        >
-                            {{ $i + 1 }}
-                        </button>
+                            @if($i >= $mobileWindowStart && $i <= $mobileWindowEnd)
+                            <button
+                                wire:click="jumpToQuestion({{ $i }})"
+                                wire:loading.attr="disabled"
+                                wire:target="jumpToQuestion"
+                                wire:key="mobile-q-{{ $i }}"
+                                class="flex-shrink-0 w-12 h-12 rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600') }}"
+                            >
+                                {{ $i + 1 }}
+                            </button>
+                            @endif
                         @endfor
                     </div>
                 </div>
 
+                {{-- Statistics instead of full grid --}}
+                @php
+                    $answered = collect($userAnswers)->filter(fn($a) => $a !== null)->count();
+                    $unanswered = $totalQuestions - $answered;
+                @endphp
                 <div class="space-y-3 text-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full bg-blue-600"></div>
-                        <flux:text class="text-sm">{{ __('Current') }}</flux:text>
+                    <div class="flex items-center justify-between py-2 border-t border-neutral-200 dark:border-neutral-700">
+                        <flux:text class="font-semibold text-neutral-600 dark:text-neutral-400">Q {{ $currentQuestionIndex + 1 }} of {{ $totalQuestions }}</flux:text>
+                        <flux:text class="text-xs text-neutral-500">{{ round(($currentQuestionIndex + 1) / $totalQuestions * 100) }}%</flux:text>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full bg-green-600"></div>
-                        <flux:text class="text-sm">{{ __('Answered') }}</flux:text>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full border-2 border-neutral-300"></div>
-                        <flux:text class="text-sm">{{ __('Not Answered') }}</flux:text>
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-green-600"></div>
+                            <flux:text>{{ $answered }} answered</flux:text>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full border border-neutral-300"></div>
+                            <flux:text>{{ $unanswered }} remaining</flux:text>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -494,5 +531,4 @@
         </div>
     </div>
     @endif
-</div>
 </div>
