@@ -291,6 +291,40 @@ class MockQuiz extends Component
         $this->showReview = !$this->showReview;
     }
 
+    public function getReviewData(): array
+    {
+        $reviewData = [];
+
+        foreach ($this->subjectIds as $subjectId) {
+            $subject = $this->subjectsData->firstWhere('id', $subjectId);
+            $questions = $this->questionsBySubject[$subjectId];
+
+            $questionsWithAnswers = [];
+            foreach ($questions as $index => $question) {
+                $userAnswerId = $this->userAnswers[$subjectId][$index] ?? null;
+                $correctOption = $question->options->firstWhere('is_correct', true);
+                $userOption = $question->options->firstWhere('id', $userAnswerId);
+
+                $questionsWithAnswers[] = [
+                    'question' => $question,
+                    'questionNumber' => $index + 1,
+                    'userAnswerId' => $userAnswerId,
+                    'userOption' => $userOption,
+                    'correctOption' => $correctOption,
+                    'isCorrect' => $correctOption && $correctOption->id == $userAnswerId,
+                    'wasAnswered' => $userAnswerId !== null,
+                ];
+            }
+
+            $reviewData[] = [
+                'subject' => $subject,
+                'questions' => $questionsWithAnswers,
+            ];
+        }
+
+        return $reviewData;
+    }
+
     public function render()
     {
         return view('livewire.quizzes.mock-quiz');

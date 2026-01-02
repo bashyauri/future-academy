@@ -270,9 +270,106 @@
             </div>
 
             <div class="flex gap-3">
+                <flux:button wire:click="toggleReview" icon="{{ $showReview ? 'x-mark' : 'eye' }}" variant="primary">
+                    {{ $showReview ? 'Hide Review' : 'Review Answers' }}
+                </flux:button>
                 <flux:button wire:navigate href="{{ route('mock.setup') }}" icon="arrow-left">Back to Setup</flux:button>
                 <flux:button wire:navigate href="{{ route('dashboard') }}" variant="ghost">Dashboard</flux:button>
             </div>
+
+            @if($showReview)
+                <div class="mt-8 space-y-8">
+                    <flux:heading size="lg" class="text-center">Answer Review</flux:heading>
+
+                    @foreach($this->getReviewData() as $subjectData)
+                        <div class="p-6 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                            <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-neutral-800">
+                                <flux:heading size="md" class="mb-0">{{ $subjectData['subject']->name }}</flux:heading>
+                                @php
+                                    $correctCount = collect($subjectData['questions'])->where('isCorrect', true)->count();
+                                    $totalCount = count($subjectData['questions']);
+                                @endphp
+                                <flux:badge color="blue" size="lg">{{ $correctCount }}/{{ $totalCount }} Correct</flux:badge>
+                            </div>
+
+                            <div class="space-y-6">
+                                @foreach($subjectData['questions'] as $qData)
+                                    <div class="p-5 rounded-lg border {{ $qData['isCorrect'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20' : ($qData['wasAnswered'] ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20' : 'border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900/50') }}">
+                                        <div class="flex items-start gap-3 mb-4">
+                                            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold {{ $qData['isCorrect'] ? 'bg-green-500 text-white' : ($qData['wasAnswered'] ? 'bg-red-500 text-white' : 'bg-gray-400 text-white') }}">
+                                                {{ $qData['questionNumber'] }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <flux:text class="font-medium text-gray-900 dark:text-gray-100">{!! $qData['question']->question_text !!}</flux:text>
+                                            </div>
+                                            @if($qData['isCorrect'])
+                                                <svg class="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                </svg>
+                                            @elseif($qData['wasAnswered'])
+                                                <svg class="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            @else
+                                                <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                                </svg>
+                                            @endif
+                                        </div>
+
+                                        <div class="ml-11 space-y-2">
+                                            @foreach($qData['question']->options as $option)
+                                                @php
+                                                    $isUserAnswer = $qData['userAnswerId'] == $option->id;
+                                                    $isCorrectAnswer = $option->is_correct;
+                                                @endphp
+                                                <div class="p-3 rounded-lg border {{ $isCorrectAnswer ? 'border-green-500 bg-green-100 dark:bg-green-900/30' : ($isUserAnswer ? 'border-red-500 bg-red-100 dark:bg-red-900/30' : 'border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/50') }}">
+                                                    <div class="flex items-center gap-2">
+                                                        @if($isCorrectAnswer)
+                                                            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                            </svg>
+                                                        @elseif($isUserAnswer)
+                                                            <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        @else
+                                                            <div class="w-5 h-5"></div>
+                                                        @endif
+                                                        <flux:text class="{{ $isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : ($isUserAnswer ? 'font-semibold text-red-900 dark:text-red-100' : 'text-gray-700 dark:text-gray-300') }}">
+                                                            {!! $option->option_text !!}
+                                                            @if($isCorrectAnswer)
+                                                                <span class="ml-2 text-xs font-bold text-green-700 dark:text-green-300">(Correct Answer)</span>
+                                                            @endif
+                                                            @if($isUserAnswer && !$isCorrectAnswer)
+                                                                <span class="ml-2 text-xs font-bold text-red-700 dark:text-red-300">(Your Answer)</span>
+                                                            @endif
+                                                        </flux:text>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+
+                                            @if(!$qData['wasAnswered'])
+                                                <div class="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+                                                    <flux:text class="text-amber-800 dark:text-amber-200 text-sm font-medium">⚠️ You did not answer this question</flux:text>
+                                                </div>
+                                            @endif
+
+                                            @if($qData['question']->explanation)
+                                                <div class="p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 mt-3">
+                                                    <flux:text class="text-blue-900 dark:text-blue-100 text-sm">
+                                                        <span class="font-semibold">Explanation:</span> {!! $qData['question']->explanation !!}
+                                                    </flux:text>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </flux:container>
 @endif
