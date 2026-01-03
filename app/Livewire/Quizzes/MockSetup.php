@@ -144,7 +144,7 @@ class MockSetup extends Component
             'questions_per_subject' => $questionsPerSubject,
             'time_limit' => $timeLimit,
             'selected_year' => null,
-            'shuffle' => false,
+            'shuffle' => true,
             'status' => 'active',
             'expires_at' => now()->addHours(24), // Expire after 24 hours
         ]);

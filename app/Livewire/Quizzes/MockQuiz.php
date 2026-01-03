@@ -140,6 +140,11 @@ class MockQuiz extends Component
             // Shuffle at collection level for true per-user randomization
             if ($this->shuffleQuestions) {
                 $questions = $questions->shuffle();
+                // Also shuffle the answer options for each question
+                $questions = $questions->map(function ($question) {
+                    $question->options = $question->options->shuffle();
+                    return $question;
+                });
             }
 
             // Take only the requested number after shuffling
@@ -164,6 +169,15 @@ class MockQuiz extends Component
 
         if ($cachedAnswers) {
             $this->userAnswers = $cachedAnswers;
+        }
+
+        // Load previous position in the quiz
+        $positionKey = "mock_position_{$sessionId}";
+        $cachedPosition = cache()->get($positionKey);
+
+        if ($cachedPosition) {
+            $this->currentSubjectIndex = $cachedPosition['subjectIndex'] ?? 0;
+            $this->currentQuestionIndex = $cachedPosition['questionIndex'] ?? 0;
         }
     }
 
@@ -199,9 +213,13 @@ class MockQuiz extends Component
         $currentSubjectId = $this->getCurrentSubjectId();
         $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
 
-        // Cache answers for persistence on refresh (valid for quiz duration + buffer)
+        // Cache answers and current position for persistence on refresh
         $sessionId = request()->query('session');
         cache()->put("mock_answers_{$sessionId}", $this->userAnswers, now()->addHours(3));
+        cache()->put("mock_position_{$sessionId}", [
+            'subjectIndex' => $this->currentSubjectIndex,
+            'questionIndex' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
     }
 
     public function nextQuestion(): void
@@ -211,33 +229,48 @@ class MockQuiz extends Component
 
         if ($this->currentQuestionIndex < $maxIndex) {
             $this->currentQuestionIndex++;
-            return;
-        }
-
-        if ($this->currentSubjectIndex < count($this->subjectIds) - 1) {
+        } elseif ($this->currentSubjectIndex < count($this->subjectIds) - 1) {
             $this->currentSubjectIndex++;
             $this->currentQuestionIndex = 0;
         }
+
+        // Cache position for refresh persistence
+        $sessionId = request()->query('session');
+        cache()->put("mock_position_{$sessionId}", [
+            'subjectIndex' => $this->currentSubjectIndex,
+            'questionIndex' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
     }
 
     public function previousQuestion(): void
     {
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
-            return;
-        }
-
-        if ($this->currentSubjectIndex > 0) {
+        } elseif ($this->currentSubjectIndex > 0) {
             $this->currentSubjectIndex--;
             $prevSubjectId = $this->getCurrentSubjectId();
             $this->currentQuestionIndex = max(count($this->questionsBySubject[$prevSubjectId]) - 1, 0);
         }
+
+        // Cache position for refresh persistence
+        $sessionId = request()->query('session');
+        cache()->put("mock_position_{$sessionId}", [
+            'subjectIndex' => $this->currentSubjectIndex,
+            'questionIndex' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
     }
 
     public function jumpToQuestion(int $subjectIndex, int $questionIndex): void
     {
         $this->currentSubjectIndex = $subjectIndex;
         $this->currentQuestionIndex = $questionIndex;
+
+        // Cache position for refresh persistence
+        $sessionId = request()->query('session');
+        cache()->put("mock_position_{$sessionId}", [
+            'subjectIndex' => $this->currentSubjectIndex,
+            'questionIndex' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
     }
 
     public function submitQuiz(): void
@@ -316,6 +349,7 @@ class MockQuiz extends Component
         // Clear cache after successful submit
         cache()->forget("mock_answers_{$sessionId}");
         cache()->forget("mock_quiz_questions_{$sessionId}");
+        cache()->forget("mock_position_{$sessionId}");
     }
 
     public function getScoresBySubject(): array
