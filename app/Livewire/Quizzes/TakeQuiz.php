@@ -37,15 +37,14 @@ class TakeQuiz extends Component
 
     public function mount($id)
     {
-        $this->quiz = Quiz::with(['questions.options', 'questions.subject', 'questions.topic'])
-            ->findOrFail($id);
+        // Quick validation without full relationship load
+        $this->quiz = Quiz::findOrFail($id);
 
         if (!$this->quiz->isAvailable()) {
             abort(403, 'This quiz is not currently available.');
         }
 
         // Check for active quiz attempt (in_progress status)
-        // Get the LATEST attempt, not the oldest
         $activeAttempt = $this->quiz->attempts()
             ->where('user_id', auth()->id())
             ->where('status', 'in_progress')
@@ -57,7 +56,7 @@ class TakeQuiz extends Component
             $this->attempt = $activeAttempt;
             $this->loadAttemptQuestions();
 
-            // Calculate remaining time from server: (started_at + duration) - now
+            // Calculate remaining time from server
             if ($this->quiz->isTimed()) {
                 $this->timeRemaining = $this->calculateRemainingSeconds();
 
@@ -82,36 +81,25 @@ class TakeQuiz extends Component
         }
 
         $service = app(QuizGeneratorService::class);
-        $cacheKey = "practice_questions_attempt_{$this->attempt->id}";
-        $answersKey = "practice_answers_attempt_{$this->attempt->id}";
-        $positionKey = "practice_position_attempt_{$this->attempt->id}";
+        // Single unified cache key instead of 4 separate ones
+        $cacheKey = "quiz_attempt_{$this->attempt->id}";
 
-        // Try to load questions from cache first
-        $cachedQuestions = cache()->get($cacheKey);
-        if ($cachedQuestions) {
-            $this->questions = $cachedQuestions;
-            $this->shuffledOptions = cache()->get("practice_options_attempt_{$this->attempt->id}", []);
-
-            // Load cached answers
-            $cachedAnswers = cache()->get($answersKey);
-            if ($cachedAnswers) {
-                $this->answers = $cachedAnswers;
-            }
-
-            // Load cached position
-            $cachedPosition = cache()->get($positionKey);
-            if ($cachedPosition) {
-                $this->currentQuestionIndex = $cachedPosition;
-            }
+        // Try to load everything from unified cache first (single Redis hit)
+        $cached = cache()->get($cacheKey);
+        if ($cached) {
+            $this->questions = $cached['questions'];
+            $this->shuffledOptions = $cached['options'];
+            $this->answers = $cached['answers'];
+            $this->currentQuestionIndex = $cached['position'] ?? 0;
             return;
         }
 
-        // First time - fetch questions from DB (optimized with selective loading)
+        // First time - fetch questions from DB with optimized query
         $questionIds = $this->attempt->getQuestionIds();
 
-        // Fetch questions by IDs and maintain the order (deferred relationship loading)
-        $this->questions = Question::with(['options:id,question_id,option_text,option_image,is_correct'])
-            ->whereIn('id', $questionIds)
+        // Single optimized query with selective columns
+        $this->questions = Question::whereIn('id', $questionIds)
+            ->with('options:id,question_id,option_text,option_image,is_correct')
             ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
             ->get()
             ->sortBy(function ($question) use ($questionIds) {
@@ -124,18 +112,18 @@ class TakeQuiz extends Component
             $this->shuffledOptions[$question->id] = $service->getShuffledOptions($this->quiz, $question);
         }
 
-        // Cache questions and options (3 hours)
-        cache()->put($cacheKey, $this->questions, now()->addHours(3));
-        cache()->put("practice_options_attempt_{$this->attempt->id}", $this->shuffledOptions, now()->addHours(3));
-
-        // Load user's saved answers
-        $answers = $this->attempt->answers()
+        // Load user's saved answers (only query if not in cache)
+        $this->answers = $this->attempt->answers()
             ->pluck('option_id', 'question_id')
             ->toArray();
-        $this->answers = $answers;
 
-        // Cache answers
-        cache()->put($answersKey, $this->answers, now()->addHours(3));
+        // Cache everything together (3 hours) - single write operation
+        cache()->put($cacheKey, [
+            'questions' => $this->questions,
+            'options' => $this->shuffledOptions,
+            'answers' => $this->answers,
+            'position' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
     }
 
     private function calculateRemainingSeconds()
@@ -213,16 +201,21 @@ class TakeQuiz extends Component
     public function answerQuestion($questionId, $optionId)
     {
         $this->answers[$questionId] = $optionId;
-        $this->showFeedback[$questionId] = true; // Show feedback immediately
+        $this->showFeedback[$questionId] = true;
 
-        // Cache answers for refresh persistence
-        if ($this->attempt) {
-            cache()->put("practice_answers_attempt_{$this->attempt->id}", $this->answers, now()->addHours(3));
-        }
-
-        // Save answer immediately (removed duplicate auto-save call)
+        // Save answer immediately to DB
         $service = app(QuizGeneratorService::class);
         $service->submitAnswer($this->attempt, $questionId, $optionId);
+
+        // Update unified cache (single operation)
+        if ($this->attempt) {
+            cache()->put("quiz_attempt_{$this->attempt->id}", [
+                'questions' => $this->questions,
+                'options' => $this->shuffledOptions,
+                'answers' => $this->answers,
+                'position' => $this->currentQuestionIndex,
+            ], now()->addHours(3));
+        }
 
         // Prefetch next question in background
         if ($this->currentQuestionIndex < count($this->questions) - 1) {
@@ -239,9 +232,7 @@ class TakeQuiz extends Component
         try {
             $this->autoSaveStatus = 'saving';
 
-            // Answers already saved in answerQuestion(); this method is now for UI feedback only
-            // All DB writes happen immediately when answer is selected
-
+            // Answers already saved in answerQuestion(); this is UI feedback only
             $this->lastSavedTime = now()->format('H:i:s');
             $this->autoSaveStatus = 'saved';
 
@@ -299,12 +290,17 @@ class TakeQuiz extends Component
 
         $this->positionCacheDebounce = true;
 
-        // Cache position immediately (will debounce multiple rapid calls)
+        // Update unified cache with new position (single operation)
         if ($this->attempt) {
-            cache()->put("practice_position_attempt_{$this->attempt->id}", $this->currentQuestionIndex, now()->addHours(3));
+            cache()->put("quiz_attempt_{$this->attempt->id}", [
+                'questions' => $this->questions,
+                'options' => $this->shuffledOptions,
+                'answers' => $this->answers,
+                'position' => $this->currentQuestionIndex,
+            ], now()->addHours(3));
         }
 
-        // Reset debounce flag after 500ms to allow next cache write
+        // Reset debounce flag after 500ms
         $this->dispatch('resetPositionDebounce');
     }
 
@@ -353,11 +349,8 @@ class TakeQuiz extends Component
             $this->attempt->update(['status' => 'timed_out']);
         }
 
-        // Clear caches after completion
-        cache()->forget("practice_questions_attempt_{$this->attempt->id}");
-        cache()->forget("practice_options_attempt_{$this->attempt->id}");
-        cache()->forget("practice_answers_attempt_{$this->attempt->id}");
-        cache()->forget("practice_position_attempt_{$this->attempt->id}");
+        // Clear unified cache (single operation)
+        cache()->forget("quiz_attempt_{$this->attempt->id}");
 
         $service->completeAttempt($this->attempt);
 

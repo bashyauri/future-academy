@@ -93,15 +93,17 @@ class MockQuiz extends Component
 
         // Cache key unique to this quiz session
         $sessionId = request()->query('session');
-        $cacheKey = "mock_quiz_questions_{$sessionId}";
+        $cacheKey = "mock_quiz_{$sessionId}";
 
-        // Try to load from cache first (lasts entire quiz session + 3 hours)
+        // Try to load everything from unified cache (single Redis hit)
         $cachedData = cache()->get($cacheKey);
 
         if ($cachedData) {
             // Load from cache - instant!
             $this->questionsBySubject = $cachedData['questions'];
             $this->userAnswers = $cachedData['answers'];
+            $this->currentSubjectIndex = $cachedData['position']['subjectIndex'] ?? 0;
+            $this->currentQuestionIndex = $cachedData['position']['questionIndex'] ?? 0;
             return;
         }
 
@@ -154,30 +156,27 @@ class MockQuiz extends Component
             $this->userAnswers[$subjectId] = array_fill(0, $questions->count(), null);
         }
 
-        // Cache all questions for this session (3 hours = max quiz time + buffer)
+        // Cache all data for this session (unified - 3 hours = max quiz time + buffer)
         cache()->put($cacheKey, [
             'questions' => $this->questionsBySubject,
             'answers' => $this->userAnswers,
+            'position' => [
+                'subjectIndex' => $this->currentSubjectIndex,
+                'questionIndex' => $this->currentQuestionIndex,
+            ],
         ], now()->addHours(3));
     }
 
     protected function loadPreviousAnswers(int $sessionId): void
     {
-        // Load answers from cache (set during quiz taking)
-        $cacheKey = "mock_answers_{$sessionId}";
-        $cachedAnswers = cache()->get($cacheKey);
+        // Load all cached data from unified cache key (single Redis operation)
+        $cacheKey = "mock_quiz_{$sessionId}";
+        $cached = cache()->get($cacheKey);
 
-        if ($cachedAnswers) {
-            $this->userAnswers = $cachedAnswers;
-        }
-
-        // Load previous position in the quiz
-        $positionKey = "mock_position_{$sessionId}";
-        $cachedPosition = cache()->get($positionKey);
-
-        if ($cachedPosition) {
-            $this->currentSubjectIndex = $cachedPosition['subjectIndex'] ?? 0;
-            $this->currentQuestionIndex = $cachedPosition['questionIndex'] ?? 0;
+        if ($cached) {
+            $this->userAnswers = $cached['answers'];
+            $this->currentSubjectIndex = $cached['position']['subjectIndex'] ?? 0;
+            $this->currentQuestionIndex = $cached['position']['questionIndex'] ?? 0;
         }
     }
 
@@ -213,12 +212,15 @@ class MockQuiz extends Component
         $currentSubjectId = $this->getCurrentSubjectId();
         $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
 
-        // Cache answers and current position for persistence on refresh
+        // Update unified cache with single operation
         $sessionId = request()->query('session');
-        cache()->put("mock_answers_{$sessionId}", $this->userAnswers, now()->addHours(3));
-        cache()->put("mock_position_{$sessionId}", [
-            'subjectIndex' => $this->currentSubjectIndex,
-            'questionIndex' => $this->currentQuestionIndex,
+        cache()->put("mock_quiz_{$sessionId}", [
+            'questions' => $this->questionsBySubject,
+            'answers' => $this->userAnswers,
+            'position' => [
+                'subjectIndex' => $this->currentSubjectIndex,
+                'questionIndex' => $this->currentQuestionIndex,
+            ],
         ], now()->addHours(3));
     }
 
@@ -234,11 +236,15 @@ class MockQuiz extends Component
             $this->currentQuestionIndex = 0;
         }
 
-        // Cache position for refresh persistence
+        // Update unified cache (single operation)
         $sessionId = request()->query('session');
-        cache()->put("mock_position_{$sessionId}", [
-            'subjectIndex' => $this->currentSubjectIndex,
-            'questionIndex' => $this->currentQuestionIndex,
+        cache()->put("mock_quiz_{$sessionId}", [
+            'questions' => $this->questionsBySubject,
+            'answers' => $this->userAnswers,
+            'position' => [
+                'subjectIndex' => $this->currentSubjectIndex,
+                'questionIndex' => $this->currentQuestionIndex,
+            ],
         ], now()->addHours(3));
     }
 
@@ -252,11 +258,15 @@ class MockQuiz extends Component
             $this->currentQuestionIndex = max(count($this->questionsBySubject[$prevSubjectId]) - 1, 0);
         }
 
-        // Cache position for refresh persistence
+        // Update unified cache (single operation)
         $sessionId = request()->query('session');
-        cache()->put("mock_position_{$sessionId}", [
-            'subjectIndex' => $this->currentSubjectIndex,
-            'questionIndex' => $this->currentQuestionIndex,
+        cache()->put("mock_quiz_{$sessionId}", [
+            'questions' => $this->questionsBySubject,
+            'answers' => $this->userAnswers,
+            'position' => [
+                'subjectIndex' => $this->currentSubjectIndex,
+                'questionIndex' => $this->currentQuestionIndex,
+            ],
         ], now()->addHours(3));
     }
 
@@ -265,11 +275,15 @@ class MockQuiz extends Component
         $this->currentSubjectIndex = $subjectIndex;
         $this->currentQuestionIndex = $questionIndex;
 
-        // Cache position for refresh persistence
+        // Update unified cache (single operation)
         $sessionId = request()->query('session');
-        cache()->put("mock_position_{$sessionId}", [
-            'subjectIndex' => $this->currentSubjectIndex,
-            'questionIndex' => $this->currentQuestionIndex,
+        cache()->put("mock_quiz_{$sessionId}", [
+            'questions' => $this->questionsBySubject,
+            'answers' => $this->userAnswers,
+            'position' => [
+                'subjectIndex' => $this->currentSubjectIndex,
+                'questionIndex' => $this->currentQuestionIndex,
+            ],
         ], now()->addHours(3));
     }
 
@@ -346,10 +360,8 @@ class MockQuiz extends Component
 
         $this->quizAttemptId = $attempt->id;
 
-        // Clear cache after successful submit
-        cache()->forget("mock_answers_{$sessionId}");
-        cache()->forget("mock_quiz_questions_{$sessionId}");
-        cache()->forget("mock_position_{$sessionId}");
+        // Clear unified cache after successful submit (single operation)
+        cache()->forget("mock_quiz_{$sessionId}");
     }
 
     public function getScoresBySubject(): array
