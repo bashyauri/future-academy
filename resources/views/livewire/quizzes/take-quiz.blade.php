@@ -66,20 +66,8 @@
 
                 <div class="flex gap-4 justify-center">
                     @if($this->hasAvailableQuestions)
-                        <flux:button wire:click="startQuiz" wire:target="startQuiz" wire:loading.attr="disabled"
-                            wire:loading.class="opacity-75 cursor-wait" variant="primary" size="base" class="h-12 text-base">
-                            <span wire:loading.remove wire:target="startQuiz">{{ __('Start Quiz') }}</span>
-                            <span wire:loading wire:target="startQuiz" class="flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                    viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                                    </circle>
-                                    <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                    </path>
-                                </svg>
-                                {{ __('Loading...') }}
-                            </span>
+                        <flux:button wire:click="startQuiz" variant="primary" size="base" class="h-12 text-base">
+                            {{ __('Start Quiz') }}
                         </flux:button>
                     @endif
                     <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
@@ -401,7 +389,7 @@
                             <flux:text class="text-lg">{{ $currentQuestion->question_text }}</flux:text>
 
                             @if($currentQuestion->question_image)
-                                <img src="{{ Storage::url($currentQuestion->question_image) }}" alt="{{ __('Question image') }}"
+                                <img loading="lazy" src="{{ Storage::url($currentQuestion->question_image) }}" alt="{{ __('Question image') }}"
                                     class="mt-4 rounded-lg max-w-lg">
                             @endif
                         </div>
@@ -446,8 +434,6 @@
                                 @endphp
 
                                 <button wire:click="answerQuestion({{ $currentQuestion->id }}, {{ $option->id }})"
-                                    wire:loading.attr="disabled"
-                                    wire:target="answerQuestion"
                                     @if($answered) disabled @endif
                                     class="w-full flex items-start gap-4 p-4 rounded-lg border-2 transition {{ $borderColor }} {{ $answered ? 'cursor-default' : 'cursor-pointer' }} text-left">
 
@@ -455,18 +441,13 @@
                                         <span class="flex-shrink-0 text-2xl font-bold {{ $iconColor }} mt-0.5">{{ $icon }}</span>
                                     @else
                                         <span class="flex-shrink-0 w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600 mt-0.5">
-                                            <!-- Loading spinner when clicking -->
-                                            <svg wire:loading wire:target="answerQuestion" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
                                         </span>
                                     @endif
 
                                     <div class="flex-1">
                                         <flux:text class="font-medium">{{ $option->option_text }}</flux:text>
                                         @if($option->option_image)
-                                            <img src="{{ Storage::url($option->option_image) }}" alt="{{ __('Option image') }}"
+                                            <img loading="lazy" src="{{ Storage::url($option->option_image) }}" alt="{{ __('Option image') }}"
                                                 class="mt-2 rounded max-w-xs border border-neutral-200 dark:border-neutral-700">
                                         @endif
                                     </div>
@@ -477,8 +458,10 @@
                         {{-- Explanation (shown after answering) --}}
                         @if($answered && $currentQuestion->explanation)
                             <div
-                                class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
-                                <div class="flex items-start gap-3">
+                                class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg"
+                                x-data="{ expanded: false }"
+                                @click.outside="expanded = false">
+                                <button @click="expanded = !expanded" type="button" class="w-full flex items-start gap-3 text-left">
                                     <div
                                         class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
@@ -489,89 +472,45 @@
                                         </svg>
                                     </div>
                                     <div class="flex-1">
-                                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-200 mb-2">
+                                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-200">
                                             {{ __('Explanation') }}
+                                            <span x-text="expanded ? '▼' : '▶'" class="ml-2"></span>
                                         </flux:heading>
-                                        <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed">
-                                            {{ $currentQuestion->explanation }}
-                                        </flux:text>
                                     </div>
+                                </button>
+                                <div x-show="expanded" class="mt-2 text-blue-800 dark:text-blue-300 leading-relaxed">
+                                    {{ $currentQuestion->explanation }}
                                 </div>
                             </div>
                         @endif
 
                         {{-- Navigation Buttons --}}
-                        <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                        <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700"
+                            x-data="{ navigationDebounce: false }">
                             <div class="flex gap-3">
-                                <flux:button wire:click="exitQuiz" wire:target="exitQuiz"
-                                    wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
+                                <flux:button wire:click="exitQuiz" variant="ghost"
                                     color="danger"
                                     wire:confirm="{{ __('Exit the quiz? Your in-progress answers will be saved, but the attempt will be marked as cancelled.') }}">
-                                    <span wire:loading.remove wire:target="exitQuiz">{{ __('Exit Quiz') }}</span>
-                                    <span wire:loading wire:target="exitQuiz" class="flex items-center gap-2">
-                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                            viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                            </path>
-                                        </svg>
-                                        {{ __('Exiting...') }}
-                                    </span>
+                                    {{ __('Exit Quiz') }}
                                 </flux:button>
 
-                                <flux:button wire:click="previousQuestion" wire:target="previousQuestion"
-                                    wire:loading.attr="disabled" wire:loading.class="opacity-75 cursor-wait" variant="ghost"
-                                    :disabled="$currentQuestionIndex === 0">
-                                    <span wire:loading.remove wire:target="previousQuestion">{{ __('Previous') }}</span>
-                                    <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
-                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                            viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                            </path>
-                                        </svg>
-                                        {{ __('Loading...') }}
-                                    </span>
+                                <flux:button wire:click="previousQuestion" variant="ghost"
+                                    :disabled="$currentQuestionIndex === 0"
+                                    @click="navigationDebounce || (navigationDebounce = true, setTimeout(() => navigationDebounce = false, 200))">
+                                    {{ __('Previous') }}
                                 </flux:button>
                             </div>
 
                             <div class="flex gap-3">
                                 @if($currentQuestionIndex === $totalQuestions - 1)
-                                    <flux:button wire:click="submitQuiz" wire:target="submitQuiz" wire:loading.attr="disabled"
-                                        wire:loading.class="opacity-75 cursor-wait" variant="primary"
+                                    <flux:button wire:click="submitQuiz" variant="primary"
                                         wire:confirm="{{ __('Are you sure you want to submit? You cannot change your answers after submission.') }}">
-                                        <span wire:loading.remove wire:target="submitQuiz">{{ __('Submit Quiz') }}</span>
-                                        <span wire:loading wire:target="submitQuiz" class="flex items-center gap-2">
-                                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                    stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor"
-                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                                </path>
-                                            </svg>
-                                            {{ __('Submitting...') }}
-                                        </span>
+                                        {{ __('Submit Quiz') }}
                                     </flux:button>
                                 @else
-                                    <flux:button wire:click="nextQuestion" wire:target="nextQuestion" wire:loading.attr="disabled"
-                                        wire:loading.class="opacity-75 cursor-wait" variant="primary">
-                                        <span wire:loading.remove wire:target="nextQuestion">{{ __('Next') }}</span>
-                                        <span wire:loading wire:target="nextQuestion" class="flex items-center gap-2">
-                                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                    stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor"
-                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                                </path>
-                                            </svg>
-                                            {{ __('Loading...') }}
-                                        </span>
+                                    <flux:button wire:click="nextQuestion" variant="primary"
+                                        @click="navigationDebounce || (navigationDebounce = true, setTimeout(() => navigationDebounce = false, 200))">
+                                        {{ __('Next') }}
                                     </flux:button>
                                 @endif
                             </div>
@@ -582,3 +521,5 @@
         </div>
     @endif
 </div>
+variant="primary">
+                                        {{ __('Next') }}

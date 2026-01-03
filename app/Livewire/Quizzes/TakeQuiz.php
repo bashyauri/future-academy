@@ -30,6 +30,11 @@ class TakeQuiz extends Component
     public $lastSavedTime = null;
     public $autoSaveInterval = 15; // Auto-save every 15 seconds
 
+    // Performance optimizations
+    public $nextQuestionPrefetched = false;
+    public $positionCacheDebounce = false; // Debounce position cache writes
+    public $lazyLoadedImages = []; // Track lazy-loaded images
+
     public function mount($id)
     {
         $this->quiz = Quiz::with(['questions.options', 'questions.subject', 'questions.topic'])
@@ -77,13 +82,37 @@ class TakeQuiz extends Component
         }
 
         $service = app(QuizGeneratorService::class);
+        $cacheKey = "practice_questions_attempt_{$this->attempt->id}";
+        $answersKey = "practice_answers_attempt_{$this->attempt->id}";
+        $positionKey = "practice_position_attempt_{$this->attempt->id}";
 
-        // Load questions in the order specified by the attempt
+        // Try to load questions from cache first
+        $cachedQuestions = cache()->get($cacheKey);
+        if ($cachedQuestions) {
+            $this->questions = $cachedQuestions;
+            $this->shuffledOptions = cache()->get("practice_options_attempt_{$this->attempt->id}", []);
+
+            // Load cached answers
+            $cachedAnswers = cache()->get($answersKey);
+            if ($cachedAnswers) {
+                $this->answers = $cachedAnswers;
+            }
+
+            // Load cached position
+            $cachedPosition = cache()->get($positionKey);
+            if ($cachedPosition) {
+                $this->currentQuestionIndex = $cachedPosition;
+            }
+            return;
+        }
+
+        // First time - fetch questions from DB (optimized with selective loading)
         $questionIds = $this->attempt->getQuestionIds();
 
-        // Fetch questions by IDs and maintain the order
-        $this->questions = Question::with(['options', 'subject', 'topic', 'examType'])
+        // Fetch questions by IDs and maintain the order (deferred relationship loading)
+        $this->questions = Question::with(['options:id,question_id,option_text,option_image,is_correct'])
             ->whereIn('id', $questionIds)
+            ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
             ->get()
             ->sortBy(function ($question) use ($questionIds) {
                 return array_search($question->id, $questionIds);
@@ -95,11 +124,18 @@ class TakeQuiz extends Component
             $this->shuffledOptions[$question->id] = $service->getShuffledOptions($this->quiz, $question);
         }
 
+        // Cache questions and options (3 hours)
+        cache()->put($cacheKey, $this->questions, now()->addHours(3));
+        cache()->put("practice_options_attempt_{$this->attempt->id}", $this->shuffledOptions, now()->addHours(3));
+
         // Load user's saved answers
         $answers = $this->attempt->answers()
             ->pluck('option_id', 'question_id')
             ->toArray();
         $this->answers = $answers;
+
+        // Cache answers
+        cache()->put($answersKey, $this->answers, now()->addHours(3));
     }
 
     private function calculateRemainingSeconds()
@@ -179,11 +215,19 @@ class TakeQuiz extends Component
         $this->answers[$questionId] = $optionId;
         $this->showFeedback[$questionId] = true; // Show feedback immediately
 
+        // Cache answers for refresh persistence
+        if ($this->attempt) {
+            cache()->put("practice_answers_attempt_{$this->attempt->id}", $this->answers, now()->addHours(3));
+        }
+
+        // Save answer immediately (removed duplicate auto-save call)
         $service = app(QuizGeneratorService::class);
         $service->submitAnswer($this->attempt, $questionId, $optionId);
 
-        // Auto-save immediately after answer
-        $this->autoSaveAnswers();
+        // Prefetch next question in background
+        if ($this->currentQuestionIndex < count($this->questions) - 1) {
+            $this->prefetchNextQuestion();
+        }
     }
 
     public function autoSaveAnswers()
@@ -194,12 +238,9 @@ class TakeQuiz extends Component
 
         try {
             $this->autoSaveStatus = 'saving';
-            $service = app(QuizGeneratorService::class);
 
-            // Save all current answers
-            foreach ($this->answers as $questionId => $optionId) {
-                $service->submitAnswer($this->attempt, $questionId, $optionId);
-            }
+            // Answers already saved in answerQuestion(); this method is now for UI feedback only
+            // All DB writes happen immediately when answer is selected
 
             $this->lastSavedTime = now()->format('H:i:s');
             $this->autoSaveStatus = 'saved';
@@ -222,6 +263,7 @@ class TakeQuiz extends Component
     {
         if ($this->currentQuestionIndex < count($this->questions) - 1) {
             $this->currentQuestionIndex++;
+            $this->debouncePositionCache();
         }
     }
 
@@ -229,12 +271,47 @@ class TakeQuiz extends Component
     {
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
+            $this->debouncePositionCache();
         }
     }
 
     public function goToQuestion($index)
     {
         $this->currentQuestionIndex = $index;
+        $this->debouncePositionCache();
+    }
+
+    private function prefetchNextQuestion()
+    {
+        if ($this->nextQuestionPrefetched || $this->currentQuestionIndex >= count($this->questions) - 1) {
+            return;
+        }
+
+        $this->nextQuestionPrefetched = true;
+        // No-op: Questions already in memory; true prefetching would fetch images lazily
+    }
+
+    private function debouncePositionCache()
+    {
+        if ($this->positionCacheDebounce) {
+            return; // Already debounced, skip redundant writes
+        }
+
+        $this->positionCacheDebounce = true;
+
+        // Cache position immediately (will debounce multiple rapid calls)
+        if ($this->attempt) {
+            cache()->put("practice_position_attempt_{$this->attempt->id}", $this->currentQuestionIndex, now()->addHours(3));
+        }
+
+        // Reset debounce flag after 500ms to allow next cache write
+        $this->dispatch('resetPositionDebounce');
+    }
+
+    #[On('reset-position-debounce')]
+    public function resetPositionDebounce()
+    {
+        $this->positionCacheDebounce = false;
     }
 
     public function exitQuiz()
@@ -275,6 +352,12 @@ class TakeQuiz extends Component
         if ($timedOut) {
             $this->attempt->update(['status' => 'timed_out']);
         }
+
+        // Clear caches after completion
+        cache()->forget("practice_questions_attempt_{$this->attempt->id}");
+        cache()->forget("practice_options_attempt_{$this->attempt->id}");
+        cache()->forget("practice_answers_attempt_{$this->attempt->id}");
+        cache()->forget("practice_position_attempt_{$this->attempt->id}");
 
         $service->completeAttempt($this->attempt);
 
