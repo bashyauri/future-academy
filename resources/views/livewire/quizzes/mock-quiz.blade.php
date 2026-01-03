@@ -92,19 +92,12 @@
                             @php $isSelected = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) == $option->id; @endphp
                             <button
                                 wire:click="selectAnswer({{ $option->id }})"
-                                wire:loading.attr="disabled"
-                                wire:target="selectAnswer"
                                 class="w-full p-4 rounded-xl border-2 text-left transition-all relative {{ $isSelected ? 'border-green-500 bg-green-50 dark:bg-neutral-900 ring-2 ring-green-300 dark:ring-green-700' : 'border-gray-200 dark:border-neutral-800 hover:border-green-400 dark:hover:border-green-500' }}">
                                 <div class="flex items-start gap-3">
                                     <div class="flex-shrink-0 w-6 h-6 rounded-full border-2 {{ $isSelected ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-700' }} flex items-center justify-center mt-0.5 transition-all">
                                         @if($isSelected)
                                             <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
                                         @endif
-                                        <!-- Loading spinner when clicking -->
-                                        <svg wire:loading wire:target="selectAnswer" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
                                     </div>
                                     <span class="flex-1 {{ $isSelected ? 'text-green-700 dark:text-green-200 font-medium' : 'text-gray-800 dark:text-gray-200' }}">{{ $option->option_text }}</span>
                                     @if($isSelected)
@@ -118,39 +111,19 @@
                     <div class="flex items-center justify-between gap-3 mb-6">
                         <button
                             wire:click="previousQuestion"
-                            wire:loading.attr="disabled"
-                            wire:target="previousQuestion"
                             :disabled="$currentQuestionIndex === 0"
                             class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span wire:loading.remove wire:target="previousQuestion">← Previous</span>
-                            <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Loading...
-                            </span>
+                            ← Previous
                         </button>
                         <flux:text class="text-sm text-gray-600 dark:text-gray-400 font-medium">{{ $currentQuestionIndex + 1 }}/{{ $totalInSubject }}</flux:text>
                         <button
                             wire:click="nextQuestion"
-                            wire:loading.attr="disabled"
-                            wire:target="nextQuestion"
                             class="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white font-medium rounded-lg transition-all shadow-sm flex items-center gap-2">
-                            <span wire:loading.remove wire:target="nextQuestion">
-                                @if($currentQuestionIndex + 1 >= $totalInSubject && count($subjectsData) > 1)
-                                    Next Subject
-                                @else
-                                    Next
-                                @endif
-                            </span>
-                            <span wire:loading wire:target="nextQuestion" class="flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Processing...
-                            </span>
+                            @if($currentQuestionIndex + 1 >= $totalInSubject && count($subjectsData) > 1)
+                                Next Subject
+                            @else
+                                Next
+                            @endif
                         </button>
                     </div>
                 </div>

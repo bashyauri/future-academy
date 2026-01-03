@@ -76,6 +76,9 @@ class MockQuiz extends Component
         if ($response = $this->loadSubjectsAndQuestions()) {
             return $response;
         }
+
+        // Load previous answers if user refreshed or came back
+        $this->loadPreviousAnswers($sessionId);
     }
 
     protected function redirectToSetup()
@@ -88,6 +91,21 @@ class MockQuiz extends Component
         $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get();
         $this->subjectIds = $this->subjectsData->pluck('id')->toArray();
 
+        // Cache key unique to this quiz session
+        $sessionId = request()->query('session');
+        $cacheKey = "mock_quiz_questions_{$sessionId}";
+
+        // Try to load from cache first (lasts entire quiz session + 3 hours)
+        $cachedData = cache()->get($cacheKey);
+
+        if ($cachedData) {
+            // Load from cache - instant!
+            $this->questionsBySubject = $cachedData['questions'];
+            $this->userAnswers = $cachedData['answers'];
+            return;
+        }
+
+        // First time - fetch all questions from database
         foreach ($this->subjectIds as $subjectId) {
             // Get question count for this specific subject (or default to 40)
             $questionCount = $this->questionsPerSubject[$subjectId] ?? 40;
@@ -101,11 +119,8 @@ class MockQuiz extends Component
                 ->where('status', 'approved')
                 ->with('options');
 
-            if ($this->shuffleQuestions) {
-                $query->inRandomOrder();
-            }
-
-            $questions = $query->take($questionCount)->get();
+            // Fetch more questions than needed for better randomization
+            $questions = $query->get();
 
             if ($questions->count() === 0) {
                 // Log for debugging
@@ -122,8 +137,33 @@ class MockQuiz extends Component
                 return $this->redirectToSetup();
             }
 
+            // Shuffle at collection level for true per-user randomization
+            if ($this->shuffleQuestions) {
+                $questions = $questions->shuffle();
+            }
+
+            // Take only the requested number after shuffling
+            $questions = $questions->take($questionCount);
+
             $this->questionsBySubject[$subjectId] = $questions;
             $this->userAnswers[$subjectId] = array_fill(0, $questions->count(), null);
+        }
+
+        // Cache all questions for this session (3 hours = max quiz time + buffer)
+        cache()->put($cacheKey, [
+            'questions' => $this->questionsBySubject,
+            'answers' => $this->userAnswers,
+        ], now()->addHours(3));
+    }
+
+    protected function loadPreviousAnswers(int $sessionId): void
+    {
+        // Load answers from cache (set during quiz taking)
+        $cacheKey = "mock_answers_{$sessionId}";
+        $cachedAnswers = cache()->get($cacheKey);
+
+        if ($cachedAnswers) {
+            $this->userAnswers = $cachedAnswers;
         }
     }
 
@@ -158,6 +198,10 @@ class MockQuiz extends Component
     {
         $currentSubjectId = $this->getCurrentSubjectId();
         $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
+
+        // Cache answers for persistence on refresh (valid for quiz duration + buffer)
+        $sessionId = request()->query('session');
+        cache()->put("mock_answers_{$sessionId}", $this->userAnswers, now()->addHours(3));
     }
 
     public function nextQuestion(): void
@@ -207,6 +251,7 @@ class MockQuiz extends Component
         $totalQuestions = 0;
         $totalScore = 0;
         $answeredCount = 0;
+        $sessionId = request()->query('session');
 
         foreach ($this->subjectIds as $subjectId) {
             $totalQuestions += count($this->questionsBySubject[$subjectId]);
@@ -228,6 +273,7 @@ class MockQuiz extends Component
             'status' => 'completed',
         ]);
 
+        // Batch save all answers to database at once
         foreach ($this->subjectIds as $subjectId) {
             foreach ($this->questionsBySubject[$subjectId] as $index => $question) {
                 $userAnswer = $this->userAnswers[$subjectId][$index] ?? null;
@@ -245,6 +291,7 @@ class MockQuiz extends Component
                 UserAnswer::create([
                     'user_id' => auth()->id(),
                     'quiz_attempt_id' => $attempt->id,
+                    'mock_session_id' => $sessionId,
                     'question_id' => $question->id,
                     'option_id' => $userAnswer,
                     'is_correct' => $isCorrect,
@@ -265,6 +312,10 @@ class MockQuiz extends Component
         ]);
 
         $this->quizAttemptId = $attempt->id;
+
+        // Clear cache after successful submit
+        cache()->forget("mock_answers_{$sessionId}");
+        cache()->forget("mock_quiz_questions_{$sessionId}");
     }
 
     public function getScoresBySubject(): array
