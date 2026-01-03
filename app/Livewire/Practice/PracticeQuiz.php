@@ -5,6 +5,7 @@ namespace App\Livewire\Practice;
 use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\QuizAttempt;
+use App\Models\Subject;
 use App\Models\UserAnswer;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -22,8 +23,16 @@ class PracticeQuiz extends Component
     public function exitQuiz()
     {
         // Persist current question index if authenticated and in-progress
-        if (auth()->check() && $this->quizAttempt && $this->quizAttempt->status === 'in_progress') {
-            $this->persistCurrentQuestionIndex();
+        if (auth()->check() && $this->quizAttempt) {
+            // Security: Verify user owns this attempt
+            if ($this->quizAttempt->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized');
+            }
+
+            if ($this->quizAttempt->status === 'in_progress') {
+                $this->flushPendingAnswers(); // Flush any pending answers first
+                $this->persistCurrentQuestionIndex();
+            }
         }
         // Redirect to practice home (or any other page as needed)
         return redirect()->route('practice.home');
@@ -68,6 +77,10 @@ class PracticeQuiz extends Component
     public ?QuizAttempt $quizAttempt = null;
     #[Locked]
     public array $questionIds = [];
+    public bool $positionCacheDebounce = false;
+    public string $lastSavedTime = '';
+    private float $lastAnswerTime = 0;
+    private array $pendingAnswers = []; // Batch answers before persist
 
     #[Computed]
     public function currentQuestion()
@@ -84,9 +97,40 @@ class PracticeQuiz extends Component
     public function mount()
     {
         $this->showResults = false;
+
+        // Validate required parameters
+        if (!$this->subject) {
+            session()->flash('error', 'Invalid subject. Please select a subject to practice.');
+            return redirect()->route('practice.home');
+        }
+
+        // Validate subject exists and is active
+        $subject = Subject::where('id', $this->subject)->where('is_active', true)->first();
+        if (!$subject) {
+            session()->flash('error', 'The selected subject is not available.');
+            return redirect()->route('practice.home');
+        }
+
+        // Validate exam_type if provided
+        if ($this->exam_type) {
+            $examType = ExamType::where('id', $this->exam_type)
+                ->where('is_active', true)
+                ->first();
+            if (!$examType) {
+                session()->flash('error', 'The selected exam type is not available.');
+                return redirect()->route('practice.home');
+            }
+        }
+
         // For authenticated users, try to restore or create a persistent attempt
         if (auth()->check()) {
             $attemptFromQuery = $this->attempt ? QuizAttempt::find($this->attempt) : null;
+
+            // Verify ownership and validity of any provided attempt
+            if ($attemptFromQuery && $attemptFromQuery->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized attempt access');
+            }
+
             // If showing results, use the provided attempt (completed or in_progress)
             if ($this->results && $attemptFromQuery) {
                 $this->quizAttempt = $attemptFromQuery;
@@ -163,30 +207,104 @@ class PracticeQuiz extends Component
         $this->timeStarted = $attempt->started_at;
         $this->timeRemaining = $this->computeRemainingTime();
 
-        // Load questions in the order stored
-        if (!empty($this->questionIds)) {
-            $this->questions = Question::whereIn('id', $this->questionIds)
-                ->with('options')
-                ->get()
-                ->sortBy(function ($q) {
-                    return array_search($q->id, $this->questionIds);
-                })
-                ->toArray();
+        // Try to load from unified cache first
+        $cacheKey = "practice_attempt_{$attempt->id}";
+        $cached = cache()->get($cacheKey);
+
+        if ($cached) {
+            // Restore from cache
+            $this->questions = $cached['questions'];
+            $this->userAnswers = $cached['answers'];
+            $this->currentQuestionIndex = $cached['position'];
+            $this->totalQuestions = count($this->questions);
         } else {
-            $this->questions = [];
-        }
+            // Load questions in the order stored
+            if (!empty($this->questionIds)) {
+                $this->questions = Question::whereIn('id', $this->questionIds)
+                    ->with('options:id,question_id,option_text,option_image,is_correct')
+                    ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
+                    ->get()
+                    ->sortBy(function ($q) {
+                        return array_search($q->id, $this->questionIds);
+                    })
+                    ->map(function ($question) {
+                        return [
+                            'id' => $question->id,
+                            'question_text' => $question->question_text,
+                            'question_image' => $question->question_image,
+                            'explanation' => $question->explanation,
+                            'options' => $question->options->map(function ($option) {
+                                return [
+                                    'id' => $option->id,
+                                    'option_text' => $option->option_text,
+                                    'option_image' => $option->option_image,
+                                    'is_correct' => $option->is_correct,
+                                ];
+                            })->toArray(),
+                        ];
+                    })
+                    ->toArray();
 
-        $this->totalQuestions = count($this->questions);
-        $this->userAnswers = array_fill(0, $this->totalQuestions, null);
-        $this->selectedAnswers = array_fill(0, $this->totalQuestions, null);
+                $this->totalQuestions = count($this->questions);
+            } else {
+                // If question IDs are empty, reconstruct from UserAnswers
+                // This preserves the original order for resumed quizzes
+                $answeredQuestions = UserAnswer::where('quiz_attempt_id', $attempt->id)
+                    ->pluck('question_id')
+                    ->unique()
+                    ->toArray();
 
-        // Load saved answers
-        $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)->get();
-        foreach ($answers as $answer) {
-            $index = array_search($answer->question_id, $this->questionIds, true);
-            if ($index !== false) {
-                $this->userAnswers[$index] = $answer->option_id;
-                $this->selectedAnswers[$index] = $answer->option_id;
+                if (!empty($answeredQuestions)) {
+                    // Load in the order they were answered
+                    $this->questionIds = $answeredQuestions;
+                    $this->questions = Question::whereIn('id', $answeredQuestions)
+                        ->with('options:id,question_id,option_text,option_image,is_correct')
+                        ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
+                        ->get()
+                        ->sortBy(function ($q) {
+                            return array_search($q->id, $this->questionIds);
+                        })
+                        ->map(function ($question) {
+                            return [
+                                'id' => $question->id,
+                                'question_text' => $question->question_text,
+                                'question_image' => $question->question_image,
+                                'explanation' => $question->explanation,
+                                'options' => $question->options->map(function ($option) {
+                                    return [
+                                        'id' => $option->id,
+                                        'option_text' => $option->option_text,
+                                        'option_image' => $option->option_image,
+                                        'is_correct' => $option->is_correct,
+                                    ];
+                                })->toArray(),
+                            ];
+                        })
+                        ->toArray();
+                    $this->totalQuestions = count($this->questions);
+                } else {
+                    // No answers and no question_order - truly empty quiz
+                    $this->questions = [];
+                    $this->totalQuestions = 0;
+                }
+            }
+
+            // Load saved answers
+            $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)->get();
+            foreach ($answers as $answer) {
+                $index = array_search($answer->question_id, $this->questionIds, true);
+                if ($index !== false) {
+                    $this->userAnswers[$index] = $answer->option_id;
+                }
+            }
+
+            // Cache the unified state
+            if (!empty($this->questions)) {
+                cache()->put($cacheKey, [
+                    'questions' => $this->questions,
+                    'answers' => $this->userAnswers,
+                    'position' => $this->currentQuestionIndex,
+                ], now()->addHours(3));
             }
         }
 
@@ -243,14 +361,20 @@ class PracticeQuiz extends Component
                   });
             });
         }
-        // If subject and exam_type are selected but year is not, do NOT filter by year (show all years for that subject and exam_type)
 
-        $questions = $query->with('options')->get();
+        // Apply limit at DB level for faster queries (if limit set, fetch exactly that many)
+        if ($this->limit && $this->limit > 0) {
+            $query->limit($this->limit);
+        }
 
+        $questions = $query
+            ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
+            ->with('options:id,question_id,option_text,option_image,is_correct')
+            ->get();
+
+        // Shuffle in memory only if needed (after limiting)
         if ($this->shuffle == 1) {
             $questions = $questions->shuffle();
-        } elseif ($this->limit && $this->limit > 0) {
-            $questions = $questions->take($this->limit);
         }
 
         // Optimize payload: only include necessary fields
@@ -298,10 +422,13 @@ class PracticeQuiz extends Component
         }
     }
 
-    public $lastAnswerTime = 0;
-
     public function selectAnswer($optionId)
     {
+        // Security: Verify user owns this attempt and is authenticated
+        if (!auth()->check() || !$this->quizAttempt || $this->quizAttempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
         // Throttle: prevent rapid-fire requests (max once every 300ms)
         $now = microtime(true);
         if ($now - $this->lastAnswerTime < 0.3) {
@@ -309,16 +436,70 @@ class PracticeQuiz extends Component
         }
         $this->lastAnswerTime = $now;
 
+        // Validate question index
+        if ($this->currentQuestionIndex < 0 || $this->currentQuestionIndex >= count($this->questions)) {
+            abort(400, 'Invalid question index');
+        }
+
+        // Validate option exists and belongs to the current question
+        $currentQuestion = $this->questions[$this->currentQuestionIndex] ?? null;
+        if (!$currentQuestion) {
+            abort(400, 'Question not found');
+        }
+
+        $validOption = collect($currentQuestion['options'])->firstWhere('id', $optionId);
+        if (!$validOption) {
+            abort(400, 'Invalid option selected');
+        }
+
         $this->userAnswers[$this->currentQuestionIndex] = $optionId;
         $this->selectedAnswers[$this->currentQuestionIndex] = $optionId;
 
-        // Auto-save for authenticated users
-        if (auth()->check() && $this->quizAttempt) {
-            $questionId = $this->questions[$this->currentQuestionIndex]['id'] ?? null;
-            if ($questionId) {
-                $this->persistAnswer($questionId, $optionId);
-            }
+        $questionId = $currentQuestion['id'];
+        // Queue answer for batch persist instead of immediate DB write
+        $this->pendingAnswers[$questionId] = $optionId;
+
+        // Update unified cache (instant local state)
+        $cacheKey = "practice_attempt_{$this->quizAttempt->id}";
+        cache()->put($cacheKey, [
+            'questions' => $this->questions,
+            'answers' => $this->userAnswers,
+            'position' => $this->currentQuestionIndex,
+        ], now()->addHours(3));
+
+        // Batch persist every 3 answers or on timer
+        if (count($this->pendingAnswers) >= 3) {
+            $this->flushPendingAnswers();
         }
+    }
+
+    /**
+     * Flush all queued answers to database in batch
+     */
+    public function flushPendingAnswers(): void
+    {
+        if (empty($this->pendingAnswers) || !$this->quizAttempt) {
+            return;
+        }
+
+        foreach ($this->pendingAnswers as $questionId => $optionId) {
+            $question = Question::find($questionId);
+            $isCorrect = (bool) ($question?->options->firstWhere('id', $optionId)?->is_correct);
+
+            UserAnswer::updateOrCreate(
+                [
+                    'quiz_attempt_id' => $this->quizAttempt->id,
+                    'question_id' => $questionId,
+                ],
+                [
+                    'user_id' => auth()->id(),
+                    'option_id' => $optionId,
+                    'is_correct' => $isCorrect,
+                ]
+            );
+        }
+
+        $this->pendingAnswers = [];
     }
 
     private function persistAnswer(int $questionId, int $optionId): void
@@ -347,39 +528,58 @@ class PracticeQuiz extends Component
 
     public function nextQuestion()
     {
+        // Security check
+        if (!auth()->check() || !$this->quizAttempt || $this->quizAttempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
         // Persist current answer before moving
         $this->persistCurrentAnswer();
         if ($this->currentQuestionIndex < $this->totalQuestions - 1) {
             $this->currentQuestionIndex++;
-            $this->persistCurrentQuestionIndex();
+            $this->debouncePositionCache();
         }
     }
 
 
     public function previousQuestion()
     {
+        // Security check
+        if (!auth()->check() || !$this->quizAttempt || $this->quizAttempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
         // Persist current answer before moving
         $this->persistCurrentAnswer();
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
-            $this->persistCurrentQuestionIndex();
+            $this->debouncePositionCache();
         }
     }
 
 
     public function jumpToQuestion($index)
     {
+        // Security check
+        if (!auth()->check() || !$this->quizAttempt || $this->quizAttempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Validate index is an integer and within bounds
+        if (!is_int($index) && !is_numeric($index)) {
+            abort(400, 'Invalid question index');
+        }
+
+        $index = (int) $index;
+
         // Persist current answer before moving
         $this->persistCurrentAnswer();
         if ($index >= 0 && $index < $this->totalQuestions) {
             $this->currentQuestionIndex = $index;
-            $this->persistCurrentQuestionIndex();
+            $this->debouncePositionCache();
         }
     }
 
-    /**
-     * Persist the answer for the current question (if any) to the database.
-     */
     private function persistCurrentAnswer(): void
     {
         if (auth()->check() && $this->quizAttempt) {
@@ -391,19 +591,49 @@ class PracticeQuiz extends Component
         }
     }
 
-    private function persistCurrentQuestionIndex(): void
+    private function debouncePositionCache(): void
     {
+        if ($this->positionCacheDebounce) {
+            return;
+        }
+
+        $this->positionCacheDebounce = true;
+
         if (auth()->check() && $this->quizAttempt) {
+            $cacheKey = "practice_attempt_{$this->quizAttempt->id}";
+            cache()->put($cacheKey, [
+                'questions' => $this->questions,
+                'answers' => $this->userAnswers,
+                'position' => $this->currentQuestionIndex,
+            ], now()->addHours(3));
+
             $this->quizAttempt->update([
                 'current_question_index' => $this->currentQuestionIndex,
             ]);
         }
+
+        $this->dispatch('resetPositionDebounce');
+    }
+
+    #[On('reset-position-debounce')]
+    public function resetPositionDebounce(): void
+    {
+        $this->positionCacheDebounce = false;
     }
 
     public function submitQuiz()
     {
         if (auth()->check() && $this->quizAttempt) {
+            // Security: Verify user owns this attempt
+            if ($this->quizAttempt->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized');
+            }
+
+            // Flush any remaining pending answers before finalizing
+            $this->flushPendingAnswers();
             $this->finalizeAttempt();
+            // Clear unified cache
+            cache()->forget("practice_attempt_{$this->quizAttempt->id}");
         }
 
         $this->calculateScore();

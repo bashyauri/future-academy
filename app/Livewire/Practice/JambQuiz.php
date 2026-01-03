@@ -34,6 +34,7 @@ class JambQuiz extends Component
     public $showReview = false;
     public ?QuizAttempt $attempt = null;
     public array $questionOrder = [];
+    public bool $positionCacheDebounce = false;
 
     public function mount()
     {
@@ -54,6 +55,13 @@ class JambQuiz extends Component
             return redirect()->route('practice.jamb.setup');
         }
 
+        // Validate all subjects exist and are active
+        $validSubjects = Subject::whereIn('id', $this->subjectIds)->where('is_active', true)->pluck('id')->toArray();
+        if (count($validSubjects) !== count($this->subjectIds)) {
+            session()->flash('error', 'One or more selected subjects are not available.');
+            return redirect()->route('practice.jamb.setup');
+        }
+
         // Initialize timer defaults
         if (!$this->timerStartedAt) {
             $this->timerStartedAt = now();
@@ -67,6 +75,11 @@ class JambQuiz extends Component
         // For authenticated users, persist attempts and timer across refreshes
         if (auth()->check()) {
             $attemptFromQuery = $this->quizAttemptId ? QuizAttempt::find($this->quizAttemptId) : null;
+
+            // Security: Verify attempt ownership
+            if ($attemptFromQuery && $attemptFromQuery->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized attempt access');
+            }
 
             // If showing results, always use the provided attempt (completed or in_progress)
             if ($this->showResults && $attemptFromQuery) {
@@ -123,6 +136,16 @@ class JambQuiz extends Component
 
     public function selectAnswer($optionId)
     {
+        // Security: Verify user owns this attempt and is authenticated
+        if (auth()->check() && (!$this->attempt || $this->attempt->user_id !== auth()->id())) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Validate option ID
+        if (!is_numeric($optionId)) {
+            abort(400, 'Invalid option ID');
+        }
+
         $currentSubjectId = $this->getCurrentSubjectId();
         $this->userAnswers[$currentSubjectId][$this->currentQuestionIndex] = $optionId;
         // Instant feedback - user stays on question to see answer and explanation
@@ -130,36 +153,84 @@ class JambQuiz extends Component
         if (auth()->check() && $this->attempt) {
             $question = $this->getCurrentQuestion();
             if ($question) {
-                $isCorrect = (bool) ($question->options->firstWhere('id', $optionId)?->is_correct);
+                $validOption = $question->options->firstWhere('id', $optionId);
+                if (!$validOption) {
+                    abort(400, 'Invalid option for this question');
+                }
+
+                $isCorrect = (bool) ($validOption->is_correct);
                 $this->persistAnswer($question->id, $optionId, $isCorrect);
+
+                // Update unified cache
+                $cacheKey = "jamb_attempt_{$this->attempt->id}";
+                cache()->put($cacheKey, [
+                    'questions' => $this->questionsBySubject,
+                    'answers' => $this->userAnswers,
+                    'position' => [
+                        'subjectIndex' => $this->currentSubjectIndex,
+                        'questionIndex' => $this->currentQuestionIndex,
+                    ],
+                ], now()->addHours(3));
             }
         }
     }
 
     public function nextQuestion()
     {
+        // Security check
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
         if ($this->currentQuestionIndex < ($this->questionsPerSubject - 1)) {
             $this->currentQuestionIndex++;
         } elseif ($this->currentSubjectIndex < count($this->subjectIds) - 1) {
             $this->currentSubjectIndex++;
             $this->currentQuestionIndex = 0;
         }
+
+        $this->debouncePositionCache();
     }
 
     public function previousQuestion()
     {
+        // Security check
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
         if ($this->currentQuestionIndex > 0) {
             $this->currentQuestionIndex--;
         } elseif ($this->currentSubjectIndex > 0) {
             $this->currentSubjectIndex--;
             $this->currentQuestionIndex = $this->questionsPerSubject - 1;
         }
+
+        $this->debouncePositionCache();
     }
 
     public function jumpToQuestion($subjectIndex, $questionIndex)
     {
-        $this->currentSubjectIndex = $subjectIndex;
-        $this->currentQuestionIndex = $questionIndex;
+        // Security check
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Validate indices
+        if (!is_numeric($subjectIndex) || !is_numeric($questionIndex)) {
+            abort(400, 'Invalid question indices');
+        }
+
+        $subjectIndex = (int) $subjectIndex;
+        $questionIndex = (int) $questionIndex;
+
+        if ($subjectIndex >= 0 && $subjectIndex < count($this->subjectIds) &&
+            $questionIndex >= 0 && $questionIndex < $this->questionsPerSubject) {
+            $this->currentSubjectIndex = $subjectIndex;
+            $this->currentQuestionIndex = $questionIndex;
+        }
+
+        $this->debouncePositionCache();
     }
 
     #[On('timer-ended')]
@@ -173,8 +244,17 @@ class JambQuiz extends Component
     {
         // Persist attempt and then redirect to results route to avoid morph issues
         if (auth()->check()) {
+            // Security: Verify user owns this attempt
+            if ($this->attempt && $this->attempt->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized');
+            }
+
             try {
                 $this->saveAttempt();
+                // Clear unified cache
+                if ($this->attempt) {
+                    cache()->forget("jamb_attempt_{$this->attempt->id}");
+                }
             } catch (\Throwable $e) {
                 \Log::error('JambQuiz saveAttempt failed: '.$e->getMessage(), ['exception' => $e]);
             }
@@ -357,33 +437,57 @@ class JambQuiz extends Component
         $this->timerStartedAt = $attempt->started_at;
         $this->timeRemaining = $this->computeRemainingTime();
 
-        // Preserve subject order from question_order
-        $this->subjectIds = array_map('intval', array_keys($this->questionOrder));
-        $orderMap = array_flip($this->subjectIds);
-        $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get()
-            ->sortBy(function ($subject) use ($orderMap) {
-                return $orderMap[$subject->id] ?? 0;
-            })
-            ->values();
+        // Try to load from unified cache first
+        $cacheKey = "jamb_attempt_{$attempt->id}";
+        $cached = cache()->get($cacheKey);
 
-        $this->generateQuestionsForSubjects($this->questionOrder);
-        $this->initializeUserAnswers();
+        if ($cached) {
+            // Restore from cache
+            $this->questionsBySubject = $cached['questions'];
+            $this->userAnswers = $cached['answers'];
+            $this->currentSubjectIndex = $cached['position']['subjectIndex'];
+            $this->currentQuestionIndex = $cached['position']['questionIndex'];
+        } else {
+            // Preserve subject order from question_order
+            $this->subjectIds = array_map('intval', array_keys($this->questionOrder));
+            $orderMap = array_flip($this->subjectIds);
+            $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get()
+                ->sortBy(function ($subject) use ($orderMap) {
+                    return $orderMap[$subject->id] ?? 0;
+                })
+                ->values();
 
-        // Load saved answers and map them back into the arrays
-        $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)
-            ->with(['question:id,subject_id'])
-            ->get();
+            $this->generateQuestionsForSubjects($this->questionOrder);
+            $this->initializeUserAnswers();
 
-        foreach ($answers as $answer) {
-            $questionId = $answer->question_id;
-            $subjectId = $answer->question?->subject_id;
-            if (!$subjectId || !isset($this->questionOrder[$subjectId])) {
-                continue;
+            // Load saved answers and map them back into the arrays
+            $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)
+                ->with(['question:id,subject_id'])
+                ->get();
+
+            foreach ($answers as $answer) {
+                $questionId = $answer->question_id;
+                $subjectId = $answer->question?->subject_id;
+                if (!$subjectId || !isset($this->questionOrder[$subjectId])) {
+                    continue;
+                }
+
+                $index = array_search($questionId, $this->questionOrder[$subjectId], true);
+                if ($index !== false) {
+                    $this->userAnswers[$subjectId][$index] = $answer->option_id;
+                }
             }
 
-            $index = array_search($questionId, $this->questionOrder[$subjectId], true);
-            if ($index !== false) {
-                $this->userAnswers[$subjectId][$index] = $answer->option_id;
+            // Cache the unified state
+            if (!empty($this->questionsBySubject)) {
+                cache()->put($cacheKey, [
+                    'questions' => $this->questionsBySubject,
+                    'answers' => $this->userAnswers,
+                    'position' => [
+                        'subjectIndex' => $this->currentSubjectIndex,
+                        'questionIndex' => $this->currentQuestionIndex,
+                    ],
+                ], now()->addHours(3));
             }
         }
 
@@ -435,7 +539,8 @@ class JambQuiz extends Component
             if ($existingOrder && isset($existingOrder[$subjectId])) {
                 $questionIds = $existingOrder[$subjectId];
                 $questions = Question::whereIn('id', $questionIds)
-                    ->with('options')
+                    ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
+                    ->with('options:id,question_id,option_text,option_image,is_correct')
                     ->get()
                     ->sortBy(function ($question) use ($questionIds) {
                         return array_search($question->id, $questionIds);
@@ -450,7 +555,8 @@ class JambQuiz extends Component
             $query = Question::where('exam_type_id', $examTypeId)
                 ->where('subject_id', $subjectId)
                 ->where('exam_year', $this->year)
-                ->with('options');
+                ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
+                ->with('options:id,question_id,option_text,option_image,is_correct');
 
             if ($this->shuffleQuestions) {
                 $query->inRandomOrder();
@@ -509,6 +615,35 @@ class JambQuiz extends Component
         }
 
         return null;
+    }
+
+    private function debouncePositionCache(): void
+    {
+        if ($this->positionCacheDebounce) {
+            return;
+        }
+
+        $this->positionCacheDebounce = true;
+
+        if (auth()->check() && $this->attempt) {
+            $cacheKey = "jamb_attempt_{$this->attempt->id}";
+            cache()->put($cacheKey, [
+                'questions' => $this->questionsBySubject,
+                'answers' => $this->userAnswers,
+                'position' => [
+                    'subjectIndex' => $this->currentSubjectIndex,
+                    'questionIndex' => $this->currentQuestionIndex,
+                ],
+            ], now()->addHours(3));
+        }
+
+        $this->dispatch('resetPositionDebounce');
+    }
+
+    #[On('reset-position-debounce')]
+    public function resetPositionDebounce(): void
+    {
+        $this->positionCacheDebounce = false;
     }
 
     public function render()

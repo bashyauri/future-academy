@@ -63,16 +63,10 @@
                         wire:click="submitQuiz"
                         @click="stopTimer()"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="submitQuiz"
-                        class="w-full sm:w-auto px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
-                        <span wire:loading.remove wire:target="submitQuiz">Submit Test</span>
-                        <span wire:loading wire:target="submitQuiz" class="flex items-center gap-2">
-                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Submitting...
-                        </span>
+                        class="w-full sm:w-auto px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all">
+                        Submit Test
                     </button>
                 </div>
             </div>
@@ -227,6 +221,11 @@
                                                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                                             </svg>
                                         </div>
+                                        @elseif($isSelected && !$hasAnswered)
+                                        <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
                                         @else
                                         <div class="w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600"></div>
                                         @endif
@@ -235,11 +234,6 @@
                                             @if($isSelected)
                                             <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
                                             @endif
-                                            <!-- Loading spinner when clicking -->
-                                            <svg wire:loading wire:target="selectAnswer" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
                                         </div>
                                     @endif
                                 </div>
@@ -274,16 +268,11 @@
                     <button
                         wire:click="previousQuestion"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="previousQuestion"
-                        class="w-full sm:w-auto px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 font-medium rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center gap-2 {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                        class="w-full sm:w-auto px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 font-medium rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'opacity-50 cursor-not-allowed' : '' }}"
                         {{ ($currentSubjectIndex == 0 && $currentQuestionIndex == 0) ? 'disabled' : '' }}>
-                        <span wire:loading.remove wire:target="previousQuestion">← Previous</span>
-                        <span wire:loading wire:target="previousQuestion">
-                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </span>
+                        ← Previous
                     </button>
                     <flux:text class="text-xs md:text-sm text-neutral-600 dark:text-neutral-400 font-medium">
                         Question {{ $currentQuestionIndex + 1 }}/{{ $questionsPerSubject }}
@@ -291,15 +280,10 @@
                     <button
                         wire:click="nextQuestion"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="nextQuestion"
-                        class="w-full sm:w-auto px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2">
-                        <span wire:loading.remove wire:target="nextQuestion">{{ $currentQuestionIndex == ($questionsPerSubject - 1) ? 'Next Subject' : 'Next' }}</span>
-                        <span wire:loading wire:target="nextQuestion">
-                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </span>
+                        class="w-full sm:w-auto px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium rounded-lg transition-all">
+                        {{ $currentQuestionIndex == ($questionsPerSubject - 1) ? 'Next Subject' : 'Next' }}
                     </button>
                 </div>
             </div>
@@ -447,15 +431,10 @@
                 <button
                     wire:click="toggleReview"
                     wire:loading.attr="disabled"
+                    wire:loading.class="opacity-75"
                     wire:target="toggleReview"
-                    class="px-6 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
-                    <span wire:loading.remove wire:target="toggleReview">{{ $showReview ? 'Hide' : 'View' }} Answer Review</span>
-                    <span wire:loading wire:target="toggleReview">
-                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </span>
+                    class="px-6 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all">
+                    {{ $showReview ? 'Hide' : 'View' }} Answer Review
                 </button>
                 <a href="{{ route('practice.jamb.setup') }}" class="px-6 py-2 text-gray-700 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all inline-flex items-center justify-center gap-2">
                     Try Another Test

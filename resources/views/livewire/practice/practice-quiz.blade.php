@@ -133,7 +133,7 @@
                     <div wire:ignore>
                         <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed">{{ $question['question_text'] }}</flux:heading>
                         @if($question['question_image'])
-                        <img src="{{ $question['question_image'] }}" alt="Question" class="mt-3 md:mt-4 max-w-full h-auto rounded-lg">
+                        <img src="{{ $question['question_image'] }}" alt="Question" class="mt-3 md:mt-4 max-w-full h-auto rounded-lg" loading="lazy">
                         @endif
                     </div>
 
@@ -171,10 +171,12 @@
                         wire:target="selectAnswer"
                         wire:key="option-{{ $option['id'] }}"
                         @if($hasAnswered) disabled @endif
+                        x-data="{ isProcessing: false }"
+                        @click="isProcessing = true; setTimeout(() => isProcessing = false, 3000)"
                         class="w-full text-left rounded-lg border-2 p-4 md:p-4 transition-all disabled:cursor-not-allowed {{ $borderClass }}"
                     >
                         <div class="flex items-start gap-4">
-                            <div class="flex-shrink-0 mt-1">
+                            <div class="flex-shrink-0 mt-1 relative">
                                 @if($hasAnswered)
                                     @if($isCorrect)
                                     <div class="w-6 h-6 rounded-full bg-green-500 dark:bg-green-600 flex items-center justify-center">
@@ -192,12 +194,14 @@
                                     <div class="w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600"></div>
                                     @endif
                                 @else
-                                    <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {{ $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-500 dark:bg-blue-600' : 'border-neutral-300 dark:border-neutral-600' }}">
+                                    <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {{ $isSelected ? 'border-blue-500 dark:border-blue-500 bg-blue-500 dark:bg-blue-600' : 'border-neutral-300 dark:border-neutral-600' }}"
+                                        x-show="!isProcessing">
                                         @if($isSelected)
                                         <div class="w-3 h-3 bg-white rounded-full"></div>
                                         @endif
-                                        <!-- Loading spinner when clicking -->
-                                        <svg wire:loading wire:target="selectAnswer" class="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    </div>
+                                    <div x-show="isProcessing" class="w-6 h-6 flex items-center justify-center">
+                                        <svg class="animate-spin h-5 w-5 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
@@ -226,7 +230,7 @@
                                     @endif
                                 </div>
                                 @if($option['option_image'])
-                                <img src="{{ $option['option_image'] }}" alt="Option" class="mt-2 max-w-full h-auto rounded">
+                                <img src="{{ $option['option_image'] }}" alt="Option" class="mt-2 max-w-full h-auto rounded" loading="lazy">
                                 @endif
                             </div>
                         </div>
@@ -261,16 +265,18 @@
                         icon="arrow-left"
                         wire:click="previousQuestion"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="previousQuestion"
                         :disabled="$currentQuestionIndex === 0"
-                        class="text-base min-h-[48px]"
+                        class="text-base min-h-[48px] relative"
                     >
                         <span wire:loading.remove wire:target="previousQuestion">{{ __('Previous') }}</span>
-                        <span wire:loading wire:target="previousQuestion" class="flex items-center gap-2">
+                        <span wire:loading wire:target="previousQuestion" class="flex items-center justify-center gap-2">
                             <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
+                            {{ __('Loading...') }}
                         </span>
                     </flux:button>
 
@@ -279,17 +285,11 @@
                         variant="ghost"
                         wire:click="exitQuiz"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="exitQuiz"
                         class="flex-1 text-base min-h-[48px]"
                     >
-                        <span wire:loading.remove wire:target="exitQuiz">{{ __('Exit & Continue Later') }}</span>
-                        <span wire:loading wire:target="exitQuiz" class="flex items-center gap-2">
-                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            {{ __('Exiting...') }}
-                        </span>
+                        {{ __('Exit & Continue Later') }}
                     </flux:button>
 
                     @if($currentQuestionIndex === $totalQuestions - 1)
@@ -298,8 +298,9 @@
                         icon="check"
                         wire:click="submitQuiz"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="submitQuiz"
-                        class="flex-1 text-base min-h-[48px]"
+                        class="flex-1 text-base min-h-[48px] relative"
                     >
                         <span wire:loading.remove wire:target="submitQuiz">{{ __('Submit Quiz') }}</span>
                         <span wire:loading wire:target="submitQuiz" class="flex items-center justify-center gap-2">
@@ -316,8 +317,9 @@
                         icon-trailing="arrow-right"
                         wire:click="nextQuestion"
                         wire:loading.attr="disabled"
+                        wire:loading.class="opacity-75"
                         wire:target="nextQuestion"
-                        class="flex-1 text-base min-h-[48px]"
+                        class="flex-1 text-base min-h-[48px] relative"
                     >
                         <span wire:loading.remove wire:target="nextQuestion">{{ __('Next') }}</span>
                         <span wire:loading wire:target="nextQuestion" class="flex items-center justify-center gap-2">
@@ -325,6 +327,7 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
+                            {{ __('Loading...') }}
                         </span>
                     </flux:button>
                     @endif
@@ -336,16 +339,17 @@
                     variant="danger"
                     wire:click="submitQuiz"
                     wire:loading.attr="disabled"
+                    wire:loading.class="opacity-75"
                     wire:target="submitQuiz"
-                    class="w-full text-base min-h-[52px] font-semibold"
+                    class="w-full text-base min-h-[52px] font-semibold flex items-center justify-center gap-2 relative"
                 >
-                    <span wire:loading.remove wire:target="submitQuiz" class="flex items-center justify-center gap-2">
+                    <span wire:loading.remove wire:target="submitQuiz" class="flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                         </svg>
                         {{ __('End Practice & Submit') }}
                     </span>
-                    <span wire:loading wire:target="submitQuiz" class="flex items-center justify-center gap-2">
+                    <span wire:loading wire:target="submitQuiz" class="flex items-center gap-2">
                         <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
