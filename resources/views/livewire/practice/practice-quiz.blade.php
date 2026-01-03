@@ -380,7 +380,7 @@
                             wire:loading.attr="disabled"
                             wire:target="jumpToQuestion"
                             wire:key="sidebar-q-{{ $i }}"
-                            class="aspect-square rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500') }}"
+                            class="aspect-square rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : (($userAnswers[$i] ?? null) !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500') }}"
                         >
                             {{ $i + 1 }}
                         </button>
@@ -438,7 +438,7 @@
                                 wire:loading.attr="disabled"
                                 wire:target="jumpToQuestion"
                                 wire:key="mobile-q-{{ $i }}"
-                                class="flex-shrink-0 w-12 h-12 rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : ($userAnswers[$i] !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600') }}"
+                                class="flex-shrink-0 w-12 h-12 rounded-lg border-2 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 {{ $currentQuestionIndex === $i ? 'border-blue-500 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-white' : (($userAnswers[$i] ?? null) !== null ? 'border-green-500 dark:border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'border-neutral-300 dark:border-neutral-600') }}"
                             >
                                 {{ $i + 1 }}
                             </button>
