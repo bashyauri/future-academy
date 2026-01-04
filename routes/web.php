@@ -79,6 +79,20 @@ Route::middleware(['auth'])->group(function () {
     // Practice routes (by exam type, subject, and year)
     Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');
     Route::get('practice/quiz', \App\Livewire\Practice\PracticeQuiz::class)->name('practice.quiz');
+    Route::get('practice/quiz-js', \App\Livewire\Practice\PracticeQuizJS::class)->name('practice.quiz.js');
+
+    // Autosave endpoint for Alpine.js quiz interaction
+    Route::post('quiz/autosave', [\App\Http\Controllers\Practice\PracticeQuizController::class, 'autosave']);
+
+    // Practice Quiz API endpoints (for JavaScript version)
+    Route::prefix('api/practice')->group(function () {
+        Route::post('start', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'startQuiz']);
+        Route::get('load/{attempt}', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'loadAttempt']);
+        Route::post('load-batch', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'loadBatch']);
+        Route::post('save', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'saveAnswers']);
+        Route::post('submit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'submitQuiz']);
+        Route::post('exit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'exitQuiz']);
+    });
 
     // JAMB Practice routes
     Route::get('practice/jamb/setup', \App\Livewire\Practice\JambSetup::class)->name('practice.jamb.setup');
