@@ -519,13 +519,9 @@
 
                         {{-- Explanation (shown after answering) --}}
                         <template x-if="isAnswered(getCurrentQuestion().id) && getCurrentQuestion().explanation">
-                            <div
-                                class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg"
-                                x-data="{ expanded: false }"
-                                @click.outside="expanded = false">
-                                <button @click="expanded = !expanded" type="button" class="w-full flex items-start gap-3 text-left">
-                                    <div
-                                        class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
+                            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
                                             fill="currentColor">
                                             <path fill-rule="evenodd"
@@ -534,13 +530,12 @@
                                         </svg>
                                     </div>
                                     <div class="flex-1">
-                                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-200">
+                                        <flux:heading size="sm" class="text-blue-900 dark:text-blue-200 mb-2">
                                             {{ __('Explanation') }}
-                                            <span x-text="expanded ? '▼' : '▶'" class="ml-2"></span>
                                         </flux:heading>
+                                        <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed" x-text="getCurrentQuestion().explanation">
+                                        </flux:text>
                                     </div>
-                                </button>
-                                <div x-show="expanded" class="mt-2 text-blue-800 dark:text-blue-300 leading-relaxed" x-text="getCurrentQuestion().explanation">
                                 </div>
                             </div>
                         </template>
