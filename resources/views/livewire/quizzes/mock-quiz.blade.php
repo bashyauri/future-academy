@@ -1,7 +1,24 @@
 <div x-data="{
     timeRemaining: @entangle('timeRemaining'),
+    currentSubjectIndex: @entangle('currentSubjectIndex'),
+    currentQuestionIndex: @entangle('currentQuestionIndex'),
+    questionsBySubject: @js($questionsBySubject),
+    userAnswers: @js($userAnswers),
+    subjectsData: @js($subjectsData),
+    csrfToken: @js(csrf_token()),
+    sessionId: @js(request()->query('session')),
     timer: null,
-    init() { this.startTimer(); },
+    autosaveTimer: null,
+    autosaveDebounce: false,
+
+    init() {
+        this.startTimer();
+        // Start autosave every 10 seconds (cache-only, no database writes)
+        this.autosaveTimer = setInterval(() => this.autosave(), 10000);
+        // Save on page unload
+        window.addEventListener('beforeunload', () => this.saveSync());
+    },
+
     startTimer() {
         this.timer = setInterval(() => {
             if (this.timeRemaining > 0) {
@@ -12,11 +29,129 @@
             }
         }, 1000);
     },
+
     formatTime(seconds) {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = seconds % 60;
         return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    },
+
+    getCurrentSubjectId() {
+        return this.subjectsData[this.currentSubjectIndex]?.id;
+    },
+
+    getCurrentQuestions() {
+        return this.questionsBySubject[this.getCurrentSubjectId()] || [];
+    },
+
+    getCurrentQuestion() {
+        return this.getCurrentQuestions()[this.currentQuestionIndex] || null;
+    },
+
+    selectAnswer(optionId) {
+        // Instant client-side feedback - NO server call
+        const subjectId = this.getCurrentSubjectId();
+        this.userAnswers[subjectId][this.currentQuestionIndex] = optionId;
+        this.autosaveDebounce = true;
+    },
+
+    async autosave() {
+        if (!this.autosaveDebounce || !this.sessionId) return;
+
+        try {
+            // Send to server for CACHING (not database save)
+            // Database is only written on submit
+            const response = await fetch('/api/practice/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken,
+                },
+                body: JSON.stringify({
+                    session_id: this.sessionId,
+                    questions: this.questionsBySubject,
+                    answers: this.userAnswers,
+                    position: {
+                        subjectIndex: this.currentSubjectIndex,
+                        questionIndex: this.currentQuestionIndex,
+                    },
+                }),
+            });
+
+            if (response.ok) {
+                this.autosaveDebounce = false;
+            }
+        } catch (error) {
+            console.error('Autosave failed:', error);
+        }
+    },
+
+    saveSync() {
+        if (this.sessionId) {
+            navigator.sendBeacon('/api/practice/save', JSON.stringify({
+                session_id: this.sessionId,
+                questions: this.questionsBySubject,
+                answers: this.userAnswers,
+                position: {
+                    subjectIndex: this.currentSubjectIndex,
+                    questionIndex: this.currentQuestionIndex,
+                },
+            }));
+        }
+    },
+
+    switchSubject(index) {
+        this.currentSubjectIndex = index;
+        this.currentQuestionIndex = 0;
+    },
+
+    nextQuestion() {
+        const maxIndex = this.getCurrentQuestions().length - 1;
+
+        if (this.currentQuestionIndex < maxIndex) {
+            this.currentQuestionIndex++;
+        } else if (this.currentSubjectIndex < this.subjectsData.length - 1) {
+            this.currentSubjectIndex++;
+            this.currentQuestionIndex = 0;
+        }
+    },
+
+    previousQuestion() {
+        if (this.currentQuestionIndex > 0) {
+            this.currentQuestionIndex--;
+        } else if (this.currentSubjectIndex > 0) {
+            this.currentSubjectIndex--;
+            const prevSubjectId = this.subjectsData[this.currentSubjectIndex].id;
+            this.currentQuestionIndex = Math.max(this.questionsBySubject[prevSubjectId].length - 1, 0);
+        }
+    },
+
+    jumpToQuestion(subjectIndex, questionIndex) {
+        this.currentSubjectIndex = subjectIndex;
+        this.currentQuestionIndex = questionIndex;
+    },
+
+    getAnsweredCount() {
+        const subjectId = this.getCurrentSubjectId();
+        return this.userAnswers[subjectId]?.filter(a => a !== null).length || 0;
+    },
+
+    getTotalInSubject() {
+        return this.getCurrentQuestions().length;
+    },
+
+    confirmSubmit() {
+        const answered = Object.values(this.userAnswers).reduce((sum, answers) =>
+            sum + (Array.isArray(answers) ? answers.filter(a => a !== null).length : 0), 0
+        );
+        const total = Object.values(this.questionsBySubject).reduce((sum, questions) =>
+            sum + (Array.isArray(questions) ? questions.length : 0), 0
+        );
+
+        if (confirm(`Are you sure you want to submit your exam?\n\nYou have answered ${answered} out of ${total} questions.\n\nOnce submitted, you won't be able to change your answers.`)) {
+            $wire.call('submitQuiz');
+        }
     }
 }" class="min-h-screen bg-white dark:bg-neutral-950">
 
@@ -35,19 +170,9 @@
                             <div class="text-2xl sm:text-3xl font-bold font-mono" :class="timeRemaining < 600 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-300'" x-text="formatTime(timeRemaining)"></div>
                         </div>
                         <button
-                            wire:click="submitQuiz"
-                            wire:loading.attr="disabled"
-                            wire:loading.class="opacity-70 cursor-wait"
-                            wire:target="submitQuiz"
+                            @click="confirmSubmit()"
                             class="px-4 py-2 bg-green-600 dark:bg-green-600 hover:bg-green-700 dark:hover:bg-green-500 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-sm">
-                            <span wire:loading.remove wire:target="submitQuiz">Submit</span>
-                            <span wire:loading wire:target="submitQuiz" class="flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Saving...
-                            </span>
+                            Submit
                         </button>
                     </div>
                 </div>
@@ -56,137 +181,172 @@
             <div class="bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-800 px-4 shadow-sm">
                 <div class="max-w-7xl mx-auto">
                     <div class="flex gap-2 overflow-x-auto py-2">
-                        @foreach($subjectsData as $index => $subject)
-                            @php $answered = isset($userAnswers[$subject->id]) ? count(array_filter($userAnswers[$subject->id])) : 0; @endphp
+                        <template x-for="(subject, index) in subjectsData" :key="subject.id">
                             <button
-                                wire:click="switchSubject({{ $index }})"
-                                class="flex-shrink-0 px-4 py-3 rounded-xl whitespace-nowrap transition-all {{ $currentSubjectIndex == $index ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-700' }}">
-                                <div class="font-semibold text-sm">{{ $subject->name }}</div>
-                                <div class="text-xs mt-1 {{ $currentSubjectIndex == $index ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400' }}">{{ $answered }}/{{ count($questionsBySubject[$subject->id] ?? []) }} answered</div>
+                                @click="switchSubject(index)"
+                                :class="currentSubjectIndex === index ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-700'"
+                                class="flex-shrink-0 px-4 py-3 rounded-xl whitespace-nowrap transition-all">
+                                <div class="font-semibold text-sm" x-text="subject.name"></div>
+                                <div
+                                    :class="currentSubjectIndex === index ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'"
+                                    class="text-xs mt-1"
+                                    x-text="`${(userAnswers[subject.id] || []).filter(a => a !== null).length}/${(questionsBySubject[subject.id] || []).length} answered`">
+                                </div>
                             </button>
-                        @endforeach
+                        </template>
                     </div>
                 </div>
             </div>
 
             <div class="flex-1 overflow-y-auto p-4 sm:p-6">
                 <div class="max-w-4xl mx-auto">
-                    @php
-                        $question = $this->getCurrentQuestion();
-                        $currentSubjectId = $this->getCurrentSubjectId();
-                        $totalInSubject = count($this->getCurrentQuestions());
-                    @endphp
-
-                    <div class="mb-6">
+                    <div class="mb-6" x-show="getCurrentQuestion()">
                         <div class="flex items-center justify-between mb-3 gap-3">
-                            <flux:text class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ $subjectsData[$currentSubjectIndex]->name ?? '' }}</flux:text>
-                            <flux:badge color="blue">Question {{ $currentQuestionIndex + 1 }} of {{ $totalInSubject }}</flux:badge>
+                            <flux:text class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="subjectsData[currentSubjectIndex]?.name || ''"></flux:text>
+                            <flux:badge color="blue" x-text="`Question ${currentQuestionIndex + 1} of ${getTotalInSubject()}`"></flux:badge>
                         </div>
                         <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm">
-                            <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100">{{ $question->question_text }}</flux:text>
+                            <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-text="getCurrentQuestion()?.question_text || ''"></flux:text>
                         </div>
                     </div>
 
                     <div class="space-y-3 mb-8">
-                        @foreach($question->options as $option)
-                            @php $isSelected = ($userAnswers[$currentSubjectId][$currentQuestionIndex] ?? null) == $option->id; @endphp
+                        <template x-for="option in getCurrentQuestion()?.options || []" :key="option.id">
                             <button
-                                wire:click="selectAnswer({{ $option->id }})"
-                                class="w-full p-4 rounded-xl border-2 text-left transition-all relative {{ $isSelected ? 'border-green-500 bg-green-50 dark:bg-neutral-900 ring-2 ring-green-300 dark:ring-green-700' : 'border-gray-200 dark:border-neutral-800 hover:border-green-400 dark:hover:border-green-500' }}">
+                                @click="selectAnswer(option.id)"
+                                :class="userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id ? 'border-green-500 bg-green-50 dark:bg-neutral-900 ring-2 ring-green-300 dark:ring-green-700' : 'border-gray-200 dark:border-neutral-800 hover:border-green-400 dark:hover:border-green-500'"
+                                class="w-full p-4 rounded-xl border-2 text-left transition-all relative">
                                 <div class="flex items-start gap-3">
-                                    <div class="flex-shrink-0 w-6 h-6 rounded-full border-2 {{ $isSelected ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-700' }} flex items-center justify-center mt-0.5 transition-all">
-                                        @if($isSelected)
+                                    <div
+                                        :class="userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-700'"
+                                        class="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all">
+                                        <template x-if="userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id">
                                             <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
-                                        @endif
+                                        </template>
                                     </div>
-                                    <span class="flex-1 {{ $isSelected ? 'text-green-700 dark:text-green-200 font-medium' : 'text-gray-800 dark:text-gray-200' }}">{{ $option->option_text }}</span>
-                                    @if($isSelected)
+                                    <span
+                                        :class="userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id ? 'text-green-700 dark:text-green-200 font-medium' : 'text-gray-800 dark:text-gray-200'"
+                                        class="flex-1"
+                                        x-text="option.option_text">
+                                    </span>
+                                    <template x-if="userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id">
                                         <svg class="h-5 w-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                    @endif
+                                    </template>
                                 </div>
                             </button>
-                        @endforeach
+                        </template>
                     </div>
 
-                    <div class="flex items-center justify-between gap-3 mb-6">
+                    <!-- Progress Bar -->
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Question Progress</span>
+                            <span class="text-sm font-semibold text-blue-600 dark:text-blue-400" x-text="`${currentQuestionIndex + 1} of ${getTotalInSubject()}`"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-neutral-800 rounded-full h-2.5 overflow-hidden">
+                            <div
+                                class="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 transition-all duration-300"
+                                :style="`width: ${((currentQuestionIndex + 1) / getTotalInSubject()) * 100}%`">
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex justify-between">
+                            <span x-text="`${getAnsweredCount()} answered`"></span>
+                            <span x-text="`${getTotalInSubject() - getAnsweredCount()} remaining`"></span>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="flex items-center gap-3">
                         <button
-                            wire:click="previousQuestion"
-                            :disabled="$currentQuestionIndex === 0"
-                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            ← Previous
+                            @click="previousQuestion()"
+                            :disabled="currentQuestionIndex === 0 && currentSubjectIndex === 0"
+                            :class="currentQuestionIndex === 0 && currentSubjectIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'"
+                            class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-200 rounded-lg transition-all duration-200 font-medium">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                            <span class="hidden sm:inline">Previous</span>
                         </button>
-                        <flux:text class="text-sm text-gray-600 dark:text-gray-400 font-medium">{{ $currentQuestionIndex + 1 }}/{{ $totalInSubject }}</flux:text>
+
+                        <!-- Center Progress Indicator -->
+                        <div class="flex flex-col items-center px-3 py-2 bg-blue-50 dark:bg-neutral-800 rounded-lg">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">Question</span>
+                            <span class="text-xl font-bold text-blue-600 dark:text-blue-400" x-text="`${currentQuestionIndex + 1}`"></span>
+                        </div>
+
                         <button
-                            wire:click="nextQuestion"
-                            class="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white font-medium rounded-lg transition-all shadow-sm flex items-center gap-2">
-                            @if($currentQuestionIndex + 1 >= $totalInSubject && count($subjectsData) > 1)
-                                Next Subject
-                            @else
-                                Next
-                            @endif
+                            @click="nextQuestion()"
+                            class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md active:scale-95">
+                            <span class="hidden sm:inline" x-show="currentQuestionIndex + 1 >= getTotalInSubject() && currentSubjectIndex < subjectsData.length - 1">Subject</span>
+                            <span class="hidden sm:inline" x-show="!(currentQuestionIndex + 1 >= getTotalInSubject() && currentSubjectIndex < subjectsData.length - 1)">Next</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="hidden lg:block w-80 bg-white dark:bg-neutral-900 border-l border-gray-200 dark:border-neutral-800 overflow-y-auto p-4">
+        <div class="hidden lg:block w-80 bg-white dark:bg-neutral-900 border-l border-gray-200 dark:border-neutral-800 overflow-y-auto p-4" x-cloak>
             <div class="mb-6 pb-6 border-b-2 border-blue-200 dark:border-blue-800">
-                @php
-                    $currentAnswered = isset($userAnswers[$subjectsData[$currentSubjectIndex]->id]) ? count(array_filter($userAnswers[$subjectsData[$currentSubjectIndex]->id])) : 0;
-                    $currentTotal = count($questionsBySubject[$subjectsData[$currentSubjectIndex]->id] ?? []);
-                @endphp
                 <div class="flex items-center justify-between mb-3">
-                    <flux:heading size="sm" level="3" class="mb-0 text-blue-600 dark:text-blue-300">{{ $subjectsData[$currentSubjectIndex]->name ?? '' }}</flux:heading>
-                    <flux:badge color="blue" class="text-xs">{{ $currentAnswered }}/{{ $currentTotal }}</flux:badge>
+                    <flux:heading size="sm" level="3" class="mb-0 text-blue-600 dark:text-blue-300" x-text="subjectsData[currentSubjectIndex]?.name || ''"></flux:heading>
+                    <flux:badge color="blue" class="text-xs" x-text="`${getAnsweredCount()}/${getTotalInSubject()}`"></flux:badge>
                 </div>
                 <div class="grid grid-cols-5 gap-2">
-                    @for($i = 0; $i < $currentTotal; $i++)
-                        @php
-                            $isAnswered = ($userAnswers[$subjectsData[$currentSubjectIndex]->id][$i] ?? null) !== null;
-                            $isCurrent = $currentQuestionIndex == $i;
-                        @endphp
+                    <template x-for="(question, index) in getCurrentQuestions()" :key="index">
                         <button
-                            wire:click="jumpToQuestion({{ $currentSubjectIndex }}, {{ $i }})"
-                            class="aspect-square h-8 w-8 p-0 flex items-center justify-center rounded-lg text-xs font-medium transition-all {{ $isCurrent ? 'bg-blue-600 text-white ring-2 ring-blue-300 dark:ring-blue-700' : ($isAnswered ? 'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500' : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700') }}">
-                            {{ $i + 1 }}
+                            @click="jumpToQuestion(currentSubjectIndex, index)"
+                            :class="{
+                                'bg-blue-600 text-white ring-2 ring-blue-300 dark:ring-blue-700': currentQuestionIndex === index,
+                                'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500': currentQuestionIndex !== index && userAnswers[getCurrentSubjectId()][index] !== null,
+                                'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700': currentQuestionIndex !== index && userAnswers[getCurrentSubjectId()][index] === null,
+                            }"
+                            class="aspect-square h-8 w-8 p-0 flex items-center justify-center rounded-lg text-xs font-medium transition-all"
+                            x-text="index + 1">
                         </button>
-                    @endfor
+                    </template>
                 </div>
             </div>
 
-            @if(count($subjectsData) > 1)
-                <div>
-                    <flux:text class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Other Subjects</flux:text>
-                    @foreach($subjectsData as $subjectIndex => $subject)
-                        @if($subjectIndex != $currentSubjectIndex)
-                            @php
-                                $answered = isset($userAnswers[$subject->id]) ? count(array_filter($userAnswers[$subject->id])) : 0;
-                                $total = count($questionsBySubject[$subject->id] ?? []);
-                            @endphp
-                            <div class="mb-4 pb-3 border-b border-gray-200 dark:border-neutral-800">
-                                <div class="flex items-center justify-between mb-2">
-                                    <button
-                                        wire:click="switchSubject({{ $subjectIndex }})"
-                                        class="text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-300 transition-colors text-left">
-                                        {{ $subject->name }}
-                                    </button>
-                                    <flux:text class="text-xs text-gray-500 dark:text-gray-400">{{ $answered }}/{{ $total }}</flux:text>
-                                </div>
-                                <div class="grid grid-cols-8 gap-1">
-                                    @for($i = 0; $i < $total; $i++)
-                                        @php $isAnswered = ($userAnswers[$subject->id][$i] ?? null) !== null; @endphp
+            <template x-if="subjectsData.length > 1">
+                <div class="mb-6 pb-6 border-b-2 border-gray-200 dark:border-gray-700">
+                    <flux:text class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3 block">Other Subjects</flux:text>
+                    <template x-for="(subject, subjectIndex) in subjectsData" :key="subject.id">
+                        <template x-if="subjectIndex !== currentSubjectIndex">
+                            <div class="mb-4 last:mb-0">
+                                <button
+                                    @click="switchSubject(subjectIndex)"
+                                    class="w-full flex items-center justify-between gap-2 mb-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors">
+                                    <span class="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-200 text-left truncate" :title="subject.name" x-text="subject.name"></span>
+                                    <flux:badge color="zinc" size="sm" x-text="`${(userAnswers[subject.id] || []).filter(a => a !== null).length}/${(questionsBySubject[subject.id] || []).length}`"></flux:badge>
+                                </button>
+                                <div class="grid grid-cols-8 gap-1 px-2">
+                                    <template x-for="(question, index) in (questionsBySubject[subject.id] || [])" :key="index">
                                         <button
-                                            wire:click="jumpToQuestion({{ $subjectIndex }}, {{ $i }})"
-                                            class="aspect-square h-6 w-6 p-0 flex items-center justify-center rounded text-xs font-medium transition-all {{ $isAnswered ? 'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500' : 'bg-gray-200 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-neutral-700' }}">
+                                            @click="jumpToQuestion(subjectIndex, index)"
+                                            :class="{
+                                                'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500': userAnswers[subject.id][index] !== null,
+                                                'bg-gray-200 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-neutral-700': userAnswers[subject.id][index] === null
+                                            }"
+                                            class="aspect-square h-6 w-6 p-0 flex items-center justify-center rounded text-xs font-medium transition-all"
+                                            :title="`Question ${index + 1}`">
                                         </button>
-                                    @endfor
+                                    </template>
                                 </div>
                             </div>
-                        @endif
-                    @endforeach
+                        </template>
+                    </template>
                 </div>
-            @endif
+            </template>
+
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <flux:text class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Progress</flux:text>
+                    <flux:text class="font-semibold text-gray-900 dark:text-gray-100" x-text="`${Object.values(userAnswers).reduce((sum, answers) => sum + (Array.isArray(answers) ? answers.filter(a => a !== null).length : 0), 0)}/${Object.values(questionsBySubject).reduce((sum, questions) => sum + (Array.isArray(questions) ? questions.length : 0), 0)}`"></flux:text>
+                </div>
+            </div>
         </div>
     </div>
 @else

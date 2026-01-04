@@ -158,10 +158,8 @@ class JambQuiz extends Component
                     abort(400, 'Invalid option for this question');
                 }
 
-                $isCorrect = (bool) ($validOption->is_correct);
-                $this->persistAnswer($question->id, $optionId, $isCorrect);
-
-                // Update unified cache
+                // Update ONLY cache, NOT database (database saves only on submit)
+                // This reduces database load by 40x+ for JAMB exams (40 questions per subject, multiple subjects)
                 $cacheKey = "jamb_attempt_{$this->attempt->id}";
                 cache()->put($cacheKey, [
                     'questions' => $this->questionsBySubject,
@@ -562,7 +560,9 @@ class JambQuiz extends Component
                 $query->inRandomOrder();
             }
 
-            $questions = $query->take($this->questionsPerSubject)->get();
+            // Load ALL questions (not limited to questionsPerSubject)
+            // All questions available in browser for instant navigation
+            $questions = $query->get();
 
             $this->questionsBySubject[$subjectId] = $questions;
             $this->questionOrder[$subjectId] = $questions->pluck('id')->toArray();
