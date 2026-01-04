@@ -271,35 +271,116 @@
                     </div>
                 @endif
 
-                <div class="flex gap-4 justify-center pt-4">
-                    @if($quiz->canUserAttempt(auth()->user()))
-                        <flux:button wire:click="$refresh" wire:target="$refresh" wire:loading.attr="disabled"
-                            wire:loading.class="opacity-75 cursor-wait" variant="primary"
-                            href="{{ route('quiz.take', $quiz->id) }}">
-                            <span wire:loading.remove wire:target="$refresh">{{ __('Retake Quiz') }}</span>
-                            <span wire:loading wire:target="$refresh" class="flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                    viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                                    </circle>
-                                    <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                    </path>
+                <div class="border-t border-neutral-200 dark:border-neutral-700 pt-6 mt-6 space-y-4">
+                    <flux:heading size="base">{{ __('What would you like to do next?') }}</flux:heading>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {{-- Back to Lesson --}}
+                        @if($quiz->lesson_id)
+                            <flux:button href="{{ route('lessons.view', $quiz->lesson_id) }}" variant="outline" class="flex flex-col items-center justify-center h-32 gap-2">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17.25S6.5 28 12 28s10-4.745 10-10.75S17.5 6.253 12 6.253z"></path>
                                 </svg>
-                                {{ __('Loading...') }}
-                            </span>
-                        </flux:button>
-                    @endif
-                    <flux:button href="{{ route('quizzes.index') }}" variant="ghost">
-                        {{ __('Back to Quizzes') }}
-                    </flux:button>
+                                <div class="text-center">
+                                    <div class="font-medium">{{ __('Back to Lesson') }}</div>
+                                    <div class="text-xs text-neutral-500">{{ __('Review lesson content') }}</div>
+                                </div>
+                            </flux:button>
+                        @endif
+
+                        {{-- Retake Quiz Option --}}
+                        @if($quiz->canUserAttempt(auth()->user()))
+                            <flux:button href="{{ route('quiz.take', $quiz->id) }}" variant="outline" class="flex flex-col items-center justify-center h-32 gap-2">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                <div class="text-center">
+                                    <div class="font-medium">{{ __('Retake Quiz') }}</div>
+                                    <div class="text-xs text-neutral-500">{{ __('Practice again') }}</div>
+                                </div>
+                            </flux:button>
+                        @endif
+
+                        {{-- Review Answers Option --}}
+                        @if($quiz->allow_review)
+                            <button @click="document.querySelector('[wire\\\\:target=scrollToReview]')?.scrollIntoView({behavior: 'smooth'})" class="flex flex-col items-center justify-center h-32 gap-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                                </svg>
+                                <div class="text-center">
+                                    <div class="font-medium">{{ __('Review Answers') }}</div>
+                                    <div class="text-xs text-neutral-500">{{ __('See detailed review') }}</div>
+                                </div>
+                            </button>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
 
     @else
         {{-- Quiz Taking Screen --}}
-        <div class="grid lg:grid-cols-4 gap-6">
+        <div class="grid lg:grid-cols-4 gap-6" x-data="{
+            // Pre-loaded data
+            questions: @js($questions),
+            shuffledOptions: @js($shuffledOptions),
+            answers: @js($answers),
+
+            // Reactive state
+            currentQuestionIndex: @entangle('currentQuestionIndex'),
+            timeRemaining: {{ $timeRemaining ?? 'null' }},
+            autoSaveDebounce: false,
+
+            // Select answer (instant client-side)
+            selectAnswer(questionId, optionId) {
+                this.answers[questionId] = optionId;
+                this.autoSaveDebounce = true;
+
+                // Update server state
+                $wire.set('answers.' + questionId, optionId);
+                $wire.set('showFeedback.' + questionId, true);
+            },
+
+            // Navigation methods
+            goToQuestion(index) {
+                this.currentQuestionIndex = index;
+            },
+
+            nextQuestion() {
+                if (this.currentQuestionIndex < this.questions.length - 1) {
+                    this.currentQuestionIndex++;
+                }
+            },
+
+            previousQuestion() {
+                if (this.currentQuestionIndex > 0) {
+                    this.currentQuestionIndex--;
+                }
+            },
+
+            // Computed properties
+            getCurrentQuestion() {
+                return this.questions[this.currentQuestionIndex];
+            },
+
+            isAnswered(questionId) {
+                return this.answers[questionId] !== undefined;
+            },
+
+            getAnsweredCount() {
+                return Object.keys(this.answers).length;
+            },
+
+            // Autosave every 10 seconds (cache-only)
+            init() {
+                setInterval(() => {
+                    if (this.autoSaveDebounce) {
+                        $wire.call('autoSaveAnswers');
+                        this.autoSaveDebounce = false;
+                    }
+                }, 10000);
+            }
+        }">
             {{-- Question Navigation Sidebar --}}
             <div class="lg:col-span-1">
                 <div class="sticky top-4 space-y-4">
@@ -352,21 +433,20 @@
 
                     {{-- Question Grid --}}
                     <div class="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700">
-                        <flux:text class="text-sm mb-3">{{ __('Questions') }} ({{ $answeredCount }}/{{ $totalQuestions }})
+                        <flux:text class="text-sm mb-3"><span x-text="'{{ __('Questions') }} (' + getAnsweredCount() + '/{{ $totalQuestions }})'"></span>
                         </flux:text>
                         <div class="grid grid-cols-5 gap-2">
-                            @foreach($questions as $index => $question)
-                                            <button wire:click="goToQuestion({{ $index }})"
-                                                class="aspect-square rounded-lg text-sm font-medium transition
-                                                                                                                                                                                    {{ $currentQuestionIndex === $index
-                                ? 'bg-amber-600 text-white'
-                                : (isset($answers[$question->id])
-                                    ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700')
-                                                                                                                                                                                    }}">
-                                                {{ $index + 1 }}
-                                            </button>
-                            @endforeach
+                            <template x-for="(question, index) in questions" :key="question.id">
+                                <button @click="goToQuestion(index)"
+                                    class="aspect-square rounded-lg text-sm font-medium transition"
+                                    :class="{
+                                        'bg-amber-600 text-white': currentQuestionIndex === index,
+                                        'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100': currentQuestionIndex !== index && isAnswered(question.id),
+                                        'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700': currentQuestionIndex !== index && !isAnswered(question.id)
+                                    }"
+                                    x-text="index + 1">
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -374,89 +454,71 @@
 
             {{-- Question Content --}}
             <div class="lg:col-span-3 space-y-6">
-                @if($currentQuestion)
+                <template x-if="getCurrentQuestion()">
                     <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-6">
                         {{-- Question Header --}}
                         <div class="flex items-start justify-between">
-                            <flux:heading size="lg">{{ __('Question') }} {{ $currentQuestionIndex + 1 }} {{ __('of') }}
-                                {{ $totalQuestions }}
+                            <flux:heading size="lg">
+                                <span x-text="'{{ __('Question') }} ' + (currentQuestionIndex + 1) + ' {{ __('of') }} ' + questions.length"></span>
                             </flux:heading>
-                            <flux:badge color="blue">{{ ucfirst($currentQuestion->difficulty) }}</flux:badge>
+                            <flux:badge color="blue" x-text="getCurrentQuestion().difficulty.charAt(0).toUpperCase() + getCurrentQuestion().difficulty.slice(1)"></flux:badge>
                         </div>
 
                         {{-- Question Text --}}
                         <div class="prose dark:prose-invert max-w-none">
-                            <flux:text class="text-lg">{{ $currentQuestion->question_text }}</flux:text>
+                            <flux:text class="text-lg" x-text="getCurrentQuestion().question_text"></flux:text>
 
-                            @if($currentQuestion->question_image)
-                                <img loading="lazy" src="{{ Storage::url($currentQuestion->question_image) }}" alt="{{ __('Question image') }}"
+                            <template x-if="getCurrentQuestion().question_image">
+                                <img loading="lazy" :src="'{{ url('storage') }}/' + getCurrentQuestion().question_image" alt="{{ __('Question image') }}"
                                     class="mt-4 rounded-lg max-w-lg">
-                            @endif
+                            </template>
                         </div>
 
                         {{-- Answer Options --}}
                         <div class="space-y-3">
-                            @php
-                                $answered = isset($answers[$currentQuestion->id]);
-                                $userAnswerId = $answers[$currentQuestion->id] ?? null;
-                                $correctOption = collect($shuffledOptions[$currentQuestion->id] ?? $currentQuestion->options)->firstWhere('is_correct', true);
-                            @endphp
+                            <template x-for="option in shuffledOptions[getCurrentQuestion().id]" :key="option.id">
+                                <button @click="!isAnswered(getCurrentQuestion().id) && selectAnswer(getCurrentQuestion().id, option.id)"
+                                    :disabled="isAnswered(getCurrentQuestion().id)"
+                                    class="w-full flex items-start gap-4 p-4 rounded-lg border-2 transition text-left"
+                                    :class="{
+                                        'border-green-500 bg-green-50 dark:bg-green-950/30': isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] === option.id && option.is_correct,
+                                        'border-red-500 bg-red-50 dark:bg-red-950/30': isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] === option.id && !option.is_correct,
+                                        'border-green-400 bg-green-50 dark:bg-green-950/20': isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] !== option.id && option.is_correct,
+                                        'border-neutral-200 dark:border-neutral-700 opacity-60': isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] !== option.id && !option.is_correct,
+                                        'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 cursor-pointer': !isAnswered(getCurrentQuestion().id),
+                                        'cursor-default': isAnswered(getCurrentQuestion().id)
+                                    }">
 
-                            @foreach($shuffledOptions[$currentQuestion->id] ?? $currentQuestion->options as $option)
-                                @php
-                                    $isUserAnswer = $answered && $userAnswerId == $option->id;
-                                    $isCorrect = $option->is_correct;
-
-                                    // Determine styling based on answer state
-                                    if ($answered) {
-                                        if ($isUserAnswer && $isCorrect) {
-                                            $borderColor = 'border-green-500 bg-green-50 dark:bg-green-950/30';
-                                            $icon = '✓';
-                                            $iconColor = 'text-green-600 dark:text-green-400';
-                                        } elseif ($isUserAnswer && !$isCorrect) {
-                                            $borderColor = 'border-red-500 bg-red-50 dark:bg-red-950/30';
-                                            $icon = '✗';
-                                            $iconColor = 'text-red-600 dark:text-red-400';
-                                        } elseif ($isCorrect) {
-                                            $borderColor = 'border-green-400 bg-green-50 dark:bg-green-950/20';
-                                            $icon = '✓';
-                                            $iconColor = 'text-green-600 dark:text-green-400';
-                                        } else {
-                                            $borderColor = 'border-neutral-200 dark:border-neutral-700 opacity-60';
-                                            $icon = '';
-                                            $iconColor = '';
-                                        }
-                                    } else {
-                                        $borderColor = 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600';
-                                        $icon = '';
-                                        $iconColor = '';
-                                    }
-                                @endphp
-
-                                <button wire:click="answerQuestion({{ $currentQuestion->id }}, {{ $option->id }})"
-                                    @if($answered) disabled @endif
-                                    class="w-full flex items-start gap-4 p-4 rounded-lg border-2 transition {{ $borderColor }} {{ $answered ? 'cursor-default' : 'cursor-pointer' }} text-left">
-
-                                    @if($icon)
-                                        <span class="flex-shrink-0 text-2xl font-bold {{ $iconColor }} mt-0.5">{{ $icon }}</span>
-                                    @else
-                                        <span class="flex-shrink-0 w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600 mt-0.5">
-                                        </span>
-                                    @endif
+                                    {{-- Icon or checkbox --}}
+                                    <template x-if="isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] === option.id && option.is_correct">
+                                        <span class="flex-shrink-0 text-2xl font-bold text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                                    </template>
+                                    <template x-if="isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] === option.id && !option.is_correct">
+                                        <span class="flex-shrink-0 text-2xl font-bold text-red-600 dark:text-red-400 mt-0.5">✗</span>
+                                    </template>
+                                    <template x-if="isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] !== option.id && option.is_correct">
+                                        <span class="flex-shrink-0 text-2xl font-bold text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                                    </template>
+                                    <template x-if="isAnswered(getCurrentQuestion().id) && answers[getCurrentQuestion().id] !== option.id && !option.is_correct">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600 mt-0.5 opacity-60"></span>
+                                    </template>
+                                    <template x-if="!isAnswered(getCurrentQuestion().id)">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full border-2 border-neutral-300 dark:border-neutral-600 mt-0.5"></span>
+                                    </template>
 
                                     <div class="flex-1">
-                                        <flux:text class="font-medium">{{ $option->option_text }}</flux:text>
-                                        @if($option->option_image)
-                                            <img loading="lazy" src="{{ Storage::url($option->option_image) }}" alt="{{ __('Option image') }}"
+                                        <flux:text class="font-medium" x-text="option.option_text"></flux:text>
+                                        <template x-if="option.option_image">
+                                            <img loading="lazy" :src="'{{ url('storage') }}/' + option.option_image" alt="{{ __('Option image') }}"
                                                 class="mt-2 rounded max-w-xs border border-neutral-200 dark:border-neutral-700">
-                                        @endif
+                                        </template>
                                     </div>
                                 </button>
-                            @endforeach
+                            </template>
                         </div>
 
                         {{-- Explanation (shown after answering) --}}
-                        @if($answered && $currentQuestion->explanation)
+                        <template x-if="isAnswered(getCurrentQuestion().id) && getCurrentQuestion().explanation">
                             <div
                                 class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg"
                                 x-data="{ expanded: false }"
@@ -478,15 +540,13 @@
                                         </flux:heading>
                                     </div>
                                 </button>
-                                <div x-show="expanded" class="mt-2 text-blue-800 dark:text-blue-300 leading-relaxed">
-                                    {{ $currentQuestion->explanation }}
+                                <div x-show="expanded" class="mt-2 text-blue-800 dark:text-blue-300 leading-relaxed" x-text="getCurrentQuestion().explanation">
                                 </div>
                             </div>
-                        @endif
+                        </template>
 
                         {{-- Navigation Buttons --}}
-                        <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700"
-                            x-data="{ navigationDebounce: false }">
+                        <div class="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
                             <div class="flex gap-3">
                                 <flux:button wire:click="exitQuiz" variant="ghost"
                                     color="danger"
@@ -494,32 +554,28 @@
                                     {{ __('Exit Quiz') }}
                                 </flux:button>
 
-                                <flux:button wire:click="previousQuestion" variant="ghost"
-                                    :disabled="$currentQuestionIndex === 0"
-                                    @click="navigationDebounce || (navigationDebounce = true, setTimeout(() => navigationDebounce = false, 200))">
+                                <button @click.debounce.200ms="previousQuestion()"
+                                    :disabled="currentQuestionIndex === 0"
+                                    class="px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {{ __('Previous') }}
-                                </flux:button>
+                                </button>
                             </div>
 
                             <div class="flex gap-3">
-                                @if($currentQuestionIndex === $totalQuestions - 1)
-                                    <flux:button wire:click="submitQuiz" variant="primary"
-                                        wire:confirm="{{ __('Are you sure you want to submit? You cannot change your answers after submission.') }}">
-                                        {{ __('Submit Quiz') }}
-                                    </flux:button>
-                                @else
-                                    <flux:button wire:click="nextQuestion" variant="primary"
-                                        @click="navigationDebounce || (navigationDebounce = true, setTimeout(() => navigationDebounce = false, 200))">
-                                        {{ __('Next') }}
-                                    </flux:button>
-                                @endif
+                                <flux:button x-show="currentQuestionIndex === questions.length - 1" wire:click="submitQuiz" variant="primary"
+                                    wire:confirm="{{ __('Are you sure you want to submit? You cannot change your answers after submission.') }}">
+                                    {{ __('Submit Quiz') }}
+                                </flux:button>
+                                <button x-show="currentQuestionIndex < questions.length - 1"
+                                    @click.debounce.200ms="nextQuestion()"
+                                    class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white">
+                                    {{ __('Next') }}
+                                </button>
                             </div>
                         </div>
                     </div>
-                @endif
+                </template>
             </div>
         </div>
     @endif
 </div>
-variant="primary">
-                                        {{ __('Next') }}

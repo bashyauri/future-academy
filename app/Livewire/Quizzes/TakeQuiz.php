@@ -28,7 +28,7 @@ class TakeQuiz extends Component
     public $showFeedback = []; // Track which questions show feedback
     public $autoSaveStatus = 'idle'; // idle, saving, saved
     public $lastSavedTime = null;
-    public $autoSaveInterval = 15; // Auto-save every 15 seconds
+    public $autoSaveInterval = 10; // Auto-save every 10 seconds (cache-only)
 
     // Performance optimizations
     public $nextQuestionPrefetched = false;
@@ -203,11 +203,8 @@ class TakeQuiz extends Component
         $this->answers[$questionId] = $optionId;
         $this->showFeedback[$questionId] = true;
 
-        // Save answer immediately to DB
-        $service = app(QuizGeneratorService::class);
-        $service->submitAnswer($this->attempt, $questionId, $optionId);
-
-        // Update unified cache (single operation)
+        // Cache-only save (no immediate DB write)
+        // Database writes happen only on explicit submit/exit
         if ($this->attempt) {
             cache()->put("quiz_attempt_{$this->attempt->id}", [
                 'questions' => $this->questions,
@@ -313,9 +310,21 @@ class TakeQuiz extends Component
     public function exitQuiz()
     {
         if ($this->attempt && !$this->attempt->isCompleted()) {
+            // Save all cached answers to database before exit
+            $service = app(QuizGeneratorService::class);
+            foreach ($this->answers as $questionId => $optionId) {
+                $service->submitAnswer($this->attempt, $questionId, $optionId);
+            }
+
             $this->attempt->update(['status' => 'abandoned']);
         }
 
+        // Redirect to lesson if quiz is associated with a lesson
+        if ($this->quiz->lesson_id) {
+            return redirect()->route('lessons.view', $this->quiz->lesson_id);
+        }
+
+        // Otherwise, go back to quizzes
         return redirect()->route('quizzes.index');
     }
 
@@ -340,10 +349,11 @@ class TakeQuiz extends Component
             return;
         }
 
-        // Final auto-save before submit
-        $this->autoSaveAnswers();
-
+        // Save all cached answers to database before final submit
         $service = app(QuizGeneratorService::class);
+        foreach ($this->answers as $questionId => $optionId) {
+            $service->submitAnswer($this->attempt, $questionId, $optionId);
+        }
 
         if ($timedOut) {
             $this->attempt->update(['status' => 'timed_out']);
