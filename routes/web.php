@@ -16,6 +16,7 @@ use Laravel\Fortify\Features;
 // Public home page with role selection
 Route::get('/', HomePage::class)->name('home');
 
+
 // Redirect based on account type after login
 Route::get('/redirect-dashboard', function () {
     $user = auth()->user();
