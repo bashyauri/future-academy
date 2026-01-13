@@ -21,11 +21,6 @@ class StudentOnboarding extends Component
 
     public function mount()
     {
-        // Redirect if already completed onboarding
-        if (auth()->user()->has_completed_onboarding) {
-            return redirect()->route('student.dashboard');
-        }
-
         $this->streams = Stream::where('is_active', true)
             ->orderBy('sort_order')
             ->get();
@@ -113,7 +108,7 @@ class StudentOnboarding extends Component
 
         session()->flash('success', 'Welcome! Your account has been set up successfully.');
 
-        return redirect()->route('student.dashboard');
+        return redirect()->route('dashboard');
     }
 
     public function previousStep()
