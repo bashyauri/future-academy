@@ -26,13 +26,18 @@
             {{-- Video Player --}}
             @if($lesson->video_url)
                 <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-black">
-                    <div class="aspect-video">
-                        @if(Str::startsWith($lesson->video_url, ['lessons/videos/', 'storage/']))
-                            <video class="w-full h-full" controls>
-                                <source src="{{ asset('storage/' . ltrim($lesson->video_url, 'storage/')) }}" type="video/mp4">
-                                {{ __('Your browser does not support the video tag.') }}
+                    <div class="aspect-video relative" x-data="videoPlayer()" x-init="init()">
+                        @if($lesson->video_type === 'local')
+                            {{-- Local video with optimized streaming --}}
+                            @php
+                                $videoUrl = app(\App\Services\VideoSigningService::class)->getOptimizedUrl($lesson->video_url);
+                            @endphp
+                            <video id="lesson-video" class="w-full h-full" controls preload="metadata">
+                                <source src="{{ $videoUrl }}" type="video/mp4">
+                                <p>Your browser doesn't support HTML5 video. Please update your browser.</p>
                             </video>
                         @else
+                            {{-- YouTube/Vimeo embedded iframe --}}
                             <iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowfullscreen>

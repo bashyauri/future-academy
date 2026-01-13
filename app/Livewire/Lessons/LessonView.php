@@ -8,6 +8,7 @@ use App\Models\UserProgress;
 use App\Models\QuizAttempt;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 
 class LessonView extends Component
 {
@@ -90,6 +91,17 @@ class LessonView extends Component
     public function updateProgress($percentage)
     {
         $this->progress->updateProgress($percentage);
+    }
+
+    public function refreshVideoStatus()
+    {
+        // Reload the lesson from database to get latest video_status
+        $this->lesson = $this->lesson->fresh();
+
+        // If video is ready, dispatch event to play
+        if ($this->lesson->video_type === 'local' && $this->lesson->video_status === 'ready') {
+            $this->dispatch('video-ready');
+        }
     }
 
     public function destroy()

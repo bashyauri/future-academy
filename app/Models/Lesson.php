@@ -17,6 +17,8 @@ class Lesson extends Model
         'content',
         'video_url',
         'video_type',
+        'video_status',
+        'video_processed_at',
         'thumbnail',
         'subject_id',
         'topic_id',
@@ -31,6 +33,7 @@ class Lesson extends Model
     protected $casts = [
         'is_free' => 'boolean',
         'published_at' => 'datetime',
+        'video_processed_at' => 'datetime',
         'duration_minutes' => 'integer',
         'order' => 'integer',
     ];
@@ -113,8 +116,43 @@ class Lesson extends Model
         return match ($this->video_type) {
             'youtube' => $this->getYouTubeEmbedUrl(),
             'vimeo' => $this->getVimeoEmbedUrl(),
+            'local' => $this->getSignedVideoUrl(),
             default => $this->video_url,
         };
+    }
+
+    /**
+     * Get signed URL for Cloudinary video with authenticated delivery.
+     */
+    public function getSignedVideoUrl(): ?string
+    {
+        if ($this->video_type !== 'local' || !$this->video_url) {
+            return null;
+        }
+
+        $service = app(\App\Services\VideoSigningService::class);
+        return $service->getSignedUrl($this->video_url);
+    }
+
+    /**
+     * Get HLS streaming URL for adaptive quality playback.
+     */
+    public function getStreamingUrl(): ?string
+    {
+        if ($this->video_type !== 'local' || !$this->video_url) {
+            return null;
+        }
+
+        $service = app(\App\Services\VideoSigningService::class);
+        return $service->getHlsStreamingUrl($this->video_url);
+    }
+
+    /**
+     * Check if video is ready for playback.
+     */
+    public function isVideoReady(): bool
+    {
+        return $this->video_type === 'local' && $this->video_status === 'ready';
     }
 
     protected function getYouTubeEmbedUrl(): ?string
@@ -127,6 +165,57 @@ class Lesson extends Model
         }
 
         return $this->video_url;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // When saving, check if video is being cleared and delete from Cloudinary
+        static::saving(function ($lesson) {
+            // Check if video_url was cleared (set to null/empty)
+            if ($lesson->isDirty('video_url')) {
+                $oldVideo = $lesson->getOriginal('video_url');
+                $newVideo = $lesson->video_url;
+
+                // If video was cleared (old has value, new is empty)
+                if ($oldVideo && !$newVideo && $lesson->video_type === 'local') {
+                    try {
+                        $videoService = app(\App\Services\VideoSigningService::class);
+                        $videoService->delete($oldVideo);
+
+                        \Log::info('Video cleared and deleted from Cloudinary', [
+                            'lesson_id' => $lesson->id,
+                            'video_url' => $oldVideo,
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete cleared video from Cloudinary', [
+                            'lesson_id' => $lesson->id,
+                            'video_url' => $oldVideo,
+                            'error' => $e->getMessage(),
+                        ]);
+                        // Don't fail the save if Cloudinary delete fails
+                    }
+                }
+            }
+        });
+
+        // When deleting the entire lesson, remove video from Cloudinary too
+        static::deleting(function ($lesson) {
+            if ($lesson->video_type === 'local' && $lesson->video_url) {
+                try {
+                    $videoService = app(\App\Services\VideoSigningService::class);
+                    $videoService->delete($lesson->video_url);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to delete video from Cloudinary', [
+                        'lesson_id' => $lesson->id,
+                        'video_url' => $lesson->video_url,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Don't fail the deletion if Cloudinary delete fails
+                }
+            }
+        });
     }
 
     protected function getVimeoEmbedUrl(): ?string

@@ -91,12 +91,20 @@ class LessonForm
 
                     FileUpload::make('video_url')
                         ->label('Upload Video')
-                        ->disk('public')
-                        ->directory('lessons/videos')
-                        ->acceptedFileTypes(['video/mp4', 'video/webm', 'video/ogg'])
+                        ->disk('cloudinary')
+                        ->directory(fn(Get $get): string => self::getVideoDirectory($get))
+                        ->acceptedFileTypes(['video/mp4', 'video/quicktime'])
                         ->maxSize(512000)
                         ->visible(fn(Get $get) => $get('video_type') === 'local')
-                        ->helperText('Max size: 500MB. Supported formats: MP4, WebM, OGG'),
+                        ->disabled(fn(Get $get): bool => !$get('subject_id'))
+                        ->previewable(true)
+                        ->downloadable(true)
+                        ->deletable(true)
+                        ->helperText(fn(Get $get): string =>
+                            !$get('subject_id')
+                                ? 'Please select a subject first to organize videos properly.'
+                                : 'Max size: 500MB. Videos will be auto-organized by subject/topic in Cloudinary.'
+                        ),
 
                     FileUpload::make('thumbnail')
                         ->image()
@@ -152,5 +160,30 @@ class LessonForm
                         ->default(auth()->id()),
                 ])->columns(2),
         ]);
+    }
+
+    /**
+     * Generate the video directory path based on subject and topic.
+     * Cloudinary will auto-create folders when a file is uploaded with "/" in the path.
+     */
+    private static function getVideoDirectory(Get $get): string
+    {
+        $subjectId = $get('subject_id');
+        $topicId = $get('topic_id');
+
+        if (!$subjectId) {
+            return 'future-academy/lessons';
+        }
+
+        $subject = \App\Models\Subject::find($subjectId);
+        $topic = $topicId ? \App\Models\Topic::find($topicId) : null;
+
+        $path = 'future-academy/lessons/' . ($subject ? \Illuminate\Support\Str::slug($subject->name) : 'uncategorized');
+
+        if ($topic) {
+            $path .= '/' . \Illuminate\Support\Str::slug($topic->name);
+        }
+
+        return $path;
     }
 }

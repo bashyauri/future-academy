@@ -107,3 +107,7 @@ Route::middleware(['auth'])->group(function () {
     // Analytics route
     Route::get('analytics', Analytics::class)->name('analytics');
 });
+// Cloudinary webhooks (no auth required - Cloudinary validates with signature)
+Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.cloudinary');
