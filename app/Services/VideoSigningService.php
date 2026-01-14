@@ -104,9 +104,8 @@ class VideoSigningService
                 return false;
             }
 
-            // Use Cloudinary SDK to delete
-            $cloudinary = new \Cloudinary\Cloudinary();
-            $cloudinary->uploader()->destroy($publicId, [
+            // Use Cloudinary Laravel facade to delete the video
+            Cloudinary::uploadApi()->destroy($publicId, [
                 'resource_type' => 'video',
                 'invalidate' => true, // Invalidate CDN cache
             ]);
