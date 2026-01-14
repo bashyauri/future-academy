@@ -28,14 +28,46 @@
                 <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-black">
                     <div class="aspect-video relative" x-data="videoPlayer()" x-init="init()">
                         @if($lesson->video_type === 'local')
-                            {{-- Local video with optimized streaming --}}
+                            {{-- Local video with adaptive HLS streaming --}}
                             @php
-                                $videoUrl = app(\App\Services\VideoSigningService::class)->getOptimizedUrl($lesson->video_url);
+                                $hlsUrl = app(\App\Services\VideoSigningService::class)->getHlsStreamingUrl($lesson->video_url);
+                                $fallbackUrl = app(\App\Services\VideoSigningService::class)->getOptimizedUrl($lesson->video_url);
                             @endphp
-                            <video id="lesson-video" class="w-full h-full" controls preload="metadata">
-                                <source src="{{ $videoUrl }}" type="video/mp4">
+                            <video id="lesson-video" class="w-full h-full" controls preload="metadata" x-ref="video">
+                                <source src="{{ $fallbackUrl }}" type="video/mp4">
                                 <p>Your browser doesn't support HTML5 video. Please update your browser.</p>
                             </video>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    const video = document.getElementById('lesson-video');
+                                    const hlsUrl = '{{ $hlsUrl }}';
+
+                                    // Check if HLS.js is available
+                                    if (Hls.isSupported()) {
+                                        const hls = new Hls({
+                                            debug: false,
+                                            enableWorker: true,
+                                            lowLatencyMode: false,
+                                        });
+                                        hls.loadSource(hlsUrl);
+                                        hls.attachMedia(video);
+                                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                            console.log('HLS stream loaded with adaptive bitrate');
+                                        });
+                                        hls.on(Hls.Events.ERROR, function(event, data) {
+                                            console.warn('HLS error:', data);
+                                            // Fallback to MP4
+                                            video.src = '{{ $fallbackUrl }}';
+                                        });
+                                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                        // Safari native HLS support
+                                        video.src = hlsUrl;
+                                    } else {
+                                        // Fallback to MP4
+                                        console.log('Adaptive streaming not supported, using MP4 fallback');
+                                    }
+                                });
+                            </script>
                         @else
                             {{-- YouTube/Vimeo embedded iframe --}}
                             <iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0"
