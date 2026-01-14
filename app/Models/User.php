@@ -132,7 +132,8 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsToMany(Subject::class, 'enrollments')
             ->withPivot('is_active', 'enrolled_at', 'enrolled_by')
             ->withTimestamps()
-            ->wherePivot('is_active', true);
+            ->wherePivot('is_active', true)
+            ->where('subjects.is_active', true);
     }
 
     // Parent-Student relationships

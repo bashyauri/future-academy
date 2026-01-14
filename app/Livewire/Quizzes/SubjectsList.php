@@ -12,7 +12,8 @@ class SubjectsList extends Component
     #[Layout('components.layouts.app')]
     public function render()
     {
-        $subjects = Subject::get()
+        $subjects = Subject::where('is_active', true)
+            ->get()
             ->map(function ($subject) {
                 // Count quizzes that have this subject_id in their subject_ids JSON array
                 $subject->quizzes_count = DB::table('quizzes')

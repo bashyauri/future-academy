@@ -62,19 +62,44 @@ class Index extends Component
             ->take(6)
             ->get();
 
-        // Get recent quizzes
-        // Get recent quizzes
-        $this->recentQuizzes = Quiz::where('status', 'published')
+        // Get recent quizzes filtered by user's exam types
+        $quizQuery = Quiz::where('status', 'published')
             ->with('subject')
-            ->latest('published_at')
-            ->take(6)
-            ->get();
+            ->whereHas('subject', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->latest('published_at');
+
+        // Filter by exam types if user has selected any
+        if (!empty($user->exam_types) && is_array($user->exam_types)) {
+            $quizQuery->where(function ($q) use ($user) {
+                foreach ($user->exam_types as $examType) {
+                    $q->orWhereJsonContains('exam_type_ids', (int)$examType);
+                }
+            });
+        }
+
+        $this->recentQuizzes = $quizQuery->take(6)->get();
 
         // Get available mock exam quizzes (JAMB format)
-        $this->mockExamQuizzes = Quiz::where('status', 'published')
+        $mockExamQuery = Quiz::where('status', 'published')
             ->where('type', QuizType::Mock->value)
             ->with(['subject'])
-            ->latest('published_at')
+            ->whereHas('subject', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->latest('published_at');
+
+        // Apply same exam type filtering
+        if (!empty($user->exam_types) && is_array($user->exam_types)) {
+            $mockExamQuery->where(function ($q) use ($user) {
+                foreach ($user->exam_types as $examType) {
+                    $q->orWhereJsonContains('exam_type_ids', (int)$examType);
+                }
+            });
+        }
+
+        $this->mockExamQuizzes = $mockExamQuery
             ->take(4)
             ->get();
 
