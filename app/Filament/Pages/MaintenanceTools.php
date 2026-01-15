@@ -66,53 +66,38 @@ class MaintenanceTools extends Page
         $this->isRunning = true;
 
         try {
-            $buffer = new BufferedOutput();
+            // Use HTTP request for shared hosting compatibility
+            $token = config('app.artisan_token');
+            $url = route('artisan.execute', ['command' => $command]) . '?token=' . $token;
 
-            // Block DB-affecting commands in production unless explicitly allowed
-            if (app()->isProduction() && $commandType->requiresForce() && ! (bool) config('maintenance.allow_db_commands')) {
-                $this->output = 'Blocked in production. Set ALLOW_DB_COMMANDS=true to enable.';
-                $this->isRunning = false;
-                return;
+            // Make HTTP request to execute command
+            $response = \Illuminate\Support\Facades\Http::timeout(120)->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $this->output = $data['output'] ?? 'Command executed successfully.';
+                $this->lastRunAt = $data['executed_at'] ?? now()->toDateTimeString();
+
+                Notification::make()
+                    ->title('Command executed')
+                    ->body("{$command} finished successfully.")
+                    ->success()
+                    ->send();
+            } else {
+                $data = $response->json();
+                $errorMessage = $data['error'] ?? $data['message'] ?? 'Command failed with status: ' . $response->status();
+                $this->output = "Status: {$response->status()}\n\n{$errorMessage}\n\nResponse:\n" . json_encode($data, JSON_PRETTY_PRINT);
+                $this->lastRunAt = now()->toDateTimeString();
+
+                Notification::make()
+                    ->title('Command failed')
+                    ->body($errorMessage)
+                    ->danger()
+                    ->send();
             }
-
-            // Provide --force for DB commands to run non-interactively in prod
-            $params = [];
-            if ($commandType->requiresForce()) {
-                $params['--force'] = true;
-            }
-
-            Artisan::call($command, $params, $buffer);
-            $this->output = $buffer->fetch() ?: 'Command executed successfully.';
-            $this->lastRunAt = now()->toDateTimeString();
-
-            // Audit log
-            MaintenanceAction::create([
-                'user_id' => auth()->id(),
-                'command' => $command,
-                'status' => 'success',
-                'ip' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'output' => $this->output,
-            ]);
-
-            Notification::make()
-                ->title('Command executed')
-                ->body("{$command} finished successfully.")
-                ->success()
-                ->send();
         } catch (\Throwable $e) {
-            $this->output = 'Error: ' . $e->getMessage();
+            $this->output = 'Error: ' . $e->getMessage() . "\n\nTrace:\n" . $e->getTraceAsString();
             $this->lastRunAt = now()->toDateTimeString();
-
-            // Audit log (error)
-            MaintenanceAction::create([
-                'user_id' => auth()->id(),
-                'command' => $command,
-                'status' => 'error',
-                'ip' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'output' => $this->output,
-            ]);
 
             Notification::make()
                 ->title('Command failed')

@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Artisan Web Token
+    |--------------------------------------------------------------------------
+    |
+    | This token is used to secure artisan command execution via web routes.
+    | Required for shared hosting environments without terminal access.
+    |
+    */
+
+    'artisan_token' => env('APP_ARTISAN_TOKEN'),
+
 ];

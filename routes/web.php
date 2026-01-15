@@ -25,6 +25,11 @@ Route::get('/redirect-dashboard', function () {
         return redirect()->route('login');
     }
 
+    // Check if email is verified
+    if (!$user->hasVerifiedEmail()) {
+        return redirect()->route('verification.notice');
+    }
+
     // Check if student needs onboarding
     if ($user->isStudent() && !$user->has_completed_onboarding) {
         return redirect()->route('onboarding');
@@ -107,6 +112,13 @@ Route::middleware(['auth'])->group(function () {
     // Analytics route
     Route::get('analytics', Analytics::class)->name('analytics');
 });
+
+// Artisan command execution via web (for shared hosting)
+// Secured with token authentication
+Route::get('/artisan/{command}', [\App\Http\Controllers\ArtisanController::class, 'execute'])
+    ->middleware('throttle:10,1')
+    ->name('artisan.execute');
+
 // Cloudinary webhooks (no auth required - Cloudinary validates with signature)
 Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
