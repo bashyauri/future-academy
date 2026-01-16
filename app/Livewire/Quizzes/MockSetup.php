@@ -61,6 +61,26 @@ class MockSetup extends Component
         }
     }
 
+    public function selectSingleSubject(int $subjectId)
+    {
+        // For single subject, check if mock groups are available
+        $mockGroups = \App\Models\MockGroup::where('subject_id', $subjectId)
+            ->where('exam_type_id', $this->examTypeId)
+            ->exists();
+
+        if ($mockGroups) {
+            // Redirect to mock group selection
+            return redirect()->route('mock.group-selection', [
+                'exam_type' => $this->examTypeId,
+                'subject' => $subjectId,
+            ]);
+        }
+
+        // Fallback: select normally and continue
+        $this->selectedSubjects = [$subjectId];
+        return $this->startMock();
+    }
+
     public function startMock()
     {
 
@@ -73,42 +93,18 @@ class MockSetup extends Component
         $examType = ExamType::find($this->examTypeId);
         $examFormat = $examType?->exam_format ?? 'default';
 
-        // Use exam format field instead of name detection
-        $isJamb = $examFormat === 'jamb';
-        $isSsce = $examFormat === 'ssce';
-
-        // Auto-calculate question counts and time limits based on exam type
+        // Config-driven question counts and time limits
         $questionsPerSubject = [];
-        $totalTime = 0;
+        $perSubjectTimes = [];
 
         foreach ($this->selectedSubjects as $subjectId) {
             $subject = Subject::find($subjectId);
             $subjectName = strtolower($subject?->name ?? '');
 
-            if ($isJamb) {
-                // JAMB: English = 70, others = 50, total time = 100 mins
-                $questionCount = str_contains($subjectName, 'english') ? 70 : 50;
-                $questionsPerSubject[$subjectId] = $questionCount;
-            } elseif ($isSsce) {
-                // SSCE (WAEC/NECO/NAPTEB):
-                // English = 110 questions, 50 minutes
-                // Maths/Further Maths = 60 questions, 50 minutes
-                // All others = 60 questions, 35 minutes
-                if (str_contains($subjectName, 'english')) {
-                    $questionCount = 110;
-                    $totalTime += 50;
-                } elseif (str_contains($subjectName, 'math') || str_contains($subjectName, 'further')) {
-                    $questionCount = 60;
-                    $totalTime += 50;
-                } else {
-                    $questionCount = 60;
-                    $totalTime += 35;
-                }
-                $questionsPerSubject[$subjectId] = $questionCount;
-            } else {
-                // Default fallback
-                $questionCount = 50;
-                $questionsPerSubject[$subjectId] = $questionCount;
+            [$questionCount, $subjectTime] = $this->getSubjectSpec($examFormat, $subjectName);
+            $questionsPerSubject[$subjectId] = $questionCount;
+            if (!is_null($subjectTime)) {
+                $perSubjectTimes[] = $subjectTime;
             }
 
             // Verify availability of mock questions only
@@ -119,7 +115,6 @@ class MockSetup extends Component
                 ->where('status', 'approved')
                 ->count();
 
-
             if ($available < $questionCount) {
                 $name = $subject?->name ?? 'Subject';
                 $this->addError('selectedSubjects', "Not enough mock questions for {$name}. Needed {$questionCount}, available {$available}. Try another subject combination.");
@@ -127,14 +122,8 @@ class MockSetup extends Component
             }
         }
 
-        // Set time limit based on exam type
-        if ($isJamb) {
-            $timeLimit = 100; // 100 minutes total for JAMB
-        } elseif ($isSsce) {
-            $timeLimit = $totalTime; // Sum of individual subject times for SSCE
-        } else {
-            $timeLimit = 100; // Default
-        }
+        // Compute time limit from config
+        $timeLimit = $this->computeTimeLimit($examFormat, $perSubjectTimes);
 
         // Create secure mock session in database
         $session = MockSession::create([
@@ -172,5 +161,54 @@ class MockSetup extends Component
             'isJamb' => $isJamb,
             'isSsce' => $isSsce,
         ]);
+    }
+
+    /**
+     * Resolve per-subject question counts and time from config.
+     */
+    protected function getSubjectSpec(string $examFormat, string $subjectName): array
+    {
+        $formats = config('mock.formats', []);
+        $format = $formats[$examFormat] ?? $formats['default'] ?? [];
+
+        $default = $format['default'] ?? ['questions' => 50, 'time' => null];
+        $spec = $default;
+
+        foreach (($format['per_subject'] ?? []) as $rule) {
+            foreach (($rule['match'] ?? []) as $needle) {
+                if ($needle && str_contains($subjectName, strtolower($needle))) {
+                    $spec = [
+                        'questions' => $rule['questions'] ?? $default['questions'],
+                        'time' => $rule['time'] ?? $default['time'],
+                    ];
+                    break 2;
+                }
+            }
+        }
+
+        return [
+            (int) ($spec['questions'] ?? 50),
+            $spec['time'] ?? null,
+        ];
+    }
+
+    /**
+     * Compute overall time limit for the mock from config.
+     */
+    protected function computeTimeLimit(string $examFormat, array $perSubjectTimes): int
+    {
+        $formats = config('mock.formats', []);
+        $format = $formats[$examFormat] ?? $formats['default'] ?? [];
+        $overall = $format['overall'] ?? [];
+
+        if (isset($overall['time_limit'])) {
+            return (int) $overall['time_limit'];
+        }
+
+        if (!empty($overall['sum_subject_time'])) {
+            return array_sum(array_map('intval', $perSubjectTimes)) ?: 100;
+        }
+
+        return 100; // fallback
     }
 }

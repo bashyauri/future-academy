@@ -13,6 +13,7 @@ class QuizAttempt extends Model
         'user_id',
         'exam_type_id',
         'subject_id',
+        'mock_group_id',
         'exam_year',
         'attempt_number',
         'started_at',

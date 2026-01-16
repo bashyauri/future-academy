@@ -81,6 +81,7 @@ Route::middleware(['auth'])->group(function () {
     // Mock exam flow
     Route::get('mock', \App\Livewire\Quizzes\MockSetup::class)->name('mock.setup');
     Route::get('mock/quiz', \App\Livewire\Quizzes\MockQuiz::class)->name('mock.quiz');
+    Route::get('mock/groups', \App\Livewire\Quizzes\MockGroupSelection::class)->name('mock.group-selection');
 
     // Practice routes (by exam type, subject, and year)
     Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');

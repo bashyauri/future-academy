@@ -31,6 +31,7 @@ class Question extends Model
         'is_active',
         'is_mock',
         'times_used',
+        'mock_group_id',
     ];
 
     protected $casts = [
@@ -55,6 +56,11 @@ class Question extends Model
     public function examType(): BelongsTo
     {
         return $this->belongsTo(ExamType::class);
+    }
+
+    public function mockGroup(): BelongsTo
+    {
+        return $this->belongsTo(MockGroup::class);
     }
 
     public function options(): HasMany

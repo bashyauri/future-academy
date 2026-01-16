@@ -3,11 +3,13 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\ExamType;
+use App\Models\MockGroup;
 use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\UserAnswer;
+use App\Services\MockGroupService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -36,8 +38,19 @@ class MockQuiz extends Component
     public bool $showExplanations = false;
     public bool $shuffleQuestions = true;
 
+    public ?int $currentMockGroupId = null;
+    public ?MockGroup $currentMockGroup = null;
+
     public function mount()
     {
+        $groupId = request()->query('group');
+
+        // Support for mock groups
+        if ($groupId) {
+            return $this->loadFromMockGroup($groupId);
+        }
+
+        // Original flow - session-based
         $sessionId = request()->query('session');
 
         if (!$sessionId) {
@@ -81,6 +94,76 @@ class MockQuiz extends Component
         $this->loadPreviousAnswers($sessionId);
     }
 
+    protected function loadFromMockGroup($groupId)
+    {
+        // Validate and sanitize groupId
+        $groupId = (int) $groupId;
+        if ($groupId <= 0) {
+            \Log::warning('MockQuiz: Invalid mock group ID', [
+                'user_id' => auth()->id(),
+                'group_id' => $groupId,
+            ]);
+            session()->flash('error', 'Invalid mock group.');
+            return redirect()->route('mock.setup');
+        }
+
+        try {
+            $mockGroup = MockGroup::with('subject', 'examType')
+                ->where('id', $groupId)
+                ->firstOrFail();
+
+            // Verify group has active questions
+            $activeQuestions = $mockGroup->questions()
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->count();
+
+            if ($activeQuestions === 0) {
+                \Log::warning('MockQuiz: Mock group has no active questions', [
+                    'user_id' => auth()->id(),
+                    'mock_group_id' => $groupId,
+                ]);
+                session()->flash('error', 'No active questions available in this mock.');
+                return redirect()->route('mock.setup');
+            }
+
+            $this->currentMockGroupId = $mockGroup->id;
+            $this->currentMockGroup = $mockGroup;
+            $this->examTypeId = $mockGroup->exam_type_id;
+            $this->subjectIds = [$mockGroup->subject_id];
+            $this->questionsPerSubject = [$mockGroup->subject_id => $mockGroup->total_questions];
+            $this->timeLimit = 60; // 60 minutes for a mock group
+            $this->shuffleQuestions = true;
+
+            \Log::info('MockQuiz: Mock group loaded', [
+                'user_id' => auth()->id(),
+                'mock_group_id' => $groupId,
+                'active_questions' => $activeQuestions,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            \Log::warning('MockQuiz: Mock group not found', [
+                'user_id' => auth()->id(),
+                'mock_group_id' => $groupId,
+            ]);
+            session()->flash('error', 'Mock group not found.');
+            return redirect()->route('mock.setup');
+        } catch (\Exception $e) {
+            \Log::error('MockQuiz: Error loading mock group', [
+                'user_id' => auth()->id(),
+                'mock_group_id' => $groupId,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'An error occurred. Please try again.');
+            return redirect()->route('mock.setup');
+        }
+
+        $this->timeRemaining = $this->timeLimit * 60;
+
+        if ($response = $this->loadSubjectsAndQuestions()) {
+            return $response;
+        }
+    }
+
     protected function redirectToSetup()
     {
         return redirect()->route('mock.setup');
@@ -92,8 +175,9 @@ class MockQuiz extends Component
         $this->subjectIds = $this->subjectsData->pluck('id')->toArray();
 
         // Cache key unique to this quiz session
-        $sessionId = request()->query('session');
-        $cacheKey = "mock_quiz_{$sessionId}";
+        $cacheKey = $this->currentMockGroupId
+            ? "mock_quiz_group_{$this->currentMockGroupId}_" . auth()->id()
+            : "mock_quiz_" . request()->query('session');
 
         // Try to load everything from unified cache (single Redis hit)
         $cachedData = cache()->get($cacheKey);
@@ -112,17 +196,26 @@ class MockQuiz extends Component
             // Get question count for this specific subject (or default to 40)
             $questionCount = $this->questionsPerSubject[$subjectId] ?? 40;
 
-            // Only pull mock questions for this mock quiz flow
-            $query = Question::where('exam_type_id', $this->examTypeId)
-                ->where('subject_id', $subjectId)
-                ->where('is_mock', true)
-                ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
-                ->where('is_active', true)
-                ->where('status', 'approved')
-                ->with('options');
+            // If loading from mock group, fetch from that group
+            if ($this->currentMockGroupId) {
+                $questions = $this->currentMockGroup->questions()
+                    ->where('is_active', true)
+                    ->where('status', 'approved')
+                    ->with('options')
+                    ->get();
+            } else {
+                // Only pull mock questions for this mock quiz flow
+                $query = Question::where('exam_type_id', $this->examTypeId)
+                    ->where('subject_id', $subjectId)
+                    ->where('is_mock', true)
+                    ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
+                    ->where('is_active', true)
+                    ->where('status', 'approved')
+                    ->with('options');
 
-            // Fetch more questions than needed for better randomization
-            $questions = $query->get();
+                // Fetch more questions than needed for better randomization
+                $questions = $query->get();
+            }
 
             if ($questions->count() === 0) {
                 // Log for debugging
@@ -131,11 +224,16 @@ class MockQuiz extends Component
                     'subject_id' => $subjectId,
                     'year' => $this->selectedYear,
                     'questions_requested' => $questionCount,
+                    'mock_group_id' => $this->currentMockGroupId,
                 ]);
 
                 // Keep user informed before sending back to setup
-                session()->flash('error', 'No mock questions are available for the selected subjects. Only mock exams are supported. Please try another subject combination.');
-                $this->addError('subjects', 'No mock questions available for one of the selected subjects.');
+                $message = $this->currentMockGroupId
+                    ? 'No questions available in this mock group.'
+                    : 'No mock questions are available for the selected subjects. Only mock exams are supported. Please try another subject combination.';
+
+                session()->flash('error', $message);
+                $this->addError('subjects', 'No mock questions available');
                 return $this->redirectToSetup();
             }
 
@@ -307,6 +405,8 @@ class MockQuiz extends Component
         $attempt = QuizAttempt::create([
             'user_id' => auth()->id(),
             'exam_type_id' => $this->examTypeId,
+            'subject_id' => $this->subjectIds[0] ?? null,
+            'mock_group_id' => $this->currentMockGroupId ?? null,
             'exam_year' => $this->selectedYear,
             'score' => 0,
             'total_questions' => $totalQuestions,
