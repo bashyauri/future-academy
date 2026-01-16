@@ -6,6 +6,7 @@ use App\Models\ExamType;
 use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\Subject;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -20,6 +21,12 @@ class MockSetup extends Component
 
     public function mount(): void
     {
+        $user = auth()->user();
+        if ($user && $user->isStudent() && !$user->has_completed_onboarding) {
+            $this->redirectRoute('onboarding');
+            return;
+        }
+
         // Don't preselect exam type - let user choose
         $this->examTypeId = null;
 
@@ -34,12 +41,22 @@ class MockSetup extends Component
 
     public function loadOptions(): void
     {
+        $user = Auth::user();
+        $selectedSubjectIds = $user?->selected_subjects ?? [];
+
+        if ($user && $user->isStudent() && (empty($selectedSubjectIds) || !$user->has_completed_onboarding)) {
+            $this->redirectRoute('onboarding');
+            return;
+        }
+
         if (!$this->examTypeId) {
             $this->subjects = collect();
             return;
         }
 
-        $this->subjects = Subject::where('is_active', true)
+        $this->subjects = Subject::query()
+            ->where('is_active', true)
+            ->when(!empty($selectedSubjectIds), fn($q) => $q->whereIn('id', $selectedSubjectIds))
             ->whereHas('questions', function ($query) {
                 $query->where('exam_type_id', $this->examTypeId)
                     ->where('is_active', true)

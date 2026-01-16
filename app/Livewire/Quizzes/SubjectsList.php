@@ -4,6 +4,7 @@ namespace App\Livewire\Quizzes;
 
 use App\Models\Subject;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -12,7 +13,18 @@ class SubjectsList extends Component
     #[Layout('components.layouts.app')]
     public function render()
     {
-        $subjects = Subject::where('is_active', true)
+        $user = Auth::user();
+        $selectedSubjectIds = $user?->selected_subjects ?? [];
+
+        $isStudent = $user && (($user->account_type ?? '') === 'student');
+
+        if ($isStudent && (!$user->has_completed_onboarding || empty($selectedSubjectIds))) {
+            return redirect()->route('onboarding');
+        }
+
+        $subjects = Subject::query()
+            ->where('is_active', '=', true)
+            ->when(!empty($selectedSubjectIds), fn($q) => $q->whereIn('id', $selectedSubjectIds))
             ->get()
             ->map(function ($subject) {
                 // Count quizzes that have this subject_id in their subject_ids JSON array
