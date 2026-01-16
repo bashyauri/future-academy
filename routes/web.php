@@ -38,8 +38,9 @@ Route::get('/redirect-dashboard', function () {
     // Redirect based on role
     return match($user->account_type) {
         'super-admin', 'admin' => redirect('/admin'),
-        'teacher', 'uploader' => redirect('/teacher'),
-        'guardian' => redirect('/parent'),
+        'uploader' => redirect('/staff'),
+        'teacher' => redirect()->route('dashboard'), // Teachers use frontend
+        'guardian' => redirect()->route('dashboard'), // Parents use frontend
         'student' => redirect()->route('dashboard'),
         default => redirect()->route('dashboard'),
     };

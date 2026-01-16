@@ -29,10 +29,8 @@ class StaffPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Indigo,
             ])
-            // Reuse existing resources; optionally move to a Staff namespace later.
-            ->resources([
-                \App\Filament\Resources\Questions\QuestionResource::class,
-            ])
+            // Auto-discover all resources - visibility controlled by each Resource's shouldRegisterNavigation()
+            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

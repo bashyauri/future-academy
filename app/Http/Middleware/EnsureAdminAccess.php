@@ -50,7 +50,9 @@ class EnsureAdminAccess
         $hasAccess = collect($this->adminPermissions)->contains(fn($perm) => $user->hasPermissionTo($perm));
 
         if (! $hasAccess) {
-            abort(403, 'Admin access required.');
+            // Redirect to appropriate dashboard instead of showing 403
+            return redirect()->route('redirect.dashboard')
+                ->with('error', 'You do not have permission to access the admin panel.');
         }
 
         return $next($request);
