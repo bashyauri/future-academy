@@ -6,6 +6,7 @@ use App\Models\ExamType;
 use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\Subject;
+use App\Services\MockGroupService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -64,6 +65,48 @@ class MockSetup extends Component
             })
             ->orderBy('name')
             ->get();
+
+        // Auto-group mock questions when exam type is selected
+        if ($this->examTypeId) {
+            $this->autoGroupMockQuestions();
+        }
+    }
+
+    /**
+     * Automatically group mock questions for all subjects in the selected exam type.
+     * This runs on page load so shared hosting users don't need command line access.
+     */
+    protected function autoGroupMockQuestions(): void
+    {
+        $examType = ExamType::find($this->examTypeId);
+        if (!$examType) {
+            return;
+        }
+
+        $examFormat = $examType->exam_format ?? 'default';
+        $mockGroupService = app(MockGroupService::class);
+
+        // Get all subjects that have mock questions for this exam type
+        $subjectsWithMocks = Subject::whereHas('questions', function ($query) {
+            $query->where('exam_type_id', $this->examTypeId)
+                ->where('is_mock', true)
+                ->where('is_active', true)
+                ->where('status', 'approved');
+        })->get();
+
+        foreach ($subjectsWithMocks as $subject) {
+            // Check if groups already exist
+            $existingGroups = \App\Models\MockGroup::where('subject_id', $subject->id)
+                ->where('exam_type_id', $this->examTypeId)
+                ->count();
+
+            // Only group if no groups exist
+            if ($existingGroups === 0) {
+                // Get batch size from config for this subject
+                [$batchSize] = $this->getSubjectSpec($examFormat, strtolower($subject->name));
+                $mockGroupService->groupMockQuestions($subject, $examType, $batchSize);
+            }
+        }
     }
 
     public function toggleSubject(int $subjectId): void
