@@ -213,13 +213,34 @@ class MockSetup extends Component
         $currentExamType = ExamType::find($this->examTypeId);
         $examFormat = $currentExamType?->exam_format ?? 'default';
 
-        $isJamb = $examFormat === 'jamb';
-        $isSsce = $examFormat === 'ssce';
+        // Build subject specs from config for display
+        $subjectSpecs = [];
+        if ($this->subjects && count($this->subjects) > 0) {
+            foreach ($this->subjects as $subject) {
+                [$questionCount, $subjectTime] = $this->getSubjectSpec($examFormat, strtolower($subject->name));
+                $subjectSpecs[$subject->id] = [
+                    'questions' => $questionCount,
+                    'time' => $subjectTime,
+                ];
+            }
+        }
+
+        // Get config specs for sidebar display
+        $formats = config('mock.formats', []);
+        $formatConfig = $formats[$examFormat] ?? $formats['default'] ?? [];
+
+        $configSpecs = [
+            'exam_format' => $examFormat,
+            'overall' => $formatConfig['overall'] ?? [],
+            'per_subject' => $formatConfig['per_subject'] ?? [],
+            'default' => $formatConfig['default'] ?? ['questions' => 50, 'time' => null],
+        ];
 
         return view('livewire.quizzes.mock-setup', [
             'examTypes' => $examTypes,
-            'isJamb' => $isJamb,
-            'isSsce' => $isSsce,
+            'examFormat' => $examFormat,
+            'subjectSpecs' => $subjectSpecs,
+            'configSpecs' => $configSpecs,
         ]);
     }
 

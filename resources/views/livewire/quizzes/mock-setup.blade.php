@@ -10,13 +10,7 @@
             <flux:heading size="xl" level="1" class="leading-tight">Start a Mock Exam</flux:heading>
             <flux:text class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                 Choose your exam type and select up to 4 subjects.
-                @if($isJamb)
-                    The exam will automatically follow JAMB specifications: English (70 questions), other subjects (50 questions each), 100 minutes total.
-                @elseif($isSsce)
-                    The exam will follow SSCE specifications: English (110 questions, 50 mins), Maths/Further Maths (60 questions, 50 mins), others (60 questions, 35 mins).
-                @else
-                    The exam will automatically configure based on the selected exam type.
-                @endif
+                Exam specifications will automatically follow your exam format configuration.
             </flux:text>
         </div>
 
@@ -58,22 +52,15 @@
                             @php
                                 $isSelected = in_array($subject->id, $selectedSubjects);
                                 $canSelect = count($selectedSubjects) < $maxSubjects || $isSelected;
-                                $isEnglish = stripos($subject->name, 'English') !== false;
-                                $isMaths = stripos($subject->name, 'Math') !== false || stripos($subject->name, 'Further') !== false;
+                                $spec = $subjectSpecs[$subject->id] ?? ['questions' => 50, 'time' => null];
+                                $questionCount = $spec['questions'];
+                                $subjectTime = $spec['time'];
 
-                                // Determine question count based on exam type
-                                if ($isJamb) {
-                                    $questionInfo = $isEnglish ? '70 questions' : '50 questions';
-                                } elseif ($isSsce) {
-                                    if ($isEnglish) {
-                                        $questionInfo = '110 questions • 50 mins';
-                                    } elseif ($isMaths) {
-                                        $questionInfo = '60 questions • 50 mins';
-                                    } else {
-                                        $questionInfo = '60 questions • 35 mins';
-                                    }
+                                // Format the question info
+                                if ($subjectTime) {
+                                    $questionInfo = $questionCount . ' questions • ' . $subjectTime . ' mins';
                                 } else {
-                                    $questionInfo = '50 questions';
+                                    $questionInfo = $questionCount . ' questions';
                                 }
                             @endphp
                             <button
@@ -101,83 +88,63 @@
             <div class="space-y-5 sm:space-y-6">
                 <div class="p-5 rounded-2xl border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-neutral-900 shadow-sm space-y-4">
                     <flux:heading size="md" level="3">
-                        @if($isJamb)
-                            JAMB Mock Specifications
-                        @elseif($isSsce)
-                            SSCE Mock Specifications
-                        @else
-                            Mock Exam Specifications
-                        @endif
+                        Mock Exam Specifications
                     </flux:heading>
 
                     <div class="space-y-3 text-sm">
-                        @if($isJamb)
+                        @foreach($configSpecs['per_subject'] ?? [] as $rule)
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                 </svg>
                                 <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100">English: 70 questions</div>
-                                    <div class="text-gray-600 dark:text-gray-400">All other subjects: 50 questions</div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">
+                                        {{ implode(', ', array_map('ucfirst', $rule['match'] ?? [])) }}: {{ $rule['questions'] }} questions
+                                        @if($rule['time'])
+                                            • {{ $rule['time'] }} mins
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
+                        @endforeach
 
+                        @if($configSpecs['default'])
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">
+                                        Other subjects: {{ $configSpecs['default']['questions'] }} questions
+                                        @if($configSpecs['default']['time'])
+                                            • {{ $configSpecs['default']['time'] }} mins
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($configSpecs['overall']['time_limit'] ?? false)
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
                                 </svg>
                                 <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Duration: 100 minutes</div>
-                                    <div class="text-gray-600 dark:text-gray-400">For all 4 subjects combined</div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Duration: {{ $configSpecs['overall']['time_limit'] }} minutes</div>
+                                    <div class="text-gray-600 dark:text-gray-400">For all subjects combined</div>
                                 </div>
                             </div>
-                        @elseif($isSsce)
+                        @elseif($configSpecs['overall']['sum_subject_time'] ?? false)
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
                                 </svg>
                                 <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100">English: 110 questions</div>
-                                    <div class="text-gray-600 dark:text-gray-400">Duration: 50 minutes</div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-start gap-2">
-                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                </svg>
-                                <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Maths & Further Maths: 60 questions</div>
-                                    <div class="text-gray-600 dark:text-gray-400">Duration: 50 minutes each</div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-start gap-2">
-                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                </svg>
-                                <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100">All other subjects: 60 questions</div>
-                                    <div class="text-gray-600 dark:text-gray-400">Duration: 35 minutes each</div>
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">Duration: Sum of subject times</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Each subject has its own duration</div>
                                 </div>
                             </div>
                         @endif
-
-                        <div class="flex items-start gap-2">
-                            <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                            </svg>
-                            <div>
-                                <div class="font-semibold text-gray-900 dark:text-gray-100">Mixed Questions</div>
-                                <div class="text-gray-600 dark:text-gray-400">
-                                    @if($isSsce)
-                                        From WAEC, NECO, and NAPTEB
-                                    @else
-                                        Curated from multiple sources
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="flex items-start gap-2">
                             <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -199,33 +166,18 @@
                             $totalTime = 0;
 
                             foreach($selectedSubjects as $subjectId) {
-                                $subject = $subjects->find($subjectId);
-                                $subjectName = $subject?->name ?? '';
-                                $isEnglish = stripos($subjectName, 'English') !== false;
-                                $isMaths = stripos($subjectName, 'Math') !== false || stripos($subjectName, 'Further') !== false;
-
-                                if ($isJamb) {
-                                    $totalQuestions += $isEnglish ? 70 : 50;
-                                } elseif ($isSsce) {
-                                    if ($isEnglish) {
-                                        $totalQuestions += 110;
-                                        $totalTime += 50;
-                                    } elseif ($isMaths) {
-                                        $totalQuestions += 60;
-                                        $totalTime += 50;
-                                    } else {
-                                        $totalQuestions += 60;
-                                        $totalTime += 35;
-                                    }
-                                } else {
-                                    $totalQuestions += 50;
+                                $spec = $subjectSpecs[$subjectId] ?? ['questions' => 50, 'time' => null];
+                                $totalQuestions += $spec['questions'];
+                                if ($spec['time']) {
+                                    $totalTime += $spec['time'];
                                 }
                             }
 
-                            if ($isJamb) {
-                                $totalTime = 100;
-                            } elseif (!$isSsce) {
-                                $totalTime = 100;
+                            // If overall time limit is set, use that instead
+                            if ($configSpecs['overall']['time_limit'] ?? false) {
+                                $totalTime = $configSpecs['overall']['time_limit'];
+                            } elseif (!$totalTime && !($configSpecs['overall']['sum_subject_time'] ?? false)) {
+                                $totalTime = 100; // fallback
                             }
                         @endphp
                         <div class="flex items-center justify-between text-sm">
