@@ -26,7 +26,7 @@ return [
             'per_subject' => [
                 [
                     'match' => ['english'],
-                    'questions' => 110,
+                    'questions' => 80,
                     'time' => 50,
                 ],
                 [

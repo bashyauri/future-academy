@@ -12,13 +12,47 @@ class MockGroupService
     const DEFAULT_BATCH_SIZE = 40;
 
     /**
+     * Get batch size from config based on exam type and subject
+     */
+    protected function getBatchSizeFromConfig(ExamType $examType, Subject $subject): int
+    {
+        $examTypeFormat = strtolower($examType->exam_format ?? 'default');
+        $subjectName = strtolower($subject->name);
+
+        // Get the format config for this exam type
+        $formats = config('mock.formats', []);
+        $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? null;
+
+        if (!$formatConfig) {
+            return self::DEFAULT_BATCH_SIZE;
+        }
+
+        // Check per_subject rules
+        if (isset($formatConfig['per_subject'])) {
+            foreach ($formatConfig['per_subject'] as $rule) {
+                $matches = $rule['match'] ?? [];
+                foreach ($matches as $pattern) {
+                    if (str_contains($subjectName, strtolower($pattern))) {
+                        return $rule['questions'] ?? self::DEFAULT_BATCH_SIZE;
+                    }
+                }
+            }
+        }
+
+        // Fall back to default for this exam type
+        return $formatConfig['default']['questions'] ?? self::DEFAULT_BATCH_SIZE;
+    }
+
+    /**
      * Group mock questions for a subject and exam type into batches
      */
     public function groupMockQuestions(
         Subject $subject,
         ExamType $examType,
-        int $batchSize = self::DEFAULT_BATCH_SIZE
+        ?int $batchSize = null
     ): void {
+        // Use config-based batch size if not explicitly provided
+        $batchSize = $batchSize ?? $this->getBatchSizeFromConfig($examType, $subject);
         // Get all mock questions for this subject and exam type, ordered by ID
         $mockQuestions = Question::where('subject_id', $subject->id)
             ->where('exam_type_id', $examType->id)
@@ -30,7 +64,14 @@ class MockGroupService
             return;
         }
 
-        // Clear existing groups for this subject-exam combo
+        // First, unlink all mock questions from their groups (set mock_group_id to null)
+        // This prevents cascade deletion of questions when we delete the groups
+        Question::where('subject_id', $subject->id)
+            ->where('exam_type_id', $examType->id)
+            ->where('is_mock', true)
+            ->update(['mock_group_id' => null]);
+
+        // Now safely clear existing groups for this subject-exam combo
         MockGroup::where('subject_id', $subject->id)
             ->where('exam_type_id', $examType->id)
             ->delete();
