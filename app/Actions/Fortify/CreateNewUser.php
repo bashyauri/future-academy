@@ -34,6 +34,7 @@ class CreateNewUser implements CreatesNewUsers
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
+            'trial_ends_at' => now()->addHours(48),
         ]);
     }
 }

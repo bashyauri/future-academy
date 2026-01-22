@@ -19,7 +19,8 @@ class SubjectsList extends Component
         $isStudent = $user && (($user->account_type ?? '') === 'student');
 
         if ($isStudent && (!$user->has_completed_onboarding || empty($selectedSubjectIds))) {
-            return redirect()->route('onboarding');
+
+            to_route('onboarding');
         }
 
         $subjects = Subject::query()

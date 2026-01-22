@@ -28,6 +28,10 @@
             </flux:navlist.group>
         </flux:navlist>
 
+
+        <div class="my-4 w-full flex flex-col items-center">
+            <livewire:payment.status />
+        </div>
         <flux:spacer />
 
         <flux:navlist variant="outline">

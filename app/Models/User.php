@@ -159,6 +159,22 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasMany(QuizAttempt::class);
     }
 
+        /**
+         * Get all subscriptions for the user.
+         */
+        public function subscriptions()
+        {
+            return $this->hasMany(Subscription::class);
+        }
+
+        /**
+         * Get the user's current active subscription.
+         */
+        public function currentSubscription()
+        {
+            return $this->hasOne(Subscription::class)->where('status', 'active')->latest('ends_at');
+        }
+
     public function userAnswers()
     {
         return $this->hasMany(UserAnswer::class);
@@ -188,11 +204,19 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->account_type === 'student';
     }
 
+
+    public function onTrial(): bool
+    {
+        return $this->trial_ends_at && now()->lt($this->trial_ends_at);
+    }
+
+    /**
+     * Check if user has an active subscription.
+     */
     public function hasActiveSubscription(): bool
     {
-        // For now, return true for all users
-        // Later implement: return $this->subscriptions()->active()->exists();
-        return true;
+        $subscription = $this->currentSubscription;
+        return $subscription && $subscription->ends_at && now()->lt($subscription->ends_at);
     }
 
     /**
