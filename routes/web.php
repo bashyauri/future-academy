@@ -1,4 +1,3 @@
-
 <?php
 
 use Laravel\Fortify\Features;
@@ -122,6 +121,12 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
 Route::get('/artisan/{command}', [\App\Http\Controllers\ArtisanController::class, 'execute'])
     ->middleware('throttle:10,1')
     ->name('artisan.execute');
+
+
+// Paystack webhook (no auth required - Paystack validates with signature)
+Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.paystack');
 
 // Cloudinary webhooks (no auth required - Cloudinary validates with signature)
 Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
