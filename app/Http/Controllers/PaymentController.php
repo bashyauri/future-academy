@@ -45,24 +45,62 @@ class PaymentController extends Controller
         $verify = $this->paymentService->verifyPaystack($reference);
         if ($verify['success']) {
             $user = Auth::user();
-            $plan = session('selected_plan');
-            $type = session('selected_type');
+            $plan = session('selected_plan') ?? ($verify['data']['plan'] ?? 'custom');
+            $type = session('selected_type') ?? ($verify['data']['plan_type'] ?? 'one_time');
             $amount = $verify['data']['amount'] / 100;
             $endsAt = $plan === 'monthly' ? now()->addMonth() : now()->addYear();
-            $user->trial_ends_at = null;
-            $user->save();
-            Subscription::create([
-                'user_id' => $user->id,
-                'plan' => $plan,
-                'type' => $type,
-                'status' => 'active',
-                'reference' => $reference,
-                'amount' => $amount,
-                'starts_at' => now(),
-                'ends_at' => $endsAt,
-            ]);
-            return redirect('/dashboard')->with('success', 'Payment successful!');
+
+            // Validate required fields
+            $errors = [];
+            if (!$reference) $errors[] = 'Missing payment reference.';
+            if (!$plan) $errors[] = 'Missing subscription plan.';
+            if (!$type) $errors[] = 'Missing subscription type.';
+            if (!$amount || $amount <= 0) $errors[] = 'Invalid payment amount.';
+            if (!$user) $errors[] = 'User not authenticated.';
+
+            if (count($errors)) {
+                \Log::error('Payment callback validation failed', [
+                    'errors' => $errors,
+                    'reference' => $reference,
+                    'plan' => $plan,
+                    'type' => $type,
+                    'amount' => $amount,
+                    'user_id' => $user ? $user->id : null,
+                ]);
+                return redirect('/payment/pricing')->withErrors(['payment' => 'Payment failed: ' . implode(' ', $errors)]);
+            }
+
+            try {
+                $user->trial_ends_at = null;
+                $user->save();
+
+                Subscription::create([
+                    'user_id' => $user->id,
+                    'plan' => $plan,
+                    'type' => $type,
+                    'status' => 'active',
+                    'reference' => $reference,
+                    'amount' => $amount,
+                    'starts_at' => now(),
+                    'ends_at' => $endsAt,
+                ]);
+                return redirect('/dashboard')->with('success', 'Payment successful!');
+            } catch (\Exception $e) {
+                \Log::error('Payment callback exception', [
+                    'exception' => $e->getMessage(),
+                    'reference' => $reference,
+                    'plan' => $plan,
+                    'type' => $type,
+                    'amount' => $amount,
+                    'user_id' => $user ? $user->id : null,
+                ]);
+                return redirect('/payment/pricing')->withErrors(['payment' => 'Payment processing error. Please contact support.']);
+            }
         }
+        \Log::warning('Payment verification failed', [
+            'reference' => $reference,
+            'verify' => $verify,
+        ]);
         return redirect('/payment/pricing')->withErrors(['payment' => $verify['message'] ?? 'Payment verification failed.']);
     }
 }
