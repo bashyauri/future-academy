@@ -52,14 +52,17 @@ Route::get('/onboarding', StudentOnboarding::class)
     ->middleware(['auth', 'verified'])
     ->name('onboarding');
 
+Route::get('dashboard', Index::class)
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
-// All paywalled routes (dashboard, settings, quizzes, lessons, analytics, etc.)
-Route::middleware(['auth', 'verified', 'subscription.trial'])->group(function () {
-    Route::get('dashboard', Index::class)->name('dashboard');
+Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
     Route::redirect('settings', 'settings/profile');
+
     Route::get('settings/profile', Profile::class)->name('profile.edit');
     Route::get('settings/password', Password::class)->name('user-password.edit');
     Route::get('settings/appearance', Appearance::class)->name('appearance.edit');
+
     Route::get('settings/two-factor', TwoFactor::class)
         ->middleware(
             when(
@@ -70,21 +73,26 @@ Route::middleware(['auth', 'verified', 'subscription.trial'])->group(function ()
             ),
         )
         ->name('two-factor.show');
+
     // Quiz routes
     Route::get('quizzes', \App\Livewire\Quizzes\SubjectsList::class)->name('quizzes.index');
     Route::get('quizzes/all', QuizList::class)->name('quizzes.all'); // Keep old list as "browse all"
     Route::get('quizzes/subject/{subject}', \App\Livewire\Quizzes\QuizzesBySubject::class)->name('quizzes.subject');
     Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
+
     // Mock exam flow
     Route::get('mock', \App\Livewire\Quizzes\MockSetup::class)->name('mock.setup');
     Route::get('mock/quiz', \App\Livewire\Quizzes\MockQuiz::class)->name('mock.quiz');
     Route::get('mock/groups', \App\Livewire\Quizzes\MockGroupSelection::class)->name('mock.group-selection');
+
     // Practice routes (by exam type, subject, and year)
     Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');
     Route::get('practice/quiz', \App\Livewire\Practice\PracticeQuiz::class)->name('practice.quiz');
     Route::get('practice/quiz-js', \App\Livewire\Practice\PracticeQuizJS::class)->name('practice.quiz.js');
+
     // Autosave endpoint for Alpine.js quiz interaction
     Route::post('quiz/autosave', [\App\Http\Controllers\Practice\PracticeQuizController::class, 'autosave']);
+
     // Practice Quiz API endpoints (for JavaScript version)
     Route::prefix('api/practice')->group(function () {
         Route::post('start', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'startQuiz']);
@@ -94,13 +102,16 @@ Route::middleware(['auth', 'verified', 'subscription.trial'])->group(function ()
         Route::post('submit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'submitQuiz']);
         Route::post('exit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'exitQuiz']);
     });
+
     // JAMB Practice routes
     Route::get('practice/jamb/setup', \App\Livewire\Practice\JambSetup::class)->name('practice.jamb.setup');
     Route::get('practice/jamb/quiz', \App\Livewire\Practice\JambQuiz::class)->name('practice.jamb.quiz');
+
     // Lesson routes
     Route::get('lessons', \App\Livewire\Lessons\SubjectsList::class)->name('lessons.subjects');
     Route::get('lessons/{subject}', \App\Livewire\Lessons\LessonsList::class)->name('lessons.list');
     Route::get('lesson/{id}', \App\Livewire\Lessons\LessonView::class)->name('lessons.view');
+
     // Analytics route
     Route::get('analytics', Analytics::class)->name('analytics');
 });
@@ -111,14 +122,28 @@ Route::get('/artisan/{command}', [\App\Http\Controllers\ArtisanController::class
     ->middleware('throttle:10,1')
     ->name('artisan.execute');
 
+// Paystack webhook (no auth required - Paystack validates with signature)
+Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.paystack');
+
 // Cloudinary webhooks (no auth required - Cloudinary validates with signature)
 Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
     ->name('webhooks.cloudinary');
+
+
+    // Payment routes
+    use App\Livewire\Payment\Pricing as PaymentPricing;
+    Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
+Route::post('payment/initialize', [\App\Http\Controllers\PaymentController::class, 'initialize'])->name('payment.initialize');
+Route::get('payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
+
 Route::get('/clear', function () {
 Artisan::call('optimize:clear');
-Artisan::call('config:clear');
-Artisan::call('route:clear');
-Artisan::call('view:clear');
-return 'Cleared!';
+  Artisan::call('config:clear');
+  Artisan::call('config:cache');
+   Artisan::call('route:clear');
+  Artisan::call('view:clear');
+return 'Cleareda';
 });

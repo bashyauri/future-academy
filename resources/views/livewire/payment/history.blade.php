@@ -6,7 +6,7 @@
         </div>
     @else
         <div class="space-y-2 max-h-56 overflow-y-auto">
-            @foreach($subscriptions->take(5) as $subscription)
+            @foreach($subscriptions->take(3) as $subscription)
                 <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 p-3 flex flex-col gap-1">
                     <div class="flex items-center justify-between">
                         <span class="font-semibold text-xs text-neutral-900 dark:text-white">{{ $subscription->plan }}</span>

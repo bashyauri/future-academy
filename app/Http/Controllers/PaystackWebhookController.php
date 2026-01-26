@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use App\Models\Subscription;
 use App\Models\User;
+use App\Models\Subscription;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Notifications\PaymentFailed;
 
 class PaystackWebhookController extends Controller
@@ -64,7 +65,7 @@ class PaystackWebhookController extends Controller
             $endsAt = $type === 'monthly' ? now()->addMonth() : ($type === 'yearly' ? now()->addYear() : now()->addMonth());
 
             // Use a transaction for atomicity
-            \DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $startsAt, $endsAt) {
+            DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $startsAt, $endsAt) {
                 // Mark all previous subscriptions as inactive and is_active = false
                 Subscription::where('user_id', $user->id)
                     ->where('status', 'active')
