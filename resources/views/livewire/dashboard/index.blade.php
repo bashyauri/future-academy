@@ -416,5 +416,8 @@
                 </div>
             </div>
         </div>
+
+        {{-- Payment History Section --}}
+        @include('dashboard.payments', ['subscriptions' => $subscriptions])
     </div>
 </div>

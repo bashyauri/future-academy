@@ -29,8 +29,9 @@
         </flux:navlist>
 
 
-        <div class="my-4 w-full flex flex-col items-center">
+        <div class="my-4 w-full flex flex-col items-center gap-4">
             <livewire:payment.status />
+            <livewire:payment.history />
         </div>
         <flux:spacer />
 

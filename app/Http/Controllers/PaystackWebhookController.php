@@ -6,19 +6,36 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Notifications\PaymentFailed;
 
 class PaystackWebhookController extends Controller
 {
     public function handle(Request $request)
     {
-        // Validate Paystack signature
-        $signature = $request->header('x-paystack-signature');
-        $payload = $request->getContent();
-        $secret = config('services.paystack.secret_key');
-        if (!$signature || !hash_equals(hash_hmac('sha512', $payload, $secret), $signature)) {
-            Log::warning('Invalid Paystack webhook signature.', ['signature' => $signature]);
-            return response('Invalid signature', 400);
+        // Handle failed or cancelled payments
+        $event = $request->input('event');
+        $data = $request->input('data', []);
+    if (in_array($event, ['charge.failed', 'charge.cancelled', 'invoice.failed', 'subscription.disable'])) {
+        $email = $data['customer']['email'] ?? null;
+        $reference = $data['reference'] ?? null;
+        $amount = isset($data['amount']) ? $data['amount'] / 100 : 0;
+        if ($email && $reference) {
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                $user->notify(new PaymentFailed($reference, $amount));
+            }
         }
+        return response('Webhook received', 200);
+    }
+
+    // Validate Paystack signature
+    $signature = $request->header('x-paystack-signature');
+    $payload = $request->getContent();
+    $secret = config('services.paystack.secret_key');
+    if (!$signature || !hash_equals(hash_hmac('sha512', $payload, $secret), $signature)) {
+        Log::warning('Invalid Paystack webhook signature.', ['signature' => $signature]);
+        return response('Invalid signature', 400);
+    }
 
         $event = $request->input('event');
         $data = $request->input('data', []);

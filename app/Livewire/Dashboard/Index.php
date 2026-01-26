@@ -19,10 +19,12 @@ class Index extends Component
     public $mockExamQuizzes = [];
     public $recentMockAttempts = [];
     public $enrolledSubjects = [];
-
+    public $subscriptions = [];
     public function mount()
     {
         $user = auth()->user();
+        // Get payment/subscription history
+        $this->subscriptions = $user->subscriptions()->latest('created_at')->get();
 
         // Get enrolled subjects
         $this->enrolledSubjects = $user->enrolledSubjects()
@@ -117,6 +119,8 @@ class Index extends Component
 
     public function render()
     {
-        return view('livewire.dashboard.index');
+        return view('livewire.dashboard.index', [
+            'subscriptions' => $this->subscriptions,
+        ]);
     }
 }
