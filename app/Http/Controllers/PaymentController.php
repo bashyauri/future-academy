@@ -74,15 +74,31 @@ class PaymentController extends Controller
                 $user->trial_ends_at = null;
                 $user->save();
 
-                Subscription::create([
+                // Deactivate previous subscriptions
+                Subscription::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->update(['status' => 'inactive', 'is_active' => false]);
+
+                // Create or update the new subscription (idempotent)
+                Subscription::updateOrCreate(
+                    ['reference' => $reference],
+                    [
+                        'user_id' => $user->id,
+                        'plan' => $plan,
+                        'type' => $type,
+                        'status' => 'active',
+                        'is_active' => true,
+                        'amount' => $amount,
+                        'starts_at' => now(),
+                        'ends_at' => $endsAt,
+                    ]
+                );
+                \Log::info('Payment callback: subscription updated/created', [
+                    'reference' => $reference,
                     'user_id' => $user->id,
                     'plan' => $plan,
                     'type' => $type,
-                    'status' => 'active',
-                    'reference' => $reference,
                     'amount' => $amount,
-                    'starts_at' => now(),
-                    'ends_at' => $endsAt,
                 ]);
                 return redirect('/dashboard')->with('success', 'Payment successful!');
             } catch (\Exception $e) {

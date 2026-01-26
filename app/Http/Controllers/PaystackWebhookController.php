@@ -63,25 +63,29 @@ class PaystackWebhookController extends Controller
             $startsAt = now();
             $endsAt = $type === 'monthly' ? now()->addMonth() : ($type === 'yearly' ? now()->addYear() : now()->addMonth());
 
-            // Mark all previous subscriptions as inactive
-            Subscription::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->update(['status' => 'inactive']);
+            // Use a transaction for atomicity
+            \DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $startsAt, $endsAt) {
+                // Mark all previous subscriptions as inactive and is_active = false
+                Subscription::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->update(['status' => 'inactive', 'is_active' => false]);
 
-            // Create or update the new active subscription
-            $subscription = Subscription::updateOrCreate(
-                ['reference' => $reference],
-                [
-                    'user_id' => $user->id,
-                    'plan' => $plan,
-                    'type' => $type,
-                    'status' => 'active',
-                    'amount' => $amount,
-                    'starts_at' => $startsAt,
-                    'ends_at' => $endsAt,
-                ]
-            );
-            Log::info('Paystack subscription updated/created', ['subscription_id' => $subscription->id]);
+                // Create or update the new active subscription and set is_active = true
+                $subscription = Subscription::updateOrCreate(
+                    ['reference' => $reference],
+                    [
+                        'user_id' => $user->id,
+                        'plan' => $plan,
+                        'type' => $type,
+                        'status' => 'active',
+                        'is_active' => true,
+                        'amount' => $amount,
+                        'starts_at' => $startsAt,
+                        'ends_at' => $endsAt,
+                    ]
+                );
+                Log::info('Paystack subscription updated/created', ['subscription_id' => $subscription->id]);
+            });
         }
 
         // Optionally handle other Paystack events (e.g., subscription.disable, invoice.failed)
