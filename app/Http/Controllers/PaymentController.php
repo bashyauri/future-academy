@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Services\PaymentService;
 use App\Models\Subscription;
 use App\Models\User;
@@ -22,101 +24,138 @@ class PaymentController extends Controller
         return view('payment.pricing');
     }
 
-    public function initialize(Request $request)
-    {
-        $request->validate([
-            'plan' => 'required|in:monthly,yearly',
-            'type' => 'required|in:one_time,recurring',
-        ]);
-        $user = Auth::user();
-        $amount = $request->plan === 'monthly' ? 2000 : 12000;
-        $reference = $this->paymentService->generateReference();
-        $init = $this->paymentService->initializePaystack($user->email, $amount, $reference);
-        if ($init['success']) {
-            session(['paystack_reference' => $reference, 'selected_plan' => $request->plan, 'selected_type' => $request->type]);
-            return redirect($init['authorization_url']);
-        }
-        return back()->withErrors(['payment' => $init['message'] ?? 'Unable to initialize payment.']);
+public function initialize(Request $request)
+{
+    $request->validate([
+        'plan' => 'required|in:monthly,yearly',
+        'type' => 'required|in:one_time,recurring',
+    ]);
+
+    $user = Auth::user();
+    if (!$user) {
+        return redirect()->route('login');
     }
+
+    $planKey = $request->plan; // 'monthly' or 'yearly'
+    $isRecurring = $request->type === 'recurring';
+
+    // Get plan codes from config/services.php (which uses .env for production)
+    $planCodes = [
+        'monthly' => config('services.paystack.plans.monthly'), // e.g. 'PLN_xxxxxxxx'
+        'yearly'  => config('services.paystack.plans.yearly'),  // e.g. 'PLN_yyyyyyyy'
+    ];
+
+    $planCode = $isRecurring ? ($planCodes[$planKey] ?? null) : null;
+    $amount   = $planKey === 'monthly' ? 2000 : 12000; // NGN
+
+    if ($isRecurring && !$planCode) {
+        return back()->withErrors(['payment' => 'Subscription plan not configured.']);
+    }
+
+    $reference = $this->paymentService->generateReference();
+
+    $init = $this->paymentService->initializePaystack(
+        $user->email,
+        $amount,
+        $reference,
+        $planCode, // Only for recurring
+        [
+            'user_id' => $user->id,
+            'plan'    => $planKey,
+            'type'    => $request->type
+        ]
+    );
+
+    if ($init['success']) {
+        session([
+            'paystack_reference' => $reference,
+            'selected_plan'      => $planKey,
+            'selected_type'      => $request->type,
+        ]);
+
+        return redirect($init['authorization_url']);
+    }
+
+    return back()->withErrors(['payment' => $init['message'] ?? 'Payment initialization failed.']);
+}
 
     public function callback(Request $request)
     {
-        $reference = $request->query('reference', session('paystack_reference'));
+        $reference = $request->query('reference') ?? session('paystack_reference');
+
+        if (!$reference) {
+            Log::warning('Callback: Missing reference');
+            return redirect('/payment/pricing')->withErrors(['payment' => 'Invalid payment reference.']);
+        }
+
         $verify = $this->paymentService->verifyPaystack($reference);
-        if ($verify['success']) {
-            $user = Auth::user();
-            $plan = session('selected_plan') ?? ($verify['data']['plan'] ?? 'custom');
-            $type = session('selected_type') ?? ($verify['data']['plan_type'] ?? 'one_time');
-            $amount = $verify['data']['amount'] / 100;
-            $endsAt = $plan === 'monthly' ? now()->addMonth() : now()->addYear();
 
-            // Validate required fields
-            $errors = [];
-            if (!$reference) $errors[] = 'Missing payment reference.';
-            if (!$plan) $errors[] = 'Missing subscription plan.';
-            if (!$type) $errors[] = 'Missing subscription type.';
-            if (!$amount || $amount <= 0) $errors[] = 'Invalid payment amount.';
-            if (!$user) $errors[] = 'User not authenticated.';
+        if (!$verify['success'] || $verify['data']['status'] !== 'success') {
+            Log::warning('Payment verification failed', ['reference' => $reference, 'verify' => $verify]);
+            return redirect('/payment/pricing')->withErrors(['payment' => $verify['message'] ?? 'Payment failed or not successful.']);
+        }
 
-            if (count($errors)) {
-                \Log::error('Payment callback validation failed', [
-                    'errors' => $errors,
-                    'reference' => $reference,
-                    'plan' => $plan,
-                    'type' => $type,
-                    'amount' => $amount,
-                    'user_id' => $user ? $user->id : null,
-                ]);
-                return redirect('/payment/pricing')->withErrors(['payment' => 'Payment failed: ' . implode(' ', $errors)]);
-            }
+        $user = Auth::user();
+        if (!$user) {
+            return redirect('/payment/pricing')->withErrors(['payment' => 'Session expired. Please log in again.']);
+        }
 
-            try {
+        $data       = $verify['data'];
+        $amount     = $data['amount'] / 100;
+        $planFromSession = session('selected_plan');
+        $typeFromSession = session('selected_type');
+
+        // Prefer verify data if available, fallback to session
+        $plan = $planFromSession ?? ($data['plan']['plan_code'] ?? 'custom');
+        $type = $typeFromSession ?? 'one_time'; // safer default
+
+        // For recurring: try to get from subscription object if present
+        if (isset($data['subscription']['subscription_code'])) {
+            $type = 'recurring';
+            // Could fetch next_payment_date via API if needed, but webhook handles best
+        }
+
+        DB::transaction(function () use ($user, $reference, $plan, $type, $amount) {
+            // Clear trial if active
+            if ($user->trial_ends_at) {
                 $user->trial_ends_at = null;
                 $user->save();
-
-                // Deactivate previous subscriptions
-                Subscription::where('user_id', $user->id)
-                    ->where('status', 'active')
-                    ->update(['status' => 'inactive', 'is_active' => false]);
-
-                // Create or update the new subscription (idempotent)
-                Subscription::updateOrCreate(
-                    ['reference' => $reference],
-                    [
-                        'user_id' => $user->id,
-                        'plan' => $plan,
-                        'type' => $type,
-                        'status' => 'active',
-                        'is_active' => true,
-                        'amount' => $amount,
-                        'starts_at' => now(),
-                        'ends_at' => $endsAt,
-                    ]
-                );
-                \Log::info('Payment callback: subscription updated/created', [
-                    'reference' => $reference,
-                    'user_id' => $user->id,
-                    'plan' => $plan,
-                    'type' => $type,
-                    'amount' => $amount,
-                ]);
-                return redirect('/dashboard')->with('success', 'Payment successful!');
-            } catch (\Exception $e) {
-                \Log::error('Payment callback exception', [
-                    'exception' => $e->getMessage(),
-                    'reference' => $reference,
-                    'plan' => $plan,
-                    'type' => $type,
-                    'amount' => $amount,
-                    'user_id' => $user ? $user->id : null,
-                ]);
-                return redirect('/payment/pricing')->withErrors(['payment' => 'Payment processing error. Please contact support.']);
             }
-        }
-        \Log::warning('Payment verification failed', [
+
+            // Deactivate previous active subs
+            Subscription::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->update(['status' => 'inactive', 'is_active' => false]);
+
+            // Create/update subscription
+            $endsAt = $type === 'monthly' ? now()->addMonth() : now()->addYear();
+
+            Subscription::updateOrCreate(
+                ['reference' => $reference],
+                [
+                    'user_id'   => $user->id,
+                    'plan'      => $plan,
+                    'type'      => $type,
+                    'status'    => 'active',
+                    'is_active' => true,
+                    'amount'    => $amount,
+                    'starts_at' => now(),
+                    'ends_at'   => $endsAt,
+                ]
+            );
+        });
+
+        Log::info('Callback: Subscription activated', [
             'reference' => $reference,
-            'verify' => $verify,
+            'user_id'   => $user->id,
+            'plan'      => $plan,
+            'type'      => $type,
+            'amount'    => $amount,
         ]);
-        return redirect('/payment/pricing')->withErrors(['payment' => $verify['message'] ?? 'Payment verification failed.']);
+
+        // Clean session
+        session()->forget(['paystack_reference', 'selected_plan', 'selected_type']);
+
+        return redirect('/dashboard')->with('success', 'Payment successful! Your subscription is now active.');
     }
 }

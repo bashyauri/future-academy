@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -6,50 +7,109 @@ use Illuminate\Support\Facades\Config;
 
 class PaymentService
 {
-    public function generateReference(): string
+    protected string $baseUrl;
+    protected string $secretKey;
+
+    public function __construct()
     {
-        return 'FA-' . uniqid();
+        $this->baseUrl   = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
+        $this->secretKey = Config::get('services.paystack.secret_key');
     }
 
-    public function initializePaystack(string $email, float $amount, string $reference): array
+    public function generateReference(): string
     {
-        $paystackData = [
-            'email' => $email,
-            'amount' => (int)($amount * 100), // Paystack expects amount in kobo
-            'reference' => $reference,
-            'callback_url' => config('app.url') . '/payment/callback',
-        ];
-        $response = Http::withToken(Config::get('services.paystack.secret_key'))
-            ->post(Config::get('services.paystack.payment_url') . '/transaction/initialize', $paystackData);
-        if ($response->successful() && isset($response['data']['authorization_url'])) {
-            return [
-                'success' => true,
-                'authorization_url' => $response['data']['authorization_url'],
-                'message' => null,
-            ];
-        }
+        // Better randomness + readability than uniqid()
+        return 'FA-' . strtoupper(substr(md5(uniqid()), 0, 10)) . '-' . time();
+    }
+
+    /**
+     * Initialize Paystack transaction (supports one-time + subscription)
+     */public function initializePaystack(
+    string $email,
+    ?float $amount = null,
+    string $reference,
+    ?string $planCode = null,
+    array $metadata = [],
+    ?string $callbackUrl = null
+): array {
+    $payload = [
+        'email'     => $email,
+        'reference' => $reference,
+    ];
+
+    // Metadata: convert empty array to object or omit
+    if (!empty($metadata)) {
+        $payload['metadata'] = (object) $metadata;
+    }
+
+    if ($planCode) {
+        $payload['plan'] = $planCode;
+        // No amount at all
+    } elseif ($amount !== null && $amount > 0) {
+        $payload['amount'] = (int) ($amount * 100);
+    } else {
         return [
             'success' => false,
-            'authorization_url' => null,
-            'message' => $response['message'] ?? 'Paystack initialization failed.',
+            'message' => 'Amount required for one-time payments',
         ];
     }
+
+    if ($callbackUrl) {
+        $payload['callback_url'] = $callbackUrl;
+    }
+
+    // Debug: log exact payload before send
+    \Log::debug('Paystack initialize payload', [
+        'is_recurring' => !empty($planCode),
+        'plan_code'    => $planCode,
+        'payload'      => $payload,
+    ]);
+
+    $response = Http::withToken($this->secretKey)
+        ->post("{$this->baseUrl}/transaction/initialize", $payload);
+
+    if ($response->successful() && isset($response['data']['authorization_url'])) {
+        return [
+            'success'           => true,
+            'authorization_url' => $response['data']['authorization_url'],
+            'message'           => null,
+        ];
+    }
+
+    // Improved error return — capture full Paystack response
+    $errorData = $response->json();
+    \Log::error('Paystack initialize failed', [
+        'status'   => $response->status(),
+        'response' => $errorData,
+        'payload'  => $payload,
+    ]);
+
+    return [
+        'success'           => false,
+        'authorization_url' => null,
+        'message'           => $errorData['message'] ?? 'Unable to initialize payment.',
+        'error_code'        => $errorData['status'] ?? null,  // often false
+        'full_response'     => $errorData,
+    ];
+}
 
     public function verifyPaystack(string $reference): array
     {
-        $verifyUrl = Config::get('services.paystack.payment_url') . '/transaction/verify/' . $reference;
-        $response = Http::withToken(Config::get('services.paystack.secret_key'))->get($verifyUrl);
+        $response = Http::withToken($this->secretKey)
+            ->get("{$this->baseUrl}/transaction/verify/{$reference}");
+
         if ($response->successful() && isset($response['data']['status']) && $response['data']['status'] === 'success') {
             return [
                 'success' => true,
-                'data' => $response['data'],
+                'data'    => $response['data'],
                 'message' => null,
             ];
         }
+
         return [
             'success' => false,
-            'data' => null,
-            'message' => $response['message'] ?? 'Paystack verification failed.',
+            'data'    => $response['data'] ?? null,
+            'message' => $response['message'] ?? 'Verification failed.',
         ];
     }
 }

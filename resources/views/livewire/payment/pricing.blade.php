@@ -26,6 +26,15 @@
             <flux:text class="text-green-900 dark:text-green-100 text-sm">{{ __('No ads, no distractions') }}</flux:text>
         </div>
     </div>
+   @if ($errors->any())
+    <div class="w-full mb-4">
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    </div>
+@endif
     <form action="{{ route('payment.initialize') }}" method="POST" target="_blank" rel="noopener noreferrer" class="w-full flex flex-col gap-4 mt-1">
         @csrf
         <div class="flex flex-col gap-2">

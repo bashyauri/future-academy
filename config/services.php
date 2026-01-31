@@ -20,6 +20,10 @@ return [
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
         'payment_url' => env('PAYSTACK_PAYMENT_URL', 'https://api.paystack.co'),
         'merchant_email' => env('PAYSTACK_MERCHANT_EMAIL'),
+        'plans' => [
+            'monthly' => env('PAYSTACK_PLAN_MONTHLY', 'PLN_abc123monthly'),
+            'yearly'  => env('PAYSTACK_PLAN_YEARLY', 'PLN_def456yearly'),
+        ],
     ],
 
     'postmark' => [
