@@ -75,11 +75,12 @@
                                 @csrf
                                 <input type="hidden" name="plan" id="upgradePlan" />
                                 <input type="hidden" name="type" id="upgradeType" />
+                                <input type="hidden" name="plan_code" id="upgradePlanCode" />
                             </form>
                             @if($planType === 'recurring')
                                 @foreach($availablePlans as $plan)
                                     <button type="button"
-                                        onclick="document.getElementById('upgradePlan').value='{{ $plan['name'] === 'Yearly (Recurring)' ? 'yearly' : 'monthly' }}';document.getElementById('upgradeType').value='recurring';document.getElementById('upgradeForm').submit(); showUpgrade = false;"
+                                        onclick="document.getElementById('upgradePlan').value='{{ $plan['name'] === 'Yearly (Recurring)' ? 'yearly' : 'monthly' }}';document.getElementById('upgradeType').value='recurring';document.getElementById('upgradePlanCode').value='{{ $plan['code'] }}';document.getElementById('upgradeForm').submit(); showUpgrade = false;"
                                         class="block w-full mb-2 py-2 px-4 rounded-lg border border-green-400 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 font-semibold hover:bg-green-100 dark:hover:bg-green-800 transition">
                                         {{ $plan['name'] }} - ₦{{ number_format($plan['amount']) }}
                                     </button>
@@ -87,7 +88,7 @@
                             @else
                                 @foreach($availablePlans as $plan)
                                     <button type="button"
-                                        onclick="document.getElementById('upgradePlan').value='{{ $plan['name'] === 'Yearly (One-Time)' ? 'yearly' : 'monthly' }}';document.getElementById('upgradeType').value='one_time';document.getElementById('upgradeForm').submit(); showUpgrade = false;"
+                                        onclick="document.getElementById('upgradePlan').value='{{ $plan['name'] === 'Yearly (One-Time)' ? 'yearly' : 'monthly' }}';document.getElementById('upgradeType').value='one_time';document.getElementById('upgradePlanCode').value='';document.getElementById('upgradeForm').submit(); showUpgrade = false;"
                                         class="block w-full mb-2 py-2 px-4 rounded-lg border border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 font-semibold hover:bg-blue-100 dark:hover:bg-blue-800 transition">
                                         {{ $plan['name'] }} - ₦{{ number_format($plan['amount']) }}
                                     </button>

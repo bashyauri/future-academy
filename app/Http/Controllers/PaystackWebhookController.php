@@ -172,18 +172,44 @@ class PaystackWebhookController extends Controller
         $nextDate  = $data['subscription']['next_payment_date'] ?? null;
         $planCode  = $data['plan']['plan_code'] ?? 'custom';
         $interval  = $data['plan']['interval'] ?? 'monthly';
+        $planName  = $interval === 'monthly' ? 'monthly' : ($interval === 'yearly' ? 'yearly' : 'custom');
+
+        // Unify ends_at logic for recurring plans
+        $endsAt = null;
+        if ($interval === 'monthly') {
+            if ($nextDate && Carbon::parse($nextDate)->diffInDays(now()) >= 28 && Carbon::parse($nextDate)->diffInDays(now()) <= 32) {
+                $endsAt = Carbon::parse($nextDate)->utc();
+            } else {
+                $endsAt = now()->addMonth();
+            }
+        } elseif ($interval === 'yearly') {
+            if ($nextDate && Carbon::parse($nextDate)->diffInDays(now()) >= 360 && Carbon::parse($nextDate)->diffInDays(now()) <= 370) {
+                $endsAt = Carbon::parse($nextDate)->utc();
+            } else {
+                $endsAt = now()->addYear();
+            }
+        } else {
+            // fallback for custom/one-time
+            $endsAt = now()->addMonth();
+        }
+        \Log::info('Unified ends_at for webhook subscription', [
+            'plan_code' => $planCode,
+            'interval' => $interval,
+            'next_payment_date' => $nextDate,
+            'ends_at' => $endsAt,
+        ]);
 
         Subscription::updateOrCreate(
             ['subscription_code' => $subCode],
             [
                 'user_id'           => $user->id,
-                'plan'              => $planCode,
-                'plan_code'         => $planCode,
+                'plan'              => $planName, // human-readable (monthly/yearly/custom)
+                'plan_code'         => $planCode, // Paystack code (PLN_xxx)
                 'subscription_code' => $subCode,
                 'status'            => 'active',
                 'is_active'         => true,
                 'starts_at'         => now(),
-                'ends_at'           => $nextDate ? Carbon::parse($nextDate)->utc() : now()->addMonth(),
+                'ends_at'           => $endsAt,
                 'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
             ]
         );

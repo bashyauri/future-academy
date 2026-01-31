@@ -10,62 +10,61 @@ use App\Livewire\Settings\Password;
 use App\Livewire\Settings\TwoFactor;
 use App\Livewire\Dashboard\Analytics;
 use App\Livewire\Settings\Appearance;
-use App\Livewire\Subscription\Manage;
+use App\Livewire\Subscription\Manage; // ← Added
+use App\Livewire\Onboarding\StudentOnboarding;
+use App\Http\Controllers\PaymentController; // ← Added
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
-use App\Livewire\Onboarding\StudentOnboarding;
 
-// Public home page with role selection
+// Public home page
 Route::get('/', HomePage::class)->name('home');
 
-
-// Redirect based on account type after login
+// Redirect after login
 Route::get('/redirect-dashboard', function () {
     $user = auth()->user();
-
     if (!$user) {
         return redirect()->route('login');
     }
 
-    // Check if email is verified
     if (!$user->hasVerifiedEmail()) {
         return redirect()->route('verification.notice');
     }
 
-    // Check if student needs onboarding
     if ($user->isStudent() && !$user->has_completed_onboarding) {
         return redirect()->route('onboarding');
     }
-    Route::post('/subscription/cancel', [App\Http\Controllers\PaymentController::class, 'cancelSubscription'])
-    ->middleware('auth')
-    ->name('subscription.cancel');
-    Route::get('/subscription/manage', Manage::class)
-    ->middleware(['auth', 'verified'])
-    ->name('subscription.manage');
 
-    // Redirect based on role
-    return match($user->account_type) {
+    return match ($user->account_type) {
         'super-admin', 'admin' => redirect('/admin'),
-        'uploader' => redirect('/staff'),
-        'teacher' => redirect()->route('dashboard'), // Teachers use frontend
-        'guardian' => redirect()->route('dashboard'), // Parents use frontend
-        'student' => redirect()->route('dashboard'),
-        default => redirect()->route('dashboard'),
+        'uploader'             => redirect('/staff'),
+        'teacher'              => redirect()->route('dashboard'),
+        'guardian'             => redirect()->route('dashboard'),
+        'student'              => redirect()->route('dashboard'),
+        default                => redirect()->route('dashboard'),
     };
 })->middleware('auth')->name('redirect.dashboard');
 
-// Student onboarding
+// Onboarding
 Route::get('/onboarding', StudentOnboarding::class)
     ->middleware(['auth', 'verified'])
     ->name('onboarding');
 
+// Dashboard
 Route::get('dashboard', Index::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
-    Route::post('/subscription/cancel', [App\Http\Controllers\PaymentController::class, 'cancelSubscription'])
+
+// Subscription management (Livewire)
+Route::get('/subscription/manage', Manage::class)
+    ->middleware(['auth', 'verified']) // or 'ensure.subscription.or.trial' if needed
+    ->name('subscription.manage');
+
+// Cancel subscription
+Route::post('/subscription/cancel', [PaymentController::class, 'cancelSubscription'])
     ->middleware('auth')
     ->name('subscription.cancel');
 
+// Protected routes
 Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
@@ -79,31 +78,29 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
                 Features::canManageTwoFactorAuthentication()
                     && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
                 ['password.confirm'],
-                [],
-            ),
+                []
+            )
         )
         ->name('two-factor.show');
 
     // Quiz routes
     Route::get('quizzes', \App\Livewire\Quizzes\SubjectsList::class)->name('quizzes.index');
-    Route::get('quizzes/all', QuizList::class)->name('quizzes.all'); // Keep old list as "browse all"
+    Route::get('quizzes/all', QuizList::class)->name('quizzes.all');
     Route::get('quizzes/subject/{subject}', \App\Livewire\Quizzes\QuizzesBySubject::class)->name('quizzes.subject');
     Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
 
-    // Mock exam flow
+    // Mock exam
     Route::get('mock', \App\Livewire\Quizzes\MockSetup::class)->name('mock.setup');
     Route::get('mock/quiz', \App\Livewire\Quizzes\MockQuiz::class)->name('mock.quiz');
     Route::get('mock/groups', \App\Livewire\Quizzes\MockGroupSelection::class)->name('mock.group-selection');
 
-    // Practice routes (by exam type, subject, and year)
+    // Practice routes
     Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');
     Route::get('practice/quiz', \App\Livewire\Practice\PracticeQuiz::class)->name('practice.quiz');
     Route::get('practice/quiz-js', \App\Livewire\Practice\PracticeQuizJS::class)->name('practice.quiz.js');
 
-    // Autosave endpoint for Alpine.js quiz interaction
     Route::post('quiz/autosave', [\App\Http\Controllers\Practice\PracticeQuizController::class, 'autosave']);
 
-    // Practice Quiz API endpoints (for JavaScript version)
     Route::prefix('api/practice')->group(function () {
         Route::post('start', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'startQuiz']);
         Route::get('load/{attempt}', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'loadAttempt']);
@@ -113,47 +110,39 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
         Route::post('exit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'exitQuiz']);
     });
 
-    // JAMB Practice routes
     Route::get('practice/jamb/setup', \App\Livewire\Practice\JambSetup::class)->name('practice.jamb.setup');
     Route::get('practice/jamb/quiz', \App\Livewire\Practice\JambQuiz::class)->name('practice.jamb.quiz');
 
-    // Lesson routes
+    // Lessons
     Route::get('lessons', \App\Livewire\Lessons\SubjectsList::class)->name('lessons.subjects');
     Route::get('lessons/{subject}', \App\Livewire\Lessons\LessonsList::class)->name('lessons.list');
     Route::get('lesson/{id}', \App\Livewire\Lessons\LessonView::class)->name('lessons.view');
 
-    // Analytics route
+    // Analytics
     Route::get('analytics', Analytics::class)->name('analytics');
 });
 
-// Artisan command execution via web (for shared hosting)
-// Secured with token authentication
-Route::get('/artisan/{command}', [\App\Http\Controllers\ArtisanController::class, 'execute'])
-    ->middleware('throttle:10,1')
-    ->name('artisan.execute');
+// Artisan clear route (fixed)
+Route::get('/clear', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
+    Artisan::call('route:clear');
+    Artisan::call('view:clear');
+    return 'Cleared!';
+});
 
-
-// Paystack webhook (no auth required - Paystack validates with signature)
+// Webhooks
 Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
     ->name('webhooks.paystack');
 
-// Cloudinary webhooks (no auth required - Cloudinary validates with signature)
 Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
     ->name('webhooks.cloudinary');
 
+// Payment routes
+use App\Livewire\Payment\Pricing as PaymentPricing;
 
-    // Payment routes
-    use App\Livewire\Payment\Pricing as PaymentPricing;
-    Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
+Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
 Route::post('payment/initialize', [\App\Http\Controllers\PaymentController::class, 'initialize'])->name('payment.initialize');
 Route::get('payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
-
-  Route::get('/clear', function () {
-Artisan::call('optimize:clear');
-Artisan::call('config:clear');
-Artisan::call('route:clear');
-Artisan::call('view:clear');
-return 'Cleared!';
-});

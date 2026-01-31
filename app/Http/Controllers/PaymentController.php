@@ -32,9 +32,11 @@ class PaymentController extends Controller
      */
     public function initialize(Request $request)
     {
+
         $validated = $request->validate([
             'plan' => 'required|in:monthly,yearly',
             'type' => 'required|in:one_time,recurring',
+            'plan_code' => 'nullable|string',
         ]);
 
         $user = Auth::user();
@@ -42,13 +44,14 @@ class PaymentController extends Controller
             return redirect()->route('login');
         }
 
+
         $planKey     = $validated['plan'];
         $isRecurring = $validated['type'] === 'recurring';
         $amount      = $planKey === 'monthly' ? 2000 : 12000;
 
-        // Get plan code for recurring payments
+        // Get plan code for recurring payments (prefer submitted value, fallback to config)
         $planCode = $isRecurring
-            ? config("services.paystack.plans.{$planKey}")
+            ? ($validated['plan_code'] ?? config("services.paystack.plans.{$planKey}"))
             : null;
 
         if ($isRecurring && !$planCode) {
@@ -152,16 +155,45 @@ class PaymentController extends Controller
                     'is_active' => false,
                 ]);
 
-            // Determine correct expiry date
-            $endsAt = isset($data['subscription']['next_payment_date'])
-                ? Carbon::parse($data['subscription']['next_payment_date'])
-                : ($type === 'monthly' ? now()->addMonth() : now()->addYear());
 
+            // Unify ends_at logic for recurring plans
+            $nextPaymentDate = $data['subscription']['next_payment_date'] ?? null;
+            $interval = $data['plan']['interval'] ?? null;
+            $endsAt = null;
+            if ($type === 'recurring') {
+                if ($plan === 'monthly' || $interval === 'monthly') {
+                    // Use Paystack's date only if it's about a month ahead
+                    if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 28 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 32) {
+                        $endsAt = Carbon::parse($nextPaymentDate);
+                    } else {
+                        $endsAt = now()->addMonth();
+                    }
+                } elseif ($plan === 'yearly' || $interval === 'yearly') {
+                    // Use Paystack's date only if it's about a year ahead
+                    if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 360 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 370) {
+                        $endsAt = Carbon::parse($nextPaymentDate);
+                    } else {
+                        $endsAt = now()->addYear();
+                    }
+                }
+            } else {
+                // One-time payments
+                $endsAt = ($plan === 'monthly') ? now()->addMonth() : now()->addYear();
+            }
+            \Log::info('Unified ends_at for subscription', [
+                'plan' => $plan,
+                'type' => $type,
+                'interval' => $interval,
+                'next_payment_date' => $nextPaymentDate,
+                'ends_at' => $endsAt,
+            ]);
 
-            // Prepare subscription data
+            // Prepare subscription data (save both plan name and Paystack plan code)
+            $planCode = $data['plan']['plan_code'] ?? null;
             $subscriptionData = [
                 'user_id'   => $user->id,
-                'plan'      => $plan,
+                'plan'      => $plan, // human-readable (monthly/yearly)
+                'plan_code' => $planCode, // Paystack code (PLN_xxx)
                 'reference' => $reference,
                 'type'      => $type,
                 'status'    => 'active',
