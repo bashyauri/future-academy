@@ -13,11 +13,16 @@ class PaymentService
      */
     public function cancelSubscription(string $subscriptionCode): array
     {
+        $args = func_get_args();
+        $cardToken = $args[1] ?? null;
+        $payload = [
+            'code' => $subscriptionCode
+        ];
+        if (!empty($cardToken)) {
+            $payload['token'] = $cardToken;
+        }
         $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/subscription/disable", [
-                'code' => $subscriptionCode,
-                'token' => null // Only needed if disabling a specific card
-            ]);
+            ->post("{$this->baseUrl}/subscription/disable", $payload);
 
         if ($response->successful() && ($response['status'] ?? false)) {
             return [

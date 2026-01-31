@@ -1,7 +1,4 @@
-
 <?php
-// Subscription management for students
-Route::middleware(['auth', 'verified'])->get('/subscription/manage', \App\Livewire\Subscription\Manage::class)->name('subscription.manage');
 
 use Laravel\Fortify\Features;
 use App\Livewire\Home\HomePage;
@@ -13,6 +10,7 @@ use App\Livewire\Settings\Password;
 use App\Livewire\Settings\TwoFactor;
 use App\Livewire\Dashboard\Analytics;
 use App\Livewire\Settings\Appearance;
+use App\Livewire\Subscription\Manage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use App\Livewire\Onboarding\StudentOnboarding;
@@ -41,6 +39,9 @@ Route::get('/redirect-dashboard', function () {
     Route::post('/subscription/cancel', [App\Http\Controllers\PaymentController::class, 'cancelSubscription'])
     ->middleware('auth')
     ->name('subscription.cancel');
+    Route::get('/subscription/manage', Manage::class)
+    ->middleware(['auth', 'verified'])
+    ->name('subscription.manage');
 
     // Redirect based on role
     return match($user->account_type) {

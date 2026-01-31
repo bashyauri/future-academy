@@ -9,8 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Subscription extends Model
 {
-    protected $guarded = [
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'starts_at' => 'date',
