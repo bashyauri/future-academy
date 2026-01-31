@@ -5,12 +5,14 @@ namespace App\Livewire\Payment;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 
+
 class Status extends Component
 {
     public $onTrial = false;
     public $isSubscribed = false;
     public $trialDaysLeft = 0;
     public $subscriptionEndsAt = null;
+    public $subscription = null;
 
     public function mount()
     {
@@ -18,6 +20,7 @@ class Status extends Component
         if ($user) {
             $this->onTrial = $user->onTrial();
             $this->isSubscribed = $user->hasActiveSubscription();
+            $this->subscription = $user->currentSubscription ? $user->currentSubscription()->first() : null;
             if ($this->onTrial && $user->trial_ends_at) {
                 $daysLeft = now()->diffInDays($user->trial_ends_at, false);
                 if ($daysLeft >= 1) {
@@ -27,8 +30,8 @@ class Status extends Component
                     $this->trialDaysLeft = round($hoursLeft / 24, 2); // fraction of a day
                 }
             }
-            if ($this->isSubscribed && $user->currentSubscription) {
-                $endsAt = $user->currentSubscription->ends_at;
+            if ($this->isSubscribed && $this->subscription) {
+                $endsAt = $this->subscription->ends_at;
                 if ($endsAt) {
                     $endsAt = is_object($endsAt)
                         ? $endsAt

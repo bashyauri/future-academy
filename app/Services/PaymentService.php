@@ -8,6 +8,29 @@ use Illuminate\Support\Facades\Config;
 
 class PaymentService
 {
+    /**
+     * Cancel a Paystack subscription by subscription code
+     */
+    public function cancelSubscription(string $subscriptionCode): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/subscription/disable", [
+                'code' => $subscriptionCode,
+                'token' => null // Only needed if disabling a specific card
+            ]);
+
+        if ($response->successful() && ($response['status'] ?? false)) {
+            return [
+                'success' => true,
+                'message' => $response['message'] ?? 'Subscription cancelled.',
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => $response['message'] ?? 'Unable to cancel subscription.',
+        ];
+    }
     protected string $baseUrl;
     protected string $secretKey;
 

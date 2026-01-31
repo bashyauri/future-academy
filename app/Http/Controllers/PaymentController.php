@@ -12,6 +12,35 @@ use App\Models\User;
 
 class PaymentController extends Controller
 {
+    /**
+     * Cancel the authenticated user's active subscription
+     */
+    public function cancelSubscription(Request $request)
+    {
+        $user = auth()->user();
+        $subscription = $user->subscriptions()
+            ->where('is_active', true)
+            ->whereNotNull('subscription_code')
+            ->latest()
+            ->first();
+
+        if (!$subscription) {
+            return back()->withErrors(['subscription' => 'No active subscription found.']);
+        }
+
+        $result = $this->paymentService->cancelSubscription($subscription->subscription_code);
+
+        if ($result['success']) {
+            $subscription->update([
+                'status' => 'cancelled',
+                'is_active' => false,
+                'cancelled_at' => now(),
+            ]);
+            return back()->with('success', 'Subscription cancelled successfully.');
+        }
+
+        return back()->withErrors(['subscription' => $result['message']]);
+    }
     protected $paymentService;
 
     public function __construct(PaymentService $paymentService)

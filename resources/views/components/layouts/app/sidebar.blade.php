@@ -25,6 +25,9 @@
                     :current="request()->routeIs('analytics')" wire:navigate>
                     {{ __('Analytics') }}
                 </flux:navlist.item>
+                <flux:navlist.item icon="credit-card" :href="route('dashboard') . '#subscription'" wire:navigate>
+                    {{ __('Subscription') }}
+                </flux:navlist.item>
             </flux:navlist.group>
         </flux:navlist>
 

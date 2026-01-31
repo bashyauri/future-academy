@@ -416,7 +416,18 @@
                 </div>
             </div>
         </div>
-
+        <div id="subscription-section">
+            <livewire:subscription.cancel />
+        </div>
+                        <!-- Subscription -->
+                        <button type="button" onclick="document.getElementById('subscription-section').scrollIntoView({ behavior: 'smooth' })" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-pink-500 dark:hover:border-pink-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-pink-50 dark:hover:bg-pink-950/20 transition-all focus:outline-none">
+                            <div class="p-3 rounded-lg bg-pink-100 dark:bg-pink-900/30 group-hover:bg-pink-200 dark:group-hover:bg-pink-900/50 transition-colors mb-3">
+                                <svg class="w-6 h-6 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a5 5 0 00-10 0v2a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2z" />
+                                </svg>
+                            </div>
+                            <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Subscription') }}</flux:text>
+                        </button>
         {{-- Payment History Section --}}
         @include('dashboard.payments', ['subscriptions' => $subscriptions])
     </div>
