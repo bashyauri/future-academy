@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 
@@ -37,14 +38,15 @@ class PaymentService
         'reference' => $reference,
     ];
 
-    // Metadata: convert empty array to object or omit
+    // Use array for metadata (not object)
     if (!empty($metadata)) {
-        $payload['metadata'] = (object) $metadata;
+        $payload['metadata'] = $metadata;
     }
 
     if ($planCode) {
         $payload['plan'] = $planCode;
-        // No amount at all
+        $payload['amount'] = null;
+        // Do NOT set 'amount' for recurring payments
     } elseif ($amount !== null && $amount > 0) {
         $payload['amount'] = (int) ($amount * 100);
     } else {
@@ -59,7 +61,7 @@ class PaymentService
     }
 
     // Debug: log exact payload before send
-    \Log::debug('Paystack initialize payload', [
+    Log::debug('Paystack initialize payload', [
         'is_recurring' => !empty($planCode),
         'plan_code'    => $planCode,
         'payload'      => $payload,
@@ -78,7 +80,7 @@ class PaymentService
 
     // Improved error return — capture full Paystack response
     $errorData = $response->json();
-    \Log::error('Paystack initialize failed', [
+    Log::error('Paystack initialize failed', [
         'status'   => $response->status(),
         'response' => $errorData,
         'payload'  => $payload,
@@ -88,7 +90,7 @@ class PaymentService
         'success'           => false,
         'authorization_url' => null,
         'message'           => $errorData['message'] ?? 'Unable to initialize payment.',
-        'error_code'        => $errorData['status'] ?? null,  // often false
+        'error_code'        => $errorData['status'] ?? null,
         'full_response'     => $errorData,
     ];
 }

@@ -49,6 +49,7 @@ public function initialize(Request $request)
     $amount   = $planKey === 'monthly' ? 2000 : 12000; // NGN
 
     if ($isRecurring && !$planCode) {
+
         return back()->withErrors(['payment' => 'Subscription plan not configured.']);
     }
 

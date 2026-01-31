@@ -1,12 +1,12 @@
 {
   "info": {
-    "_postman_id": "b1e7e1c2-1234-4cde-9abc-1234567890ab",
     "name": "Paystack Webhook Test",
+    "description": "Test Paystack webhook endpoint with valid signature.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Paystack Webhook Test",
+      "name": "Charge Success Webhook",
       "request": {
         "method": "POST",
         "header": [
@@ -16,12 +16,12 @@
           },
           {
             "key": "x-paystack-signature",
-            "value": "test-signature"
+            "value": "{{paystack_signature}}"
           }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"status\": \"success\",\n    \"reference\": \"FA-TEST-123456\",\n    \"amount\": 200000,\n    \"customer\": {\n      \"email\": \"testuser@example.com\"\n    },\n    \"plan\": {\n      \"plan_code\": \"PLN_test\",\n      \"interval\": \"monthly\"\n    }\n  }\n}"
+          "raw": "{\n  \"event\": \"charge.success\",\n  \"data\": {\n    \"status\": \"success\",\n    \"reference\": \"test_ref_123\",\n    \"amount\": 10000,\n    \"customer\": {\n      \"email\": \"test@example.com\"\n    },\n    \"plan\": {\n      \"plan_code\": \"PLN_123\",\n      \"interval\": \"monthly\"\n    },\n    \"subscription\": {\n      \"subscription_code\": \"SUB_123\",\n      \"next_payment_date\": \"2026-02-28T00:00:00Z\"\n    }\n  }\n}"
         },
         "url": {
           "raw": "https://futureacademy-rm.com/webhooks/paystack",
@@ -30,7 +30,6 @@
             "futureacademy-rm",
             "com"
           ],
-          "port": "443",
           "path": [
             "webhooks",
             "paystack"
@@ -38,6 +37,12 @@
         }
       },
       "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "paystack_signature",
+      "value": ""
     }
   ]
 }
