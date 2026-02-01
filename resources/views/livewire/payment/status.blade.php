@@ -21,7 +21,7 @@
             </flux:text>
 
         @elseif($isSubscribed)
-            @if($subscription->status === 'cancelled' || $subscription->status === 'non_renewing')
+            @if($subscription && ($subscription->status === 'cancelled' || $subscription->status === 'non_renewing'))
                 <flux:badge color="orange" class="mb-2">{{ __('Cancelling') }}</flux:badge>
                 <flux:text class="text-green-900 dark:text-green-100">
                     {{ __('Active until') }} <strong>{{ $subscriptionEndsAt }}</strong>.

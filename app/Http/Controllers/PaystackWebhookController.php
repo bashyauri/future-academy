@@ -95,10 +95,19 @@ class PaystackWebhookController extends Controller
         $nextDate  = $subData['next_payment_date'] ?? null;
         $planCode  = $data['plan']['plan_code'] ?? 'custom';
         $interval  = $data['plan']['interval'] ?? 'monthly';
+        $type      = $data['plan']['type'] ?? 'recurring';
 
-        $amount = ($data['amount'] ?? 0) / 100;
+        // Extract amount consistently (Paystack sends in kobo)
+        $amount = 0;
+        if (isset($data['amount'])) {
+            $amount = $data['amount'] / 100;
+        } elseif (isset($data['subscription']['amount'])) {
+            $amount = $data['subscription']['amount'] / 100;
+        }
 
-        DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate) {
+        $authorizationCode = $data['authorization']['authorization_code'] ?? null;
+
+        DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate, $type, $authorizationCode) {
             // Deactivate previous active subscriptions (skip current if renewal)
             Subscription::where('user_id', $user->id)
                 ->where('status', 'active')
@@ -112,24 +121,29 @@ class PaystackWebhookController extends Controller
                 ? Carbon::parse($nextDate)->utc()
                 : $this->calculateFallbackEndsAt($interval);
 
+            $fields = [
+                'user_id'           => $user->id,
+                'plan'              => $planCode,
+                'plan_code'         => $planCode,
+                'subscription_code' => $subCode,
+                'reference'         => $reference,
+                'amount'            => $amount,
+                'status'            => 'active',
+                'is_active'         => true,
+                'starts_at'         => now(),
+                'ends_at'           => $endsAt,
+                'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
+                'type'              => $type,
+            ];
+            if ($authorizationCode) {
+                $fields['authorization_code'] = $authorizationCode;
+            }
             Subscription::updateOrCreate(
                 [
                     'reference'         => $reference,
                     'subscription_code' => $subCode ?? $reference,
                 ],
-                [
-                    'user_id'           => $user->id,
-                    'plan'              => $planCode,
-                    'plan_code'         => $planCode,
-                    'subscription_code' => $subCode,
-                    'reference'         => $reference,
-                    'amount'            => $amount,
-                    'status'            => 'active',
-                    'is_active'         => true,
-                    'starts_at'         => now(),
-                    'ends_at'           => $endsAt,
-                    'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
-                ]
+                $fields
             );
         });
 
@@ -173,6 +187,15 @@ class PaystackWebhookController extends Controller
         $planCode  = $data['plan']['plan_code'] ?? 'custom';
         $interval  = $data['plan']['interval'] ?? 'monthly';
         $planName  = $interval === 'monthly' ? 'monthly' : ($interval === 'yearly' ? 'yearly' : 'custom');
+        $type      = $data['plan']['type'] ?? 'recurring';
+        // Extract amount (Paystack sends in kobo, so divide by 100)
+        $amount = 0;
+        if (isset($data['amount'])) {
+            $amount = $data['amount'] / 100;
+        } elseif (isset($data['subscription']['amount'])) {
+            $amount = $data['subscription']['amount'] / 100;
+        }
+        $authorizationCode = $data['authorization']['authorization_code'] ?? null;
 
         // Unify ends_at logic for recurring plans
         $endsAt = null;
@@ -192,32 +215,61 @@ class PaystackWebhookController extends Controller
             // fallback for custom/one-time
             $endsAt = now()->addMonth();
         }
-        \Log::info('Unified ends_at for webhook subscription', [
+        Log::info('Unified ends_at for webhook subscription', [
             'plan_code' => $planCode,
             'interval' => $interval,
             'next_payment_date' => $nextDate,
             'ends_at' => $endsAt,
         ]);
 
-        Subscription::updateOrCreate(
-            ['subscription_code' => $subCode],
-            [
-                'user_id'           => $user->id,
-                'plan'              => $planName, // human-readable (monthly/yearly/custom)
-                'plan_code'         => $planCode, // Paystack code (PLN_xxx)
-                'subscription_code' => $subCode,
-                'status'            => 'active',
-                'is_active'         => true,
-                'starts_at'         => now(),
-                'ends_at'           => $endsAt,
-                'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
-            ]
-        );
-
-        Log::info('New subscription created', [
-            'subscription_code' => $subCode,
+        $fields = [
             'user_id'           => $user->id,
-        ]);
+            'plan'              => $planName, // human-readable (monthly/yearly/custom)
+            'plan_code'         => $planCode, // Paystack code (PLN_xxx)
+            'subscription_code' => $subCode,
+            'reference'         => $data['reference'] ?? $subCode ?? '',
+            'amount'            => $amount,
+            'status'            => 'active',
+            'is_active'         => true,
+            'starts_at'         => now(),
+            'ends_at'           => $endsAt,
+            'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
+            'type'              => $type,
+        ];
+        if ($authorizationCode) {
+            $fields['authorization_code'] = $authorizationCode;
+        }
+
+        // First try to find existing subscription by reference (might have FA-xxx subscription_code)
+        $reference = $data['reference'] ?? null;
+        $existingSubscription = null;
+
+        if ($reference) {
+            $existingSubscription = Subscription::where('reference', $reference)
+                ->where('user_id', $user->id)
+                ->first();
+        }
+
+        // If found by reference, update it with the real SUB_xxx code
+        if ($existingSubscription) {
+            $existingSubscription->update($fields);
+            Log::info('Subscription updated with real SUB code from webhook', [
+                'subscription_id' => $existingSubscription->id,
+                'old_code' => $existingSubscription->subscription_code,
+                'new_code' => $subCode,
+                'reference' => $reference,
+            ]);
+        } else {
+            // Otherwise, create or update by subscription_code
+            Subscription::updateOrCreate(
+                ['subscription_code' => $subCode],
+                $fields
+            );
+            Log::info('New subscription created from webhook', [
+                'subscription_code' => $subCode,
+                'user_id'           => $user->id,
+            ]);
+        }
 
         return true;
     }

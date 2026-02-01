@@ -29,10 +29,19 @@
     @if($activeSubscription)
         <div class="mb-6 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 text-center">
             <strong>{{ __('Active Plan:') }}</strong>
-            {{ ucfirst($activeSubscription->plan) }} ({{ ucfirst($activeSubscription->type) }})<br>
+            {{ ucfirst($activeSubscription->plan) }}
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ml-2
+                {{ $activeSubscription->type === 'recurring' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
+                {{ $activeSubscription->type === 'recurring' ? __('Recurring') : __('One-Time') }}
+            </span>
+            <br>
             {{ __('Ends at:') }} <span class="font-bold">{{ $activeSubscription->ends_at?->format('M j, Y') }}</span>
+            @if($activeSubscription->type === 'one_time')
+                <br><small class="text-neutral-600 dark:text-neutral-400">{{ __('Will not auto-renew') }}</small>
+            @endif
         </div>
         <div class="flex flex-col md:flex-row gap-4 mb-8">
+            @if($activeSubscription->type === 'recurring')
             <div class="flex-1" x-data="{ showConfirm: false }">
                 <button @click="showConfirm = true" wire:loading.attr="disabled" wire:target="cancelSubscription" type="button"
                     class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-bold text-base shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 flex items-center justify-center">
@@ -54,6 +63,13 @@
                     </div>
                 </div>
             </div>
+            @else
+            <div class="flex-1 p-4 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-center">
+                <p class="text-neutral-700 dark:text-neutral-300">
+                    {{ __('One-time payments cannot be cancelled. Your access will expire on the end date.') }}
+                </p>
+            </div>
+            @endif
             <div class="flex-1" x-data="{ showUpgrade: false }">
                 <button @click="showUpgrade = true" type="button"
                     class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold text-base shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-50 flex items-center justify-center">
@@ -68,7 +84,7 @@
                         </div>
                         <div class="mb-4 flex justify-center gap-2">
                             <button @click="$wire.setPlanType('recurring')" :class="{ 'bg-green-600 text-white': $wire.planType === 'recurring', 'bg-neutral-200 text-neutral-800': $wire.planType !== 'recurring' }" class="px-4 py-2 rounded-lg font-semibold transition">{{ __('Recurring') }}</button>
-                            <button @click="$wire.setPlanType('onetime')" :class="{ 'bg-green-600 text-white': $wire.planType === 'onetime', 'bg-neutral-200 text-neutral-800': $wire.planType !== 'onetime' }" class="px-4 py-2 rounded-lg font-semibold transition">{{ __('One-Time') }}</button>
+                            <button @click="$wire.setPlanType('one_time')" :class="{ 'bg-green-600 text-white': $wire.planType === 'one_time', 'bg-neutral-200 text-neutral-800': $wire.planType !== 'one_time' }" class="px-4 py-2 rounded-lg font-semibold transition">{{ __('One-Time') }}</button>
                         </div>
                         <div class="mb-6">
                             <form id="upgradeForm" method="POST" action="{{ route('payment.initialize') }}">
@@ -98,6 +114,39 @@
                         <button @click="showUpgrade = false" type="button" class="mt-2 px-4 py-2 rounded-lg bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-600 transition">{{ __('Cancel') }}</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    @elseif($inactiveSubscription && $inactiveSubscription->authorization_code)
+        <div class="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 text-center">
+            <strong>{{ __('Subscription Inactive') }}</strong><br>
+            {{ __('Your subscription is currently inactive. You can re-enable it below.') }}
+        </div>
+        <div class="flex flex-col md:flex-row gap-4 mb-8">
+            <div class="flex-1" x-data="{ showConfirm: false }">
+                <button @click="showConfirm = true" wire:loading.attr="disabled" wire:target="enableSubscription" type="button"
+                    class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-bold text-base shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 flex items-center justify-center">
+                    <span wire:loading.remove wire:target="enableSubscription">{{ __('Enable Subscription') }}</span>
+                    <svg wire:loading wire:target="enableSubscription" class="animate-spin h-5 w-5 ml-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                </button>
+                <!-- Confirmation Dialog -->
+                <div x-show="showConfirm" x-cloak class="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
+                    <div class="bg-white dark:bg-neutral-900 rounded-xl shadow-xl p-8 max-w-sm w-full text-center">
+                        <div class="mb-4 text-lg font-semibold text-blue-700 dark:text-blue-300">{{ __('Re-enable Subscription?') }}</div>
+                        <div class="mb-6 text-neutral-700 dark:text-neutral-200">{{ __('Are you sure you want to re-enable your subscription? Your previous plan will be restored.') }}</div>
+                        <div class="flex justify-center gap-4">
+                            <button @click="showConfirm = false" type="button" class="px-4 py-2 rounded-lg bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-600 transition">{{ __('Cancel') }}</button>
+                            <button @click="$wire.enableSubscription(); showConfirm = false" type="button" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition">{{ __('Yes, Enable') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-1">
+                <a href="{{ route('payment.pricing') }}" class="w-full block py-3 px-4 rounded-xl bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold text-base shadow-md text-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-50">
+                    {{ __('Choose Different Plan') }}
+                </a>
             </div>
         </div>
     @else

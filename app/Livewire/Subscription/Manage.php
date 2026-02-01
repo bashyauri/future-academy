@@ -3,17 +3,20 @@ namespace App\Livewire\Subscription;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use App\Models\Subscription;
 
 class Manage extends Component
 {
     public $subscriptions = [];
     public $activeSubscription = null;
+    public $inactiveSubscription = null;
     public $onTrial = false;
     public $trialDaysLeft = 0;
     public $successMessage;
     public $errorMessage;
     public $isCancelling = false;
+    public $isEnabling = false;
     public $availablePlans = [];
     public $planType = 'recurring';
 
@@ -54,13 +57,13 @@ class Manage extends Component
                 'code'   => null,
                 'name'   => 'Monthly (One-Time)',
                 'amount' => 2500,
-                'type'   => 'onetime',
+                'type'   => 'one_time',
             ],
             [
                 'code'   => null,
                 'name'   => 'Yearly (One-Time)',
                 'amount' => 13000,
-                'type'   => 'onetime',
+                'type'   => 'one_time',
             ],
         ];
     }
@@ -77,9 +80,10 @@ class Manage extends Component
         $user = Auth::user();
 
         $this->subscriptions = $user->subscriptions()->orderByDesc('created_at')->get();
-        $this->activeSubscription = $user->subscriptions()
-            ->where('is_active', true)
-            ->where('ends_at', '>', now())
+        $this->activeSubscription = $user->subscriptions()->active()->first();
+        $this->inactiveSubscription = $user->subscriptions()
+            ->where('is_active', false)
+            ->whereNull('cancelled_at')
             ->latest()
             ->first();
 
@@ -92,21 +96,32 @@ class Manage extends Component
         $this->isCancelling = true;
 
         $user = Auth::user();
-        $subscription = $user->subscriptions()
-            ->where('is_active', true)
-            ->whereNotNull('subscription_code')
-            ->latest()
-            ->first();
+        $subscription = $user->subscriptions()->active()->first();
 
-        if (!$subscription) {
-            $this->errorMessage = __('No active subscription found.');
+        if (!$subscription || !$subscription->canBeCancelled()) {
+            $this->errorMessage = __('No active subscription found or subscription cannot be cancelled.');
             $this->isCancelling = false;
             return;
         }
 
+        if (empty($subscription->subscription_code) || !Str::startsWith($subscription->subscription_code, 'SUB_')) {
+            $lookup = app(\App\Services\PaymentService::class)
+                ->fetchActiveSubscriptionByEmail($user->email);
+
+            if (!($lookup['success'] ?? false) || empty($lookup['data']['subscription_code'])) {
+                $this->errorMessage = __('Unable to sync subscription code from Paystack. Please contact support.');
+                $this->isCancelling = false;
+                return;
+            }
+
+            $subscription->update([
+                'subscription_code' => $lookup['data']['subscription_code'],
+            ]);
+        }
+
         try {
             $result = app(\App\Services\PaymentService::class)
-                ->cancelSubscription($subscription->subscription_code);
+                ->cancelSubscription($subscription->subscription_code, $subscription->authorization_code);
 
             if ($result['success']) {
                 $subscription->update([
@@ -129,11 +144,56 @@ class Manage extends Component
         $this->refreshData();
     }
 
+    public function enableSubscription()
+    {
+        $this->isEnabling = true;
+
+        $user = Auth::user();
+        $subscription = $user->subscriptions()
+            ->where('is_active', false)
+            ->whereNull('cancelled_at')
+            ->whereNotNull('subscription_code')
+            ->whereNotNull('authorization_code')
+            ->latest()
+            ->first();
+
+        if (!$subscription || !$subscription->canRenew()) {
+            $this->errorMessage = __('No inactive subscription found to enable or it cannot be renewed.');
+            $this->isEnabling = false;
+            return;
+        }
+
+        try {
+            $result = app(\App\Services\PaymentService::class)
+                ->enableSubscription($subscription->subscription_code, $subscription->authorization_code);
+
+            if ($result['success']) {
+                $subscription->update([
+                    'status'     => 'active',
+                    'is_active'  => true,
+                    'cancelled_at' => null,
+                ]);
+
+                $this->successMessage = $result['message'] ?? __('Subscription enabled successfully!');
+                $this->errorMessage = null;
+            } else {
+                $this->errorMessage = $result['message'] ?? __('Failed to enable subscription.');
+            }
+        } catch (\Throwable $e) {
+            $this->errorMessage = __('Error: ') . $e->getMessage();
+            \Log::error('Subscription enable failed', ['error' => $e->getMessage()]);
+        }
+
+        $this->isEnabling = false;
+        $this->refreshData();
+    }
+
     public function render()
     {
         return view('livewire.subscription.manage', [
             'subscriptions'      => $this->subscriptions,
             'activeSubscription' => $this->activeSubscription,
+            'inactiveSubscription' => $this->inactiveSubscription,
             'onTrial'            => $this->onTrial,
             'trialDaysLeft'      => $this->trialDaysLeft,
             'availablePlans'     => $this->availablePlans,
@@ -141,6 +201,7 @@ class Manage extends Component
             'successMessage'     => $this->successMessage,
             'errorMessage'       => $this->errorMessage,
             'isCancelling'       => $this->isCancelling,
+            'isEnabling'         => $this->isEnabling,
         ]);
     }
 }

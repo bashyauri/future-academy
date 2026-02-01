@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'ensure.subscription.or.trial' => EnsureSubscriptionOrTrial::class,
         ]);
+
+        // Exclude webhook routes from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

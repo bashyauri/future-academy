@@ -20,7 +20,7 @@ class Status extends Component
         if ($user) {
             $this->onTrial = $user->onTrial();
             $this->isSubscribed = $user->hasActiveSubscription();
-            $this->subscription = $user->currentSubscription ? $user->currentSubscription()->first() : null;
+            $this->subscription = $user->subscriptions()->active()->first();
             if ($this->onTrial && $user->trial_ends_at) {
                 $daysLeft = now()->diffInDays($user->trial_ends_at, false);
                 if ($daysLeft >= 1) {
