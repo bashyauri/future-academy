@@ -78,33 +78,124 @@ class PaymentService
 
     /**
      * Cancel a Paystack subscription by subscription code
+     * According to Paystack docs: https://paystack.com/docs/api/subscription/#disable
+     * Requires: code (subscription code) and token (email_token, NOT authorization_code)
      */
     public function cancelSubscription(string $subscriptionCode, ?string $authorizationCode = null): array
     {
         Log::info('Paystack cancelSubscription called', [
             'subscription_code' => $subscriptionCode,
-            'authorization_code' => $authorizationCode,
         ]);
-        $payload = [
-            'code' => $subscriptionCode
-        ];
-        if (!empty($authorizationCode)) {
-            $payload['token'] = $authorizationCode;
+
+        // Try to get email_token from local database first (stored from webhook)
+        $subscription = \App\Models\Subscription::where('subscription_code', $subscriptionCode)->first();
+        $emailToken = $subscription?->email_token;
+
+        Log::info('Checking for stored email_token', [
+            'subscription_code' => $subscriptionCode,
+            'has_stored_token' => !empty($emailToken),
+        ]);
+
+        // If not in database, fetch from Paystack API
+        if (!$emailToken) {
+            Log::info('Email token not found in DB, fetching from Paystack');
+
+            $fetchUrl = "{$this->baseUrl}/subscription/{$subscriptionCode}";
+            $fetchResponse = Http::withToken($this->secretKey)->get($fetchUrl);
+            $fetchData = $fetchResponse->json();
+
+            Log::info('Paystack subscription fetch for cancel', [
+                'subscription_code' => $subscriptionCode,
+                'fetch_status' => $fetchResponse->status(),
+            ]);
+
+            if (!$fetchResponse->successful() || !($fetchData['status'] ?? false)) {
+                Log::error('Failed to fetch subscription for cancellation', [
+                    'subscription_code' => $subscriptionCode,
+                    'fetch_status' => $fetchResponse->status(),
+                    'fetch_data' => $fetchData,
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Unable to fetch subscription details from Paystack.',
+                ];
+            }
+
+            // Extract the email_token from the subscription details
+            $emailToken = $fetchData['data']['email_token'] ?? null;
+            if (!$emailToken) {
+                Log::error('No email_token found in subscription', [
+                    'subscription_code' => $subscriptionCode,
+                    'subscription_data' => $fetchData['data'] ?? null,
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Subscription does not have a valid email token for cancellation.',
+                ];
+            }
         }
+
+        Log::info('Email token ready for cancellation', [
+            'subscription_code' => $subscriptionCode,
+            'email_token_preview' => substr($emailToken, 0, 10) . '...',
+            'source' => $subscription?->email_token ? 'database' : 'paystack_api',
+        ]);
+
+        // Now disable the subscription using the correct endpoint and parameters
+        $url = "{$this->baseUrl}/subscription/disable";
+
+        $payload = [
+            'code' => $subscriptionCode,
+            'token' => $emailToken,  // Use email_token, NOT authorization_code
+        ];
+
+        Log::info('Paystack cancelSubscription - sending disable request', [
+            'url' => $url,
+            'payload_code' => $payload['code'],
+            'payload_token_preview' => substr($payload['token'], 0, 10) . '...',
+        ]);
+
+        // Send as form data to match Paystack API expectations
         $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/subscription/disable", $payload);
+            ->asForm()
+            ->post($url, $payload);
 
         $responseData = $response->json();
-        if ($response->successful() && ($responseData['status'] ?? false)) {
+
+        Log::info('Paystack cancelSubscription - disable response received', [
+            'status_code' => $response->status(),
+            'response_status' => $responseData['status'] ?? null,
+            'response_message' => $responseData['message'] ?? null,
+        ]);
+
+        // Check if successful
+        if ($response->successful() && is_array($responseData) && ($responseData['status'] ?? false)) {
+            Log::info('Paystack subscription cancelled successfully', [
+                'subscription_code' => $subscriptionCode,
+            ]);
             return [
                 'success' => true,
-                'message' => $response['message'] ?? 'Subscription cancelled.',
+                'message' => $responseData['message'] ?? 'Subscription cancelled.',
             ];
+        }
+
+        Log::error('Paystack cancelSubscription failed', [
+            'subscription_code' => $subscriptionCode,
+            'url' => $url,
+            'status_code' => $response->status(),
+            'payload_code' => $payload['code'],
+            'response_message' => $responseData['message'] ?? null,
+            'response_full' => $responseData,
+        ]);
+
+        $message = 'Unable to cancel subscription.';
+        if (is_array($responseData) && !empty($responseData['message'])) {
+            $message = $responseData['message'];
         }
 
         return [
             'success' => false,
-            'message' => $response['message'] ?? 'Unable to cancel subscription.',
+            'message' => $message,
         ];
     }
 

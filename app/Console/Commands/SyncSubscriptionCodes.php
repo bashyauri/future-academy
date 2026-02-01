@@ -103,16 +103,17 @@ class SyncSubscriptionCodes extends Command
 
             try {
                 // Fetch subscription from Paystack by customer email
-                $paystackSub = $this->paymentService->fetchActiveSubscriptionByEmail($user->email);
+                $result = $this->paymentService->fetchActiveSubscriptionByEmail($user->email);
 
-                if (!$paystackSub) {
+                if (!$result['success'] || !$result['data']) {
                     $this->newLine();
                     $this->warn("⚠️  No active subscription found on Paystack for {$user->email}");
                     $notFound++;
                     continue;
                 }
 
-                // Get the real subscription code
+                // Get the real subscription code from the subscription data
+                $paystackSub = $result['data'];
                 $realSubCode = $paystackSub['subscription_code'] ?? null;
 
                 if (!$realSubCode) {

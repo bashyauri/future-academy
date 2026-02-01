@@ -156,9 +156,10 @@ class PaystackWebhookController extends Controller
         }
 
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
+        $emailToken = $data['subscription']['email_token'] ?? null;
 
         try {
-            DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate, $type, $authorizationCode) {
+            DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate, $type, $authorizationCode, $emailToken) {
                 Log::channel('webhook')->info('💾 Starting DB transaction for charge.success');
 
                 // Deactivate previous active subscriptions (skip current if renewal)
@@ -172,9 +173,7 @@ class PaystackWebhookController extends Controller
 
                 Log::channel('webhook')->info('📝 Deactivated previous subscriptions', ['count' => $deactivated]);
 
-                $endsAt = $nextDate
-                    ? Carbon::parse($nextDate)->utc()
-                    : $this->calculateFallbackEndsAt($interval);
+                $endsAt = $this->calculateEndsAt($type, $planCode, $interval, $nextDate);
 
             $fields = [
                 'user_id'           => $user->id,
@@ -193,24 +192,43 @@ class PaystackWebhookController extends Controller
             if ($authorizationCode) {
                 $fields['authorization_code'] = $authorizationCode;
             }
+            if ($emailToken) {
+                $fields['email_token'] = $emailToken;
+            }
 
                 Log::channel('webhook')->info('💾 Upserting subscription', [
                     'reference' => $reference,
                     'subscription_code' => $subCode ?? $reference,
-                    'fields' => $fields,
+                    'user_id' => $user->id,
                 ]);
 
-                $subscription = Subscription::updateOrCreate(
-                    [
-                        'reference'         => $reference,
-                        'subscription_code' => $subCode ?? $reference,
-                    ],
-                    $fields
-                );
+                // First, try to find by reference (handles case where callback created with reference as code)
+                $existingByReference = Subscription::where('user_id', $user->id)
+                    ->where('reference', $reference)
+                    ->first();
+
+                if ($existingByReference) {
+                    // Update existing subscription with real subscription_code from webhook
+                    Log::channel('webhook')->info('📝 Found existing subscription by reference, updating with real code', [
+                        'subscription_id' => $existingByReference->id,
+                        'old_code' => $existingByReference->subscription_code,
+                        'new_code' => $subCode,
+                    ]);
+                    $existingByReference->update($fields);
+                    $subscription = $existingByReference;
+                } else {
+                    // Otherwise create new subscription (e.g., webhook arrived before callback)
+                    Log::channel('webhook')->info('➕ No existing subscription found by reference, creating new');
+                    $subscription = Subscription::updateOrCreate(
+                        ['reference' => $reference],
+                        $fields
+                    );
+                }
 
                 Log::channel('webhook')->info('✅ Subscription upserted', [
                     'subscription_id' => $subscription->id,
-                    'was_recently_created' => $subscription->wasRecentlyCreated,
+                    'subscription_code' => $subscription->subscription_code,
+                    'was_recently_created' => $subscription->wasRecentlyCreated ?? false,
                 ]);
             });
 
@@ -288,31 +306,10 @@ class PaystackWebhookController extends Controller
             $amount = $data['subscription']['amount'] / 100;
         }
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
+        $emailToken = $data['subscription']['email_token'] ?? null;
 
-        // Unify ends_at logic for recurring plans
-        $endsAt = null;
-        if ($interval === 'monthly') {
-            if ($nextDate && Carbon::parse($nextDate)->diffInDays(now()) >= 28 && Carbon::parse($nextDate)->diffInDays(now()) <= 32) {
-                $endsAt = Carbon::parse($nextDate)->utc();
-            } else {
-                $endsAt = now()->addMonth();
-            }
-        } elseif ($interval === 'yearly') {
-            if ($nextDate && Carbon::parse($nextDate)->diffInDays(now()) >= 360 && Carbon::parse($nextDate)->diffInDays(now()) <= 370) {
-                $endsAt = Carbon::parse($nextDate)->utc();
-            } else {
-                $endsAt = now()->addYear();
-            }
-        } else {
-            // fallback for custom/one-time
-            $endsAt = now()->addMonth();
-        }
-        Log::info('Unified ends_at for webhook subscription', [
-            'plan_code' => $planCode,
-            'interval' => $interval,
-            'next_payment_date' => $nextDate,
-            'ends_at' => $endsAt,
-        ]);
+        // Calculate ends_at using unified logic
+        $endsAt = $this->calculateEndsAt($type, $planName, $interval, $nextDate);
 
         $fields = [
             'user_id'           => $user->id,
@@ -330,6 +327,9 @@ class PaystackWebhookController extends Controller
         ];
         if ($authorizationCode) {
             $fields['authorization_code'] = $authorizationCode;
+        }
+        if ($emailToken) {
+            $fields['email_token'] = $emailToken;
         }
 
         try {
@@ -539,6 +539,38 @@ class PaystackWebhookController extends Controller
             'monthly' => now()->addMonth(),
             default   => now()->addMonth(),
         };
+    }
+
+    /**
+     * Calculate ends_at consistently for both recurring and one-time subscriptions
+     * Prefers Paystack's next_payment_date if it matches the expected interval
+     */
+    private function calculateEndsAt(?string $type, ?string $plan, ?string $interval, ?string $nextPaymentDate): ?Carbon
+    {
+        if ($type === 'recurring') {
+            if ($plan === 'monthly' || $interval === 'monthly') {
+                // Use Paystack's date only if it's about a month ahead
+                if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 28 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 32) {
+                    return Carbon::parse($nextPaymentDate)->utc();
+                }
+                return now()->addMonth();
+            } elseif ($plan === 'yearly' || $interval === 'yearly') {
+                // Use Paystack's date only if it's about a year ahead
+                if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 360 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 370) {
+                    return Carbon::parse($nextPaymentDate)->utc();
+                }
+                return now()->addYear();
+            }
+        } else {
+            // One-time payments
+            if ($plan === 'monthly') {
+                return now()->addMonth();
+            } elseif ($plan === 'yearly') {
+                return now()->addYear();
+            }
+        }
+
+        return now()->addMonth(); // Default fallback
     }
 
     /**

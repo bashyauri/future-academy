@@ -275,27 +275,8 @@ class PaymentController extends Controller
             // Unify ends_at logic for recurring plans
             $nextPaymentDate = $data['subscription']['next_payment_date'] ?? null;
             $interval = $data['plan']['interval'] ?? null;
-            $endsAt = null;
-            if ($type === 'recurring') {
-                if ($plan === 'monthly' || $interval === 'monthly') {
-                    // Use Paystack's date only if it's about a month ahead
-                    if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 28 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 32) {
-                        $endsAt = Carbon::parse($nextPaymentDate);
-                    } else {
-                        $endsAt = now()->addMonth();
-                    }
-                } elseif ($plan === 'yearly' || $interval === 'yearly') {
-                    // Use Paystack's date only if it's about a year ahead
-                    if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 360 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 370) {
-                        $endsAt = Carbon::parse($nextPaymentDate);
-                    } else {
-                        $endsAt = now()->addYear();
-                    }
-                }
-            } else {
-                // One-time payments
-                $endsAt = ($plan === 'monthly') ? now()->addMonth() : now()->addYear();
-            }
+            $endsAt = $this->calculateEndsAt($type, $plan, $interval, $nextPaymentDate);
+
             Log::info('Unified ends_at for subscription', [
                 'plan' => $plan,
                 'type' => $type,
@@ -400,17 +381,29 @@ class PaymentController extends Controller
 
         $subCode = $subscription->subscription_code ?? $subscription->plan_code;
         $authCode = $subscription->authorization_code ?? null;
-        Log::info('Cancel subscription debug', [
+
+        Log::info('Cancel subscription attempt', [
             'user_id' => $user->id,
             'subscription_id' => $subscription->id,
-            'sub_code' => $subCode,
-            'authorization_code' => $authCode,
+            'subscription_code' => $subscription->subscription_code,
+            'plan_code' => $subscription->plan_code,
+            'sub_code_used' => $subCode,
+            'has_auth_code' => !empty($authCode),
             'subscription_type' => $subscription->type,
+            'subscription_status' => $subscription->status,
+            'is_active' => $subscription->is_active,
+            'all_subscription_data' => $subscription->toArray(),
         ]);
+
         // For recurring/upgrade/cancel, always require and use authorization_code if available
         if (!$authCode && $subscription->type === 'recurring') {
+            Log::warning('Cancel subscription - missing auth code', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+            ]);
             return back()->withErrors(['subscription' => 'Card authorization token is required for this action. Please re-subscribe or contact support.']);
         }
+
         $result = $this->paymentService->cancelSubscription($subCode, $authCode);
 
         if ($result['success']) {
@@ -420,15 +413,56 @@ class PaymentController extends Controller
                 'cancelled_at' => now(),
             ]);
 
+            Log::info('Subscription cancelled successfully', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+                'sub_code' => $subCode,
+            ]);
+
             return back()->with('success', $result['message'] ?? 'Subscription cancelled successfully. It will remain active until the current period ends.');
         }
 
         Log::warning('Subscription cancellation failed', [
             'user_id'   => $user->id,
-            'sub_code'  => $subscription->subscription_code,
+            'subscription_id' => $subscription->id,
+            'sub_code'  => $subCode,
+            'has_auth_code' => !empty($authCode),
             'error'     => $result['message'],
+            'full_response' => $result,
         ]);
 
         return back()->withErrors(['subscription' => $result['message'] ?? 'Failed to cancel subscription. Please try again or contact support.']);
+    }
+
+    /**
+     * Calculate ends_at consistently for both recurring and one-time subscriptions
+     * Prefers Paystack's next_payment_date if it matches the expected interval
+     */
+    private function calculateEndsAt(?string $type, ?string $plan, ?string $interval, ?string $nextPaymentDate): ?Carbon
+    {
+        if ($type === 'recurring') {
+            if ($plan === 'monthly' || $interval === 'monthly') {
+                // Use Paystack's date only if it's about a month ahead
+                if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 28 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 32) {
+                    return Carbon::parse($nextPaymentDate)->utc();
+                }
+                return now()->addMonth();
+            } elseif ($plan === 'yearly' || $interval === 'yearly') {
+                // Use Paystack's date only if it's about a year ahead
+                if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 360 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 370) {
+                    return Carbon::parse($nextPaymentDate)->utc();
+                }
+                return now()->addYear();
+            }
+        } else {
+            // One-time payments
+            if ($plan === 'monthly') {
+                return now()->addMonth();
+            } elseif ($plan === 'yearly') {
+                return now()->addYear();
+            }
+        }
+
+        return now()->addMonth(); // Default fallback
     }
 }
