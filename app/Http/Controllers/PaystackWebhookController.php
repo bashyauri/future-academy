@@ -17,54 +17,95 @@ class PaystackWebhookController extends Controller
      */
     public function handle(Request $request)
     {
-        // 1. Verify signature (must be first)
-        $signature = $request->header('x-paystack-signature');
-        $payload   = $request->getContent();
-        $secret    = config('services.paystack.secret_key');
-
-        if (!$signature || !hash_equals(hash_hmac('sha512', $payload, $secret), $signature)) {
-            Log::warning('Invalid Paystack webhook signature', [
-                'signature' => $signature,
-                'ip'        => $request->ip(),
-                'payload'   => substr($payload, 0, 200), // partial for debugging
-            ]);
-            return response('Invalid signature', 401);
-        }
-
-        $event = $request->input('event');
-        $data  = $request->input('data', []);
-
-        Log::info('Paystack webhook received', [
-            'event'             => $event,
-            'reference'         => $data['reference'] ?? 'n/a',
-            'subscription_code' => $data['subscription']['subscription_code'] ?? 'n/a',
+        // Log incoming webhook request
+        Log::channel('webhook')->info('========== WEBHOOK RECEIVED ==========', [
+            'timestamp' => now()->toDateTimeString(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'headers' => $request->headers->all(),
+            'raw_payload' => $request->getContent(),
         ]);
 
-        // 2. Handle failure/cancellation events early (no DB write needed)
-        if (in_array($event, [
-            'charge.failed',
-            'invoice.payment_failed',
-            'subscription.disable',
-            'subscription.expiring_cards',
-        ])) {
-            $this->handleFailureEvent($data);
-            return response('Webhook processed', 200);
+        try {
+            // 1. Verify signature (must be first)
+            $signature = $request->header('x-paystack-signature');
+            $payload   = $request->getContent();
+            $secret    = config('services.paystack.secret_key');
+
+            Log::channel('webhook')->debug('Signature verification', [
+                'has_signature' => !empty($signature),
+                'secret_configured' => !empty($secret),
+            ]);
+
+            if (!$signature || !hash_equals(hash_hmac('sha512', $payload, $secret), $signature)) {
+                Log::channel('webhook')->error('❌ Invalid Paystack webhook signature', [
+                    'signature' => $signature,
+                    'ip'        => $request->ip(),
+                    'payload'   => substr($payload, 0, 200),
+                ]);
+                return response('Invalid signature', 401);
+            }
+
+            Log::channel('webhook')->info('✅ Signature verified successfully');
+
+            $event = $request->input('event');
+            $data  = $request->input('data', []);
+
+            Log::channel('webhook')->info('📥 Webhook Event Details', [
+                'event'             => $event,
+                'reference'         => $data['reference'] ?? 'n/a',
+                'subscription_code' => $data['subscription']['subscription_code'] ?? 'n/a',
+                'customer_email'    => $data['customer']['email'] ?? 'n/a',
+                'customer_code'     => $data['customer']['customer_code'] ?? 'n/a',
+                'amount'            => isset($data['amount']) ? ($data['amount'] / 100) : 'n/a',
+                'plan_code'         => $data['plan']['plan_code'] ?? 'n/a',
+                'full_data'         => $data,
+            ]);
+
+            // 2. Handle failure/cancellation events early (no DB write needed)
+            if (in_array($event, [
+                'charge.failed',
+                'invoice.payment_failed',
+                'subscription.disable',
+                'subscription.expiring_cards',
+            ])) {
+                Log::channel('webhook')->info('🔔 Processing failure event: ' . $event);
+                $this->handleFailureEvent($data);
+                Log::channel('webhook')->info('✅ Failure event processed');
+                return response('Webhook processed', 200);
+            }
+
+            // 3. Handle main subscription lifecycle events
+            Log::channel('webhook')->info('🔄 Processing event: ' . $event);
+            $handled = match ($event) {
+                'charge.success'         => $this->handleChargeSuccess($data),
+                'subscription.create'    => $this->handleSubscriptionCreate($data),
+                'subscription.not_renew' => $this->handleSubscriptionNotRenew($data),
+                'subscription.disable'   => $this->handleSubscriptionDisable($data),
+                default                  => false,
+            };
+
+            if ($handled === false) {
+                Log::channel('webhook')->warning('⚠️ Unhandled Paystack webhook event', ['event' => $event]);
+            } else {
+                Log::channel('webhook')->info('✅ Event processed successfully: ' . $event);
+            }
+
+            Log::channel('webhook')->info('========== WEBHOOK COMPLETED ==========');
+            return response('Webhook received', 200);
+
+        } catch (\Exception $e) {
+            Log::channel('webhook')->error('❌ WEBHOOK ERROR', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
+            ]);
+
+            // Still return 200 to prevent Paystack retries for application errors
+            return response('Webhook error logged', 200);
         }
-
-        // 3. Handle main subscription lifecycle events
-        $handled = match ($event) {
-            'charge.success'         => $this->handleChargeSuccess($data),
-            'subscription.create'    => $this->handleSubscriptionCreate($data),
-            'subscription.not_renew' => $this->handleSubscriptionNotRenew($data),
-            'subscription.disable'   => $this->handleSubscriptionDisable($data),
-            default                  => false,
-        };
-
-        if ($handled === false) {
-            Log::info('Unhandled Paystack webhook event', ['event' => $event]);
-        }
-
-        return response('Webhook received', 200);
     }
 
     /**
@@ -72,7 +113,10 @@ class PaystackWebhookController extends Controller
      */
     private function handleChargeSuccess(array $data): bool
     {
+        Log::channel('webhook')->info('💰 Processing charge.success');
+
         if (($data['status'] ?? null) !== 'success') {
+            Log::channel('webhook')->warning('⚠️ Charge status is not success', ['status' => $data['status'] ?? null]);
             return false;
         }
 
@@ -80,15 +124,21 @@ class PaystackWebhookController extends Controller
         $reference = $data['reference'] ?? null;
 
         if (!$email || !$reference) {
-            Log::warning('charge.success missing required fields', ['data' => $data]);
+            Log::channel('webhook')->error('❌ charge.success missing required fields', [
+                'has_email' => !empty($email),
+                'has_reference' => !empty($reference),
+                'data' => $data
+            ]);
             return false;
         }
 
         $user = User::where('email', $email)->first();
         if (!$user) {
-            Log::warning('User not found for charge.success', ['email' => $email]);
+            Log::channel('webhook')->error('❌ User not found for charge.success', ['email' => $email]);
             return false;
         }
+
+        Log::channel('webhook')->info('✅ User found', ['user_id' => $user->id, 'email' => $email]);
 
         $subData   = $data['subscription'] ?? [];
         $subCode   = $subData['subscription_code'] ?? null;
@@ -107,19 +157,24 @@ class PaystackWebhookController extends Controller
 
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
 
-        DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate, $type, $authorizationCode) {
-            // Deactivate previous active subscriptions (skip current if renewal)
-            Subscription::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->when($subCode, fn($q) => $q->where('subscription_code', '!=', $subCode))
-                ->update([
-                    'status'    => 'inactive',
-                    'is_active' => false,
-                ]);
+        try {
+            DB::transaction(function () use ($user, $reference, $subCode, $planCode, $interval, $amount, $nextDate, $type, $authorizationCode) {
+                Log::channel('webhook')->info('💾 Starting DB transaction for charge.success');
 
-            $endsAt = $nextDate
-                ? Carbon::parse($nextDate)->utc()
-                : $this->calculateFallbackEndsAt($interval);
+                // Deactivate previous active subscriptions (skip current if renewal)
+                $deactivated = Subscription::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->when($subCode, fn($q) => $q->where('subscription_code', '!=', $subCode))
+                    ->update([
+                        'status'    => 'inactive',
+                        'is_active' => false,
+                    ]);
+
+                Log::channel('webhook')->info('📝 Deactivated previous subscriptions', ['count' => $deactivated]);
+
+                $endsAt = $nextDate
+                    ? Carbon::parse($nextDate)->utc()
+                    : $this->calculateFallbackEndsAt($interval);
 
             $fields = [
                 'user_id'           => $user->id,
@@ -138,16 +193,40 @@ class PaystackWebhookController extends Controller
             if ($authorizationCode) {
                 $fields['authorization_code'] = $authorizationCode;
             }
-            Subscription::updateOrCreate(
-                [
-                    'reference'         => $reference,
-                    'subscription_code' => $subCode ?? $reference,
-                ],
-                $fields
-            );
-        });
 
-        Log::info('Subscription activated via charge.success', [
+                Log::channel('webhook')->info('💾 Upserting subscription', [
+                    'reference' => $reference,
+                    'subscription_code' => $subCode ?? $reference,
+                    'fields' => $fields,
+                ]);
+
+                $subscription = Subscription::updateOrCreate(
+                    [
+                        'reference'         => $reference,
+                        'subscription_code' => $subCode ?? $reference,
+                    ],
+                    $fields
+                );
+
+                Log::channel('webhook')->info('✅ Subscription upserted', [
+                    'subscription_id' => $subscription->id,
+                    'was_recently_created' => $subscription->wasRecentlyCreated,
+                ]);
+            });
+
+            Log::channel('webhook')->info('✅ Transaction committed successfully');
+
+        } catch (\Exception $e) {
+            Log::channel('webhook')->error('❌ Error in charge.success handler', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return false;
+        }
+
+        Log::channel('webhook')->info('✅ Subscription activated via charge.success', [
             'user_id'   => $user->id,
             'reference' => $reference,
             'sub_code'  => $subCode,
@@ -161,6 +240,8 @@ class PaystackWebhookController extends Controller
      */
     private function handleSubscriptionCreate(array $data): bool
     {
+        Log::channel('webhook')->info('🎉 Processing subscription.create');
+
         if (!empty($data['subscription']['subscription_code'])) {
             $subCode = $data['subscription']['subscription_code'];
         } elseif (!empty($data['reference'])) {
@@ -172,16 +253,27 @@ class PaystackWebhookController extends Controller
         }
         $email   = $data['customer']['email'] ?? null;
 
+        Log::channel('webhook')->info('📋 Extracted subscription data', [
+            'subscription_code' => $subCode,
+            'email' => $email,
+        ]);
+
         if (!$subCode || !$email) {
-            Log::warning('subscription.create missing required fields', $data);
+            Log::channel('webhook')->error('❌ subscription.create missing required fields', [
+                'has_subCode' => !empty($subCode),
+                'has_email' => !empty($email),
+                'data' => $data
+            ]);
             return false;
         }
 
         $user = User::where('email', $email)->first();
         if (!$user) {
-            Log::warning('User not found for subscription.create', ['email' => $email]);
+            Log::channel('webhook')->error('❌ User not found for subscription.create', ['email' => $email]);
             return false;
         }
+
+        Log::channel('webhook')->info('✅ User found', ['user_id' => $user->id]);
 
         $nextDate  = $data['subscription']['next_payment_date'] ?? null;
         $planCode  = $data['plan']['plan_code'] ?? 'custom';
@@ -240,38 +332,63 @@ class PaystackWebhookController extends Controller
             $fields['authorization_code'] = $authorizationCode;
         }
 
-        // First try to find existing subscription by reference (might have FA-xxx subscription_code)
-        $reference = $data['reference'] ?? null;
-        $existingSubscription = null;
+        try {
+            // First try to find existing subscription by reference (might have FA-xxx subscription_code)
+            $reference = $data['reference'] ?? null;
+            $existingSubscription = null;
 
-        if ($reference) {
-            $existingSubscription = Subscription::where('reference', $reference)
-                ->where('user_id', $user->id)
-                ->first();
-        }
+            Log::channel('webhook')->info('🔍 Looking for existing subscription by reference', ['reference' => $reference]);
 
-        // If found by reference, update it with the real SUB_xxx code
-        if ($existingSubscription) {
-            $existingSubscription->update($fields);
-            Log::info('Subscription updated with real SUB code from webhook', [
-                'subscription_id' => $existingSubscription->id,
-                'old_code' => $existingSubscription->subscription_code,
-                'new_code' => $subCode,
-                'reference' => $reference,
+            if ($reference) {
+                $existingSubscription = Subscription::where('reference', $reference)
+                    ->where('user_id', $user->id)
+                    ->first();
+            }
+
+            // If found by reference, update it with the real SUB_xxx code
+            if ($existingSubscription) {
+                Log::channel('webhook')->info('📝 Found existing subscription by reference', [
+                    'subscription_id' => $existingSubscription->id,
+                    'old_subscription_code' => $existingSubscription->subscription_code,
+                    'new_subscription_code' => $subCode,
+                ]);
+
+                $existingSubscription->update($fields);
+
+                Log::channel('webhook')->info('✅ Subscription updated with real SUB code from webhook', [
+                    'subscription_id' => $existingSubscription->id,
+                    'old_code' => $existingSubscription->subscription_code,
+                    'new_code' => $subCode,
+                    'reference' => $reference,
+                ]);
+            } else {
+                Log::channel('webhook')->info('➕ No existing subscription found, creating new one');
+
+                // Otherwise, create or update by subscription_code
+                $subscription = Subscription::updateOrCreate(
+                    ['subscription_code' => $subCode],
+                    $fields
+                );
+
+                Log::channel('webhook')->info('✅ New subscription created from webhook', [
+                    'subscription_id' => $subscription->id,
+                    'subscription_code' => $subCode,
+                    'user_id'           => $user->id,
+                    'was_recently_created' => $subscription->wasRecentlyCreated,
+                ]);
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::channel('webhook')->error('❌ Error in subscription.create handler', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
             ]);
-        } else {
-            // Otherwise, create or update by subscription_code
-            Subscription::updateOrCreate(
-                ['subscription_code' => $subCode],
-                $fields
-            );
-            Log::info('New subscription created from webhook', [
-                'subscription_code' => $subCode,
-                'user_id'           => $user->id,
-            ]);
+            return false;
         }
-
-        return true;
     }
 
     /**
@@ -279,6 +396,8 @@ class PaystackWebhookController extends Controller
      */
     private function handleSubscriptionNotRenew(array $data): bool
     {
+        Log::channel('webhook')->info('⏸️ Processing subscription.not_renew');
+
         if (!empty($data['subscription']['subscription_code'])) {
             $subCode = $data['subscription']['subscription_code'];
         } elseif (!empty($data['reference'])) {
@@ -288,19 +407,33 @@ class PaystackWebhookController extends Controller
         } else {
             $subCode = null;
         }
+
         if (!$subCode) {
+            Log::channel('webhook')->error('❌ subscription.not_renew missing subscription code', ['data' => $data]);
             return false;
         }
 
-        Subscription::where('subscription_code', $subCode)->update([
-            'status'       => 'non_renewing',
-            'is_active'    => true, // still active until ends_at
-            'cancelled_at' => now(),
-        ]);
+        try {
+            $updated = Subscription::where('subscription_code', $subCode)->update([
+                'status'       => 'non_renewing',
+                'is_active'    => true, // still active until ends_at
+                'cancelled_at' => now(),
+            ]);
 
-        Log::info('Subscription set to non-renewing', ['subscription_code' => $subCode]);
+            Log::channel('webhook')->info('✅ Subscription set to non-renewing', [
+                'subscription_code' => $subCode,
+                'rows_updated' => $updated,
+            ]);
 
-        return true;
+            return true;
+
+        } catch (\Exception $e) {
+            Log::channel('webhook')->error('❌ Error in subscription.not_renew handler', [
+                'message' => $e->getMessage(),
+                'subscription_code' => $subCode,
+            ]);
+            return false;
+        }
     }
 
     /**
@@ -308,6 +441,8 @@ class PaystackWebhookController extends Controller
      */
     private function handleSubscriptionDisable(array $data): bool
     {
+        Log::channel('webhook')->info('🛑 Processing subscription.disable');
+
         if (!empty($data['subscription']['subscription_code'])) {
             $subCode = $data['subscription']['subscription_code'];
         } elseif (!empty($data['reference'])) {
@@ -317,19 +452,33 @@ class PaystackWebhookController extends Controller
         } else {
             $subCode = null;
         }
+
         if (!$subCode) {
+            Log::channel('webhook')->error('❌ subscription.disable missing subscription code', ['data' => $data]);
             return false;
         }
 
-        Subscription::where('subscription_code', $subCode)->update([
-            'status'       => 'cancelled',
-            'is_active'    => false,
-            'cancelled_at' => now(),
-        ]);
+        try {
+            $updated = Subscription::where('subscription_code', $subCode)->update([
+                'status'       => 'cancelled',
+                'is_active'    => false,
+                'cancelled_at' => now(),
+            ]);
 
-        Log::info('Subscription disabled', ['subscription_code' => $subCode]);
+            Log::channel('webhook')->info('✅ Subscription disabled', [
+                'subscription_code' => $subCode,
+                'rows_updated' => $updated,
+            ]);
 
-        return true;
+            return true;
+
+        } catch (\Exception $e) {
+            Log::channel('webhook')->error('❌ Error in subscription.disable handler', [
+                'message' => $e->getMessage(),
+                'subscription_code' => $subCode,
+            ]);
+            return false;
+        }
     }
 
     /**
@@ -337,6 +486,8 @@ class PaystackWebhookController extends Controller
      */
     private function handleFailureEvent(array $data): void
     {
+        Log::channel('webhook')->warning('⚠️ Processing failure event');
+
         $email = $data['customer']['email']
             ?? $data['subscription']['customer']['email']
             ?? null;
@@ -344,16 +495,33 @@ class PaystackWebhookController extends Controller
         $reference = $data['reference'] ?? null;
         $amount    = isset($data['amount']) ? $data['amount'] / 100 : 0;
 
+        Log::channel('webhook')->info('📝 Failure event data', [
+            'email' => $email,
+            'reference' => $reference,
+            'amount' => $amount,
+        ]);
+
         if ($email && $reference) {
             $user = User::where('email', $email)->first();
             if ($user) {
-                $user->notify(new PaymentFailed($reference, $amount));
-                Log::info('Payment failure notification sent', [
-                    'email'     => $email,
-                    'reference' => $reference,
-                    'amount'    => $amount,
-                ]);
+                try {
+                    $user->notify(new PaymentFailed($reference, $amount));
+                    Log::channel('webhook')->info('✅ Payment failure notification sent', [
+                        'email'     => $email,
+                        'reference' => $reference,
+                        'amount'    => $amount,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::channel('webhook')->error('❌ Failed to send payment failure notification', [
+                        'message' => $e->getMessage(),
+                        'email' => $email,
+                    ]);
+                }
+            } else {
+                Log::channel('webhook')->warning('⚠️ User not found for failure event', ['email' => $email]);
             }
+        } else {
+            Log::channel('webhook')->warning('⚠️ Missing email or reference for failure event');
         }
     }
 

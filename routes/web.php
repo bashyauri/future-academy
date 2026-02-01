@@ -131,6 +131,79 @@ Route::get('/clear', function () {
     return 'Cleared!';
 });
 
+// Sync subscription codes (for shared hosting without CLI access)
+Route::get('/sync-subscriptions', function () {
+    // Require authentication and admin role
+    if (!auth()->check() || !auth()->user()->hasRole(['super-admin', 'admin'])) {
+        abort(403, 'Unauthorized');
+    }
+
+    Artisan::call('subscriptions:sync-codes');
+    $output = Artisan::output();
+
+    return response("<pre>{$output}</pre>")
+        ->header('Content-Type', 'text/html');
+})->name('sync.subscriptions');
+
+// View webhook logs (for shared hosting debugging)
+Route::get('/webhook-logs', function () {
+    // Require authentication and admin role
+    if (!auth()->check() || !auth()->user()->hasRole(['super-admin', 'admin'])) {
+        abort(403, 'Unauthorized');
+    }
+
+    $date = request('date', date('Y-m-d'));
+    $lines = (int) request('lines', 100);
+    $logFile = storage_path("logs/webhook-{$date}.log");
+
+    if (!file_exists($logFile)) {
+        return view('webhook-logs', [
+            'error' => "No webhook logs found for {$date}",
+            'date' => $date,
+            'availableDates' => collect(glob(storage_path('logs/webhook-*.log')))
+                ->map(fn($f) => basename($f, '.log'))
+                ->map(fn($f) => str_replace('webhook-', '', $f))
+                ->sort()
+                ->reverse()
+                ->values()
+                ->toArray(),
+        ]);
+    }
+
+    $allLines = file($logFile);
+    $totalLines = count($allLines);
+    $displayLines = array_slice($allLines, -$lines);
+    $content = implode('', $displayLines);
+
+    // Parse statistics
+    $stats = [
+        'total' => substr_count($content, 'WEBHOOK RECEIVED'),
+        'successful' => substr_count($content, 'Event processed successfully'),
+        'errors' => substr_count($content, '❌'),
+        'signature_failures' => substr_count($content, 'Invalid Paystack webhook signature'),
+    ];
+
+    // Extract recent subscription codes
+    preg_match_all('/SUB_[a-z0-9]+/i', $content, $matches);
+    $recentSubs = array_unique($matches[0]);
+
+    return view('webhook-logs', [
+        'content' => $content,
+        'date' => $date,
+        'lines' => $lines,
+        'totalLines' => $totalLines,
+        'stats' => $stats,
+        'recentSubs' => $recentSubs,
+        'availableDates' => collect(glob(storage_path('logs/webhook-*.log')))
+            ->map(fn($f) => basename($f, '.log'))
+            ->map(fn($f) => str_replace('webhook-', '', $f))
+            ->sort()
+            ->reverse()
+            ->values()
+            ->toArray(),
+    ]);
+})->name('webhook.logs');
+
 // Webhooks
 Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
