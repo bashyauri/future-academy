@@ -7,6 +7,7 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\Video;
+use App\Models\User;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -18,8 +19,58 @@ class ParentIndex extends Component
     public $childrenProgress = [];
     public $childrenStats = [];
     public $subscriptions = [];
+    public $studentEmail = '';
+    public $linkSuccessMessage = '';
 
     public function mount()
+    {
+        $this->refreshDashboardData();
+    }
+
+    public function linkStudent()
+    {
+        $this->resetErrorBag('studentEmail');
+        $this->linkSuccessMessage = '';
+
+        $this->validate([
+            'studentEmail' => ['required', 'email'],
+        ]);
+
+        $parent = auth()->user();
+        $student = User::where('email', $this->studentEmail)->first();
+
+        if (!$student || !$student->isStudent()) {
+            $this->addError('studentEmail', __('Student not found.'));
+            return;
+        }
+
+        if ($student->id === $parent->id) {
+            $this->addError('studentEmail', __('You cannot link your own account.'));
+            return;
+        }
+
+        $alreadyLinked = $parent->children()->where('users.id', $student->id)->exists();
+
+        if ($alreadyLinked) {
+            $parent->children()->updateExistingPivot($student->id, [
+                'is_active' => true,
+                'linked_at' => now(),
+            ]);
+        } else {
+            $parent->children()->syncWithoutDetaching([
+                $student->id => [
+                    'is_active' => true,
+                    'linked_at' => now(),
+                ],
+            ]);
+        }
+
+        $this->studentEmail = '';
+        $this->linkSuccessMessage = __('Student linked successfully.');
+        $this->refreshDashboardData();
+    }
+
+    private function refreshDashboardData()
     {
         $parent = auth()->user();
 

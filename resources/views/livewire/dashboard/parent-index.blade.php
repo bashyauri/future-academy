@@ -100,6 +100,45 @@
             </div>
         </div>
 
+        {{-- Link Student Section --}}
+        <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                    <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Link a Student') }}</flux:heading>
+                    <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                        {{ __('Enter the student email to link them to your account.') }}
+                    </flux:text>
+                </div>
+            </div>
+
+            @if($linkSuccessMessage)
+                <div class="mb-4 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-2 text-sm font-semibold">
+                    {{ $linkSuccessMessage }}
+                </div>
+            @endif
+
+            <form wire:submit.prevent="linkStudent" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div class="sm:col-span-2">
+                    <flux:input
+                        wire:model.defer="studentEmail"
+                        type="email"
+                        :label="__('Student Email')"
+                        autocomplete="email"
+                        placeholder="student@email.com"
+                        required
+                    />
+                    @error('studentEmail')
+                        <div class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div>
+                    <flux:button type="submit" variant="primary" class="w-full" icon="link">
+                        {{ __('Link Student') }}
+                    </flux:button>
+                </div>
+            </form>
+        </div>
+
         {{-- Subscription Section --}}
         @if($subscriptions->isNotEmpty())
         <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8 overflow-hidden">
