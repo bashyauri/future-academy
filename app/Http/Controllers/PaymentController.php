@@ -103,13 +103,22 @@ class PaymentController extends Controller
             'plan' => 'required|in:monthly,yearly',
             'type' => 'required|in:one_time,recurring',
             'plan_code' => 'nullable|string',
+            'student_id' => 'nullable|integer|exists:users,id',
         ]);
+
+        if ($validated['student_id'] ?? null) {
+            Log::info('Payment initialize with student_id', [
+                'user_id' => Auth::id(),
+                'student_id' => $validated['student_id'],
+            ]);
+        } else {
+            Log::info('Payment initialize without student_id', ['user_id' => Auth::id()]);
+        }
 
         $user = Auth::user();
         if (!$user) {
             return redirect()->route('login');
         }
-
 
         $planKey     = $validated['plan'];
         $isRecurring = $validated['type'] === 'recurring';
@@ -174,6 +183,7 @@ class PaymentController extends Controller
             'selected_plan'      => $planKey,
             'selected_type'      => $validated['type'],
             'selected_plan_code' => $planCode,
+            'selected_student_id' => $validated['student_id'] ?? null,
         ]);
 
         return redirect($init['authorization_url']);
@@ -214,6 +224,15 @@ class PaymentController extends Controller
         $planFromSession = session('selected_plan');
         $typeFromSession = session('selected_type');
         $planCodeFromSession = session('selected_plan_code');
+        $studentIdFromSession = session('selected_student_id');
+
+        Log::info('Payment callback session data', [
+            'user_id' => $user->id,
+            'student_id_from_session' => $studentIdFromSession,
+            'plan' => $planFromSession,
+            'type' => $typeFromSession,
+            'reference' => $reference,
+        ]);
 
         $plan = $planFromSession ?? ($data['plan']['plan_code'] ?? 'custom');
         $type = $typeFromSession ?? 'one_time';
@@ -256,7 +275,7 @@ class PaymentController extends Controller
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
         $customerCode = $data['customer']['customer_code'] ?? null;
 
-        DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $data, $subscriptionCode, $authorizationCode, $planCodeFromSession, $customerCode) {
+        DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $data, $subscriptionCode, $authorizationCode, $planCodeFromSession, $customerCode, $studentIdFromSession) {
             // Clear any active trial
             if ($user->trial_ends_at) {
                 $user->trial_ends_at = null;
@@ -289,6 +308,7 @@ class PaymentController extends Controller
             $planCode = $data['plan']['plan_code'] ?? $planCodeFromSession;
             $subscriptionData = [
                 'user_id'           => $user->id,
+                'student_id'        => $studentIdFromSession, // Link to specific student for guardians
                 'plan'              => $plan, // human-readable (monthly/yearly)
                 'plan_code'         => $planCode, // Paystack code (PLN_xxx)
                 'subscription_code' => $subscriptionCode, // Include subscription_code here
@@ -353,7 +373,7 @@ class PaymentController extends Controller
         ]);
 
         // Clean up session
-        session()->forget(['paystack_reference', 'selected_plan', 'selected_type']);
+        session()->forget(['paystack_reference', 'selected_plan', 'selected_type', 'selected_student_id']);
 
         return redirect('/dashboard')->with('success', 'Payment successful! Your subscription is now active.');
     }
@@ -365,15 +385,22 @@ class PaymentController extends Controller
     {
         $user = Auth::user();
 
-        $subscription = $user->subscriptions()
+        // Allow cancelling specific subscription by ID (for per-student management)
+        $subscriptionId = $request->input('subscription_id');
+
+        $query = $user->subscriptions()
             ->where('is_active', true)
             ->where('type', 'recurring') // Only recurring can be cancelled
-            ->where(function($query) {
-                $query->whereNotNull('subscription_code')
-                      ->orWhereNotNull('plan_code');
-            })
-            ->latest()
-            ->first();
+            ->where(function($q) {
+                $q->whereNotNull('subscription_code')
+                  ->orWhereNotNull('plan_code');
+            });
+
+        if ($subscriptionId) {
+            $query->where('id', $subscriptionId);
+        }
+
+        $subscription = $query->latest()->first();
 
         if (!$subscription) {
             return back()->withErrors(['subscription' => 'No active recurring subscription found. One-time payments cannot be cancelled and will expire naturally.']);

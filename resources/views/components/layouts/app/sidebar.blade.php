@@ -31,11 +31,12 @@
             </flux:navlist.group>
         </flux:navlist>
 
-
-        <div class="my-4 w-full flex flex-col items-center gap-4">
-            <livewire:payment.status />
-            <livewire:payment.history />
-        </div>
+        @if(!auth()->user()->hasRole('guardian'))
+            <div class="my-4 w-full flex flex-col items-center gap-4">
+                <livewire:payment.status />
+                <livewire:payment.history />
+            </div>
+        @endif
         <flux:spacer />
 
         <flux:navlist variant="outline">

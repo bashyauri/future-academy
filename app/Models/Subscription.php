@@ -12,6 +12,26 @@ class Subscription extends Model
 {
     protected $guarded = [];
 
+    protected $fillable = [
+        'user_id',
+        'student_id',
+        'plan',
+        'plan_code',
+        'subscription_code',
+        'reference',
+        'type',
+        'status',
+        'is_active',
+        'amount',
+        'starts_at',
+        'ends_at',
+        'cancelled_at',
+        'next_billing_date',
+        'authorization_code',
+        'customer_code',
+        'email_token',
+    ];
+
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
@@ -120,5 +140,10 @@ class Subscription extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'student_id');
     }
 }

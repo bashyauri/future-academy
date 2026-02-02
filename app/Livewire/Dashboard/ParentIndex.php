@@ -21,6 +21,8 @@ class ParentIndex extends Component
     public $subscriptions = [];
     public $studentEmail = '';
     public $linkSuccessMessage = '';
+    public $studentSubscriptions = [];
+    public $paidStudentIds = [];
 
     public function mount()
     {
@@ -79,12 +81,16 @@ class ParentIndex extends Component
             ->with(['enrolledSubjects', 'subscriptions'])
             ->get();
 
-        // Get parent's subscription(s)
+        // Get parent's subscriptions for each student
         $this->subscriptions = $parent->subscriptions()
             ->where('status', 'active')
             ->orWhere('status', 'pending')
             ->latest('created_at')
             ->get();
+
+        // Map subscriptions by student_id for quick lookup
+        $this->studentSubscriptions = $this->subscriptions->keyBy('student_id');
+        $this->paidStudentIds = $this->studentSubscriptions->keys()->filter()->values();
 
         // Calculate combined stats from all children
         $this->calculateCombinedStats();
@@ -105,6 +111,9 @@ class ParentIndex extends Component
         $totalSubjectsEnrolled = 0;
 
         foreach ($this->children as $child) {
+            if (!$this->paidStudentIds->contains($child->id)) {
+                continue;
+            }
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
             $totalVideos = Video::where('is_published', true)->count();
             $quizzesTaken = $child->quizAttempts()->where('status', 'completed')->count();
@@ -125,6 +134,7 @@ class ParentIndex extends Component
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
             $subjectsEnrolled = $child->enrolledSubjects()->count();
+            $hasActiveSubscription = $child->hasActiveSubscription();
 
             $totalVideosWatched += $videosWatched;
             $totalTotalVideos += $totalVideos;
@@ -139,12 +149,13 @@ class ParentIndex extends Component
         }
 
         $childCount = count($this->children);
+        $paidCount = $this->paidStudentIds->count();
         $this->stats = [
             'videos_watched' => $totalVideosWatched,
             'total_videos' => $totalTotalVideos,
             'quizzes_taken' => $totalQuizzesTaken,
             'total_quizzes' => $totalTotalQuizzes,
-            'average_score' => $childCount > 0 ? $averageScore / $childCount : 0,
+            'average_score' => $paidCount > 0 ? $averageScore / $paidCount : 0,
             'subjects_enrolled' => $totalSubjectsEnrolled,
             'mock_exams_taken' => $totalMockExamsTaken,
             'best_mock_score' => $bestMockScore,
@@ -173,6 +184,10 @@ class ParentIndex extends Component
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
             $subjectsEnrolled = $child->enrolledSubjects()->count();
+            $hasActiveSubscription = $child->hasActiveSubscription();
+
+            // Check if parent has paid for this specific student
+            $parentPaidForStudent = $this->studentSubscriptions->has($child->id);
 
             $this->childrenStats[$child->id] = [
                 'videos_watched' => $videosWatched,
@@ -182,6 +197,9 @@ class ParentIndex extends Component
                 'mock_exams_taken' => $mockExamsTaken,
                 'best_mock_score' => $bestMockScore,
                 'subjects_enrolled' => $subjectsEnrolled,
+                'has_active_subscription' => $hasActiveSubscription,
+                'parent_paid' => $parentPaidForStudent,
+                'can_view_metrics' => $parentPaidForStudent,
             ];
         }
     }

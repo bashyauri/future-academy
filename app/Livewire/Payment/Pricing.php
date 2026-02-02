@@ -9,6 +9,13 @@ class Pricing extends Component
     public $plan = 'monthly';
     public $type = 'one_time';
     public $error;
+    public $student_id = null;
+
+    public function mount()
+    {
+        // Get student_id from query string if present
+        $this->student_id = request()->query('student_id');
+    }
 
     public function pay()
     {
@@ -17,11 +24,8 @@ class Pricing extends Component
             'plan' => 'required|in:monthly,yearly',
             'type' => 'required|in:one_time,recurring',
         ]);
-        // Redirect to payment initialization route
-        return redirect()->route('payment.initialize', [
-            'plan' => $this->plan,
-            'type' => $this->type,
-        ]);
+
+        // Will be submitted via wire:submit form
     }
 
     public function render()

@@ -23,17 +23,47 @@ class EnsureSubscriptionOrTrial
             return redirect()->route('login');
         }
 
-        // Guardians MUST have active subscription (no trial allowed)
+        // Guardians MUST have active subscription for each linked student (no trial allowed)
         if ($user->isParent()) {
-            if ($user->hasActiveSubscription()) {
+            $linkedStudents = $user->children()->wherePivot('is_active', true)->pluck('users.id');
+
+            if ($linkedStudents->isEmpty()) {
+                // No students linked yet, allow access to dashboard to link students
                 return $next($request);
             }
-            return redirect()->route('pricing')->with('error', __('Parents must purchase a subscription to manage students.'));
+
+            // Check if guardian has active subscription for ALL linked students
+            $studentsWithSubscription = \App\Models\Subscription::where('user_id', $user->id)
+                ->where('status', 'active')
+                ->where('is_active', true)
+                ->whereIn('student_id', $linkedStudents)
+                ->pluck('student_id');
+
+            $studentsWithoutSubscription = $linkedStudents->diff($studentsWithSubscription);
+
+            if ($studentsWithoutSubscription->isNotEmpty()) {
+                return redirect()->route('parent.dashboard')->with('error', __('Please purchase a subscription for all linked students to continue.'));
+            }
+
+            return $next($request);
         }
 
         // Students/Teachers/Uploaders can use trial or active subscription
+        // For students: Also check if any guardian has paid for them
         if ($user->onTrial() || $user->hasActiveSubscription()) {
             return $next($request);
+        }
+
+        // Check if a guardian has paid for this student (simpler query)
+        if ($user->isStudent()) {
+            $guardianPaidForStudent = \App\Models\Subscription::where('student_id', $user->id)
+                ->where('status', 'active')
+                ->where('is_active', true)
+                ->exists();
+
+            if ($guardianPaidForStudent) {
+                return $next($request);
+            }
         }
 
         return redirect()->route('payment.pricing')->with('error', __('Please subscribe or start a trial to access all features.'));

@@ -48,7 +48,7 @@ Route::get('/redirect-dashboard', function () {
 
 // Onboarding
 Route::get('/onboarding', StudentOnboarding::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'ensure.student'])
     ->name('onboarding');
 
 // Dashboard - Route to appropriate dashboard based on user role

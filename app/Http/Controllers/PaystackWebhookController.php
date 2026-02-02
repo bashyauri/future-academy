@@ -166,6 +166,13 @@ class PaystackWebhookController extends Controller
                     'next_billing_date' => $nextDate ? Carbon::parse($nextDate)->utc() : null,
                 ];
 
+                // Check if subscription exists to preserve student_id
+                $existingSubscription = Subscription::where('reference', $reference)->first();
+                if ($existingSubscription && $existingSubscription->student_id) {
+                    // Preserve student_id for renewals
+                    $fields['student_id'] = $existingSubscription->student_id;
+                }
+
                 // Idempotent: update or create
                 $subscription = Subscription::updateOrCreate(
                     ['reference' => $reference],

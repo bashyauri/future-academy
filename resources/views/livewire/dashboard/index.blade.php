@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 -m-6 p-6">
     <div class="max-w-7xl mx-auto space-y-8">
         {{-- Onboarding Setup Card - Prominent Banner --}}
-        @if(!auth()->user()->has_completed_onboarding)
+        @if(auth()->user()->isStudent() && !auth()->user()->has_completed_onboarding)
         <div class="rounded-2xl border-0 p-8 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 dark:from-blue-700 dark:via-blue-600 dark:to-cyan-600 shadow-xl hover:shadow-2xl transition-shadow">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div class="flex-1">
@@ -99,6 +99,7 @@
                 </a>
 
                 <!-- Onboarding -->
+                @if(auth()->user()->isStudent())
                 <a href="{{ route('onboarding') }}" class="group flex flex-col items-center p-5 rounded-xl border-2 {{ auth()->user()->has_completed_onboarding ? 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50' : 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-950/30' }} hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all">
                     <div class="p-3 rounded-lg {{ auth()->user()->has_completed_onboarding ? 'bg-green-100 dark:bg-green-900/30' : 'bg-blue-100 dark:bg-blue-900/30' }} group-hover:shadow-md transition-all mb-3">
                         @if(auth()->user()->has_completed_onboarding)
@@ -116,6 +117,7 @@
                     <span class="mt-2 inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full text-center">{{ __('Required') }}</span>
                     @endif
                 </a>
+                @endif
             </div>
         </div>
 

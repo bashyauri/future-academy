@@ -139,97 +139,6 @@
             </form>
         </div>
 
-        {{-- Subscription Section --}}
-        @if($subscriptions->isNotEmpty())
-        <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8 overflow-hidden">
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Your Subscription') }}</flux:heading>
-                    <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{{ __('Covers all linked students') }}</flux:text>
-                </div>
-                <livewire:subscription.cancel />
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                @foreach($subscriptions as $subscription)
-                <div class="p-6 rounded-xl border {{ $subscription->status === 'active' ? 'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/10' : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50' }} transition-all">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white capitalize">
-                                {{ $subscription->plan }} {{ __('Plan') }}
-                            </flux:heading>
-                            <flux:text class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                                ₦{{ number_format($subscription->amount) }}
-                            </flux:text>
-                        </div>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $subscription->status === 'active' ? 'bg-green-200 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ($subscription->status === 'pending' ? 'bg-amber-200 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' : 'bg-red-200 dark:bg-red-900/50 text-red-700 dark:text-red-300') }}">
-                            {{ ucfirst($subscription->status) }}
-                        </span>
-                    </div>
-
-                    <div class="space-y-3 mb-4 pb-4 border-b border-current border-opacity-10">
-                        <div class="flex items-center justify-between text-sm">
-                            <flux:text class="text-neutral-600 dark:text-neutral-400">{{ __('Started') }}</flux:text>
-                            <flux:text class="font-semibold text-neutral-900 dark:text-white">{{ $subscription->created_at->format('M j, Y') }}</flux:text>
-                        </div>
-                        @if($subscription->ends_at)
-                        <div class="flex items-center justify-between text-sm">
-                            <flux:text class="text-neutral-600 dark:text-neutral-400">{{ __('Expires') }}</flux:text>
-                            <flux:text class="font-semibold {{ $subscription->ends_at->isPast() ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                {{ $subscription->ends_at->format('M j, Y') }}
-                            </flux:text>
-                        </div>
-                        @endif
-                    </div>
-
-                    @if($subscription->status === 'active')
-                    <flux:text class="text-xs text-green-600 dark:text-green-400 font-medium">
-                        ✓ {{ __('Active & protecting all students') }}
-                    </flux:text>
-                    @elseif($subscription->status === 'pending')
-                    <flux:text class="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                        ⏳ {{ __('Pending activation') }}
-                    </flux:text>
-                    @else
-                    <flux:text class="text-xs text-red-600 dark:text-red-400 font-medium">
-                        ✗ {{ __('Inactive or expired') }}
-                    </flux:text>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-
-            <div class="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-700">
-                <flux:button href="{{ route('pricing') }}" variant="subtle" wire:navigate class="w-full">
-                    {{ __('Manage Subscription') }}
-                </flux:button>
-            </div>
-        </div>
-        @else
-        <div class="rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-8">
-            <div class="flex items-start gap-6">
-                <div class="flex-shrink-0">
-                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-amber-500 text-white">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0v2m0-6v2m0-4v2"></path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="flex-1">
-                    <flux:heading size="lg" class="font-bold text-amber-900 dark:text-amber-100 mb-2">
-                        {{ __('No Active Subscription') }}
-                    </flux:heading>
-                    <flux:text class="text-amber-800 dark:text-amber-200 mb-4">
-                        {{ __('Get a subscription to unlock content for all your linked students and start their learning journey!') }}
-                    </flux:text>
-                    <flux:button href="{{ route('pricing') }}" variant="primary" wire:navigate>
-                        {{ __('View Subscription Plans') }}
-                    </flux:button>
-                </div>
-            </div>
-        </div>
-        @endif
-
         {{-- Children Progress Cards --}}
         <div>
             <div class="mb-6">
@@ -263,24 +172,49 @@
                                 {{ $child->name }}
                             </flux:heading>
                             <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                                {{ $child->enrolledSubjects()->count() }} subject(s) enrolled
+                                @if($childrenStats[$child->id]['parent_paid'])
+                                    {{ $child->enrolledSubjects()->count() }} subject(s) enrolled
+                                @else
+                                    {{ __('Payment required to view metrics') }}
+                                @endif
                             </flux:text>
                         </div>
-                        <div class="text-right">
-                            @if($child->has_completed_onboarding)
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                                ✓ Ready
-                            </span>
-                            @else
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                                ⚠ Setup Needed
-                            </span>
+                        <div class="text-right space-y-2">
+                            <div>
+                                @if($child->has_completed_onboarding)
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                    ✓ Ready
+                                </span>
+                                @else
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                                    ⚠ Setup Needed
+                                </span>
+                                @endif
+                            </div>
+                            <div>
+                                @if($childrenStats[$child->id]['parent_paid'])
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                        {{ __('✓ You Paid') }}
+                                    </span>
+                                @else
+                                    <a href="{{ route('pricing', ['student_id' => $child->id]) }}" wire:navigate class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
+                                        {{ __('⚠ Pay Now') }}
+                                    </a>
+                                @endif
+                            </div>
+                            @if($childrenStats[$child->id]['has_active_subscription'])
+                                <div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                        {{ __('Student Paid') }}
+                                    </span>
+                                </div>
                             @endif
                         </div>
                     </div>
 
                     {{-- Child Stats --}}
                     <div class="p-6">
+                        @if($childrenStats[$child->id]['can_view_metrics'])
                         <div class="grid grid-cols-2 gap-4 mb-6">
                             {{-- Videos --}}
                             <div class="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-700/30">
@@ -351,10 +285,60 @@
                             </div>
                         </div>
 
-                        {{-- Quick Action --}}
-                        <flux:button href="{{ route('dashboard') }}" variant="subtle" size="sm" class="w-full" wire:navigate>
-                            {{ __('View Full Profile') }} →
-                        </flux:button>
+                        {{-- Student Actions --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <flux:button
+                                href="{{ route('analytics', ['student' => $child->id]) }}"
+                                variant="subtle"
+                                size="sm"
+                                class="w-full"
+                                wire:navigate
+                            >
+                                {{ __('Track Progress') }}
+                            </flux:button>
+                            <flux:button
+                                href="{{ route('analytics', ['student' => $child->id, 'tab' => 'performance']) }}"
+                                variant="subtle"
+                                size="sm"
+                                class="w-full"
+                                wire:navigate
+                            >
+                                {{ __('View Performance') }}
+                            </flux:button>
+                            <flux:button
+                                href="{{ route('lessons.subjects', ['student' => $child->id]) }}"
+                                variant="subtle"
+                                size="sm"
+                                class="w-full"
+                                wire:navigate
+                            >
+                                {{ __('Manage Enrollment') }}
+                            </flux:button>
+                        </div>
+                        @else
+                        <div class="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-5">
+                            <div class="flex items-start gap-4">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <flux:heading size="sm" class="font-semibold text-amber-900 dark:text-amber-100">
+                                        {{ __('Payment required') }}
+                                    </flux:heading>
+                                    <flux:text class="text-sm text-amber-800/80 dark:text-amber-200/80 mt-1">
+                                        {{ __('Pay for this student to unlock metrics, progress tracking, and enrollment management.') }}
+                                    </flux:text>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <flux:button href="{{ route('pricing', ['student_id' => $child->id]) }}" variant="primary" size="sm" class="w-full" wire:navigate>
+                                    {{ __('Pay Now') }}
+                                </flux:button>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
                 @endforeach
@@ -362,37 +346,118 @@
             @endif
         </div>
 
-        {{-- Quick Actions Section --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <a href="{{ route('pricing') }}" class="group p-6 rounded-2xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-neutral-800 hover:shadow-lg transition-all">
-                <div class="p-3 w-fit rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors mb-4">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
+        {{-- Subscription Section --}}
+        @if($subscriptions->isNotEmpty())
+        <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8 overflow-hidden">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Student Subscriptions') }}</flux:heading>
+                    <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{{ __('Manage subscriptions for each student') }}</flux:text>
                 </div>
-                <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white mb-1">{{ __('Plans & Pricing') }}</flux:heading>
-                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400">{{ __('View subscription options') }}</flux:text>
-            </a>
+            </div>
 
-            <a href="{{ route('profile.edit') }}" class="group p-6 rounded-2xl border border-neutral-200 dark:border-neutral-700 hover:border-purple-500 dark:hover:border-purple-400 bg-white dark:bg-neutral-800 hover:shadow-lg transition-all">
-                <div class="p-3 w-fit rounded-lg bg-purple-100 dark:bg-purple-900/30 group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors mb-4">
-                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                    </svg>
-                </div>
-                <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white mb-1">{{ __('Manage Students') }}</flux:heading>
-                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400">{{ __('Link or remove students') }}</flux:text>
-            </a>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($subscriptions as $subscription)
+                @php
+                    $student = $subscription->student;
+                @endphp
+                <div class="p-6 rounded-xl border {{ $subscription->status === 'active' ? 'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/10' : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50' }} transition-all">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex-1">
+                            @if($student)
+                                <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white mb-1">
+                                    {{ $student->name }}
+                                </flux:heading>
+                                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
+                                    {{ ucfirst($subscription->plan) }} - ₦{{ number_format($subscription->amount) }}
+                                </flux:text>
+                            @else
+                                <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white">
+                                    {{ ucfirst($subscription->plan) }} {{ __('Plan') }}
+                                </flux:heading>
+                                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                                    ₦{{ number_format($subscription->amount) }}
+                                </flux:text>
+                            @endif
+                        </div>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $subscription->status === 'active' ? 'bg-green-200 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ($subscription->status === 'pending' ? 'bg-amber-200 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300' : 'bg-red-200 dark:bg-red-900/50 text-red-700 dark:text-red-300') }}">
+                            {{ ucfirst($subscription->status) }}
+                        </span>
+                    </div>
 
-            <a href="{{ route('analytics') }}" class="group p-6 rounded-2xl border border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-400 bg-white dark:bg-neutral-800 hover:shadow-lg transition-all">
-                <div class="p-3 w-fit rounded-lg bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors mb-4">
-                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
+                    <div class="space-y-3 mb-4 pb-4 border-b border-current border-opacity-10">
+                        <div class="flex items-center justify-between text-sm">
+                            <flux:text class="text-neutral-600 dark:text-neutral-400">{{ __('Started') }}</flux:text>
+                            <flux:text class="font-semibold text-neutral-900 dark:text-white">{{ $subscription->created_at->format('M j, Y') }}</flux:text>
+                        </div>
+                        @if($subscription->ends_at)
+                        <div class="flex items-center justify-between text-sm">
+                            <flux:text class="text-neutral-600 dark:text-neutral-400">{{ __('Expires') }}</flux:text>
+                            <flux:text class="font-semibold {{ $subscription->ends_at->isPast() ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
+                                {{ $subscription->ends_at->format('M j, Y') }}
+                            </flux:text>
+                        </div>
+                        @endif
+                    </div>
+
+                    @if($subscription->status === 'active')
+                    <flux:text class="text-xs text-green-600 dark:text-green-400 font-medium mb-3">
+                        ✓ {{ __('Active') }}
+                    </flux:text>
+                    @elseif($subscription->status === 'pending')
+                    <flux:text class="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
+                        ⏳ {{ __('Pending') }}
+                    </flux:text>
+                    @else
+                    <flux:text class="text-xs text-red-600 dark:text-red-400 font-medium mb-3">
+                        ✗ {{ __('Inactive') }}
+                    </flux:text>
+                    @endif
+
+                    <div class="flex gap-2">
+                        @if($subscription->type === 'recurring' && $subscription->status === 'active')
+                            <form method="POST" action="{{ route('subscription.cancel') }}" class="flex-1">
+                                @csrf
+                                <input type="hidden" name="subscription_id" value="{{ $subscription->id }}">
+                                <flux:button type="submit" variant="danger" size="sm" class="w-full">
+                                    {{ __('Cancel') }}
+                                </flux:button>
+                            </form>
+                        @endif
+                        @if($subscription->status !== 'active' || $subscription->ends_at?->isPast())
+                            <flux:button href="{{ route('pricing', ['student_id' => $subscription->student_id]) }}" variant="primary" size="sm" class="w-full" wire:navigate>
+                                {{ __('Renew') }}
+                            </flux:button>
+                        @endif
+                    </div>
                 </div>
-                <flux:heading size="sm" class="font-bold text-neutral-900 dark:text-white mb-1">{{ __('View Analytics') }}</flux:heading>
-                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400">{{ __('Detailed performance reports') }}</flux:text>
-            </a>
+                @endforeach
+            </div>
         </div>
+        @else
+        <div class="rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-8">
+            <div class="flex items-start gap-6">
+                <div class="flex-shrink-0">
+                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-amber-500 text-white">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0v2m0-6v2m0-4v2"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <flux:heading size="lg" class="font-bold text-amber-900 dark:text-amber-100 mb-2">
+                        {{ __('No Active Subscription') }}
+                    </flux:heading>
+                    <flux:text class="text-amber-800 dark:text-amber-200 mb-4">
+                        {{ __('Get a subscription to unlock content for all your linked students and start their learning journey!') }}
+                    </flux:text>
+                    <flux:button href="{{ route('pricing') }}" variant="primary" wire:navigate>
+                        {{ __('View Subscription Plans') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+        @endif
+
     </div>
 </div>
