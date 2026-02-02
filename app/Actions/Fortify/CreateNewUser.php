@@ -13,6 +13,13 @@ class CreateNewUser implements CreatesNewUsers
 
     /**
      * Validate and create a newly registered user.
+     * Handles account type selection (student, guardian, teacher, uploader)
+     * and assigns appropriate Spatie role.
+     *
+     * Trial access:
+     * - Students: 48-hour trial
+     * - Teachers/Uploaders: 48-hour trial
+     * - Guardians: NO trial (must purchase subscription immediately)
      *
      * @param  array<string, string>  $input
      */
@@ -28,13 +35,20 @@ class CreateNewUser implements CreatesNewUsers
                 Rule::unique(User::class),
             ],
             'password' => $this->passwordRules(),
+            'account_type' => ['required', 'string', 'in:student,guardian,teacher,uploader'],
         ])->validate();
+
+        $accountType = $input['account_type'] ?? 'student';
+
+        // Guardians don't get trial - they must subscribe to manage children
+        $trialEndsAt = $accountType === 'guardian' ? null : now()->addHours(48);
 
         return User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
-            'trial_ends_at' => now()->addHours(48),
+            'account_type' => $accountType,
+            'trial_ends_at' => $trialEndsAt,
         ]);
     }
 }

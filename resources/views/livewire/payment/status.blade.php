@@ -4,7 +4,14 @@
             {{ __('Account Status') }}
         </flux:heading>
 
-        @if($onTrial)
+        @if($isGuardian && !$isSubscribed)
+            {{-- Guardians without subscription - show purchase prompt --}}
+            <flux:badge color="orange" class="mb-2">{{ __('No Subscription') }}</flux:badge>
+            <flux:text class="text-green-900 dark:text-green-100">
+                {{ __('Purchase a subscription to start managing your student(s).') }}
+            </flux:text>
+
+        @elseif($onTrial)
             <flux:badge color="yellow" class="mb-2">{{ __('Trial Active') }}</flux:badge>
             @php
                 $daysLeft = max(0, (int) $trialDaysLeft);

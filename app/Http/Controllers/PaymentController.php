@@ -113,7 +113,7 @@ class PaymentController extends Controller
 
         $planKey     = $validated['plan'];
         $isRecurring = $validated['type'] === 'recurring';
-        $amount      = $planKey === 'monthly' ? 2000 : 12000;
+        $amount      = config("pricing.plans.{$planKey}.amount");
 
         // Get plan code for recurring payments (prefer submitted value, fallback to config)
         $planCode = $isRecurring

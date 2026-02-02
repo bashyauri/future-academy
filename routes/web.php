@@ -3,6 +3,7 @@
 use Laravel\Fortify\Features;
 use App\Livewire\Home\HomePage;
 use App\Livewire\Dashboard\Index;
+use App\Livewire\Dashboard\ParentIndex;
 use App\Livewire\Quizzes\QuizList;
 use App\Livewire\Quizzes\TakeQuiz;
 use App\Livewire\Settings\Profile;
@@ -11,6 +12,7 @@ use App\Livewire\Settings\TwoFactor;
 use App\Livewire\Dashboard\Analytics;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Subscription\Manage; // ← Added
+use App\Livewire\Payment\Pricing as PaymentPricing;
 use App\Livewire\Onboarding\StudentOnboarding;
 use App\Http\Controllers\PaymentController; // ← Added
 use Illuminate\Support\Facades\Route;
@@ -49,10 +51,28 @@ Route::get('/onboarding', StudentOnboarding::class)
     ->middleware(['auth', 'verified'])
     ->name('onboarding');
 
-// Dashboard
-Route::get('dashboard', Index::class)
+// Dashboard - Route to appropriate dashboard based on user role
+// Uses smart routing: Parents → ParentIndex, Students/Teachers → Index
+Route::get('dashboard', function () {
+    $user = auth()->user();
+    // Check Spatie role with fallback to account_type
+    if ($user && ($user->hasRole('guardian') || $user->isParent())) {
+        return redirect()->route('parent.dashboard');
+    }
+    return redirect()->route('student.dashboard');
+})
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
+
+// Student dashboard (default)
+Route::get('/student-dashboard', \App\Livewire\Dashboard\Index::class)
+    ->middleware(['auth', 'verified'])
+    ->name('student.dashboard');
+
+// Alternative: Explicit parent-only route with strict role middleware
+Route::get('/parent-dashboard', \App\Livewire\Dashboard\ParentIndex::class)
+    ->middleware(['auth', 'verified', 'role:guardian'])
+    ->name('parent.dashboard');
 
 // Subscription management (Livewire)
 Route::get('/subscription/manage', Manage::class)
@@ -395,8 +415,9 @@ Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookContr
     ->name('webhooks.cloudinary');
 
 // Payment routes
-use App\Livewire\Payment\Pricing as PaymentPricing;
-
-Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
+Route::get('payment/pricing', PaymentPricing::class)
+    ->name('payment.pricing');
+Route::get('pricing', PaymentPricing::class)
+    ->name('pricing');
 Route::post('payment/initialize', [\App\Http\Controllers\PaymentController::class, 'initialize'])->name('payment.initialize');
 Route::get('payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');

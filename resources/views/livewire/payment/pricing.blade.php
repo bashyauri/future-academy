@@ -40,8 +40,8 @@
         <div class="flex flex-col gap-2">
             <label for="plan" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Choose Plan') }}</label>
             <select name="plan" id="plan" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
-                <option value="monthly">{{ __('Monthly - ₦2,000') }}</option>
-                <option value="yearly">{{ __('Yearly - ₦12,000') }}</option>
+                <option value="monthly">{{ __('Monthly - ₦' . number_format(config('pricing.plans.monthly.amount'))) }}</option>
+                <option value="yearly">{{ __('Yearly - ₦' . number_format(config('pricing.plans.yearly.amount'))) }}</option>
             </select>
         </div>
         <div class="flex flex-col gap-2">

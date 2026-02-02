@@ -19,7 +19,20 @@ class EnsureSubscriptionOrTrial
     {
         $user = Auth::user();
 
-        if ($user && ($user->onTrial() || $user->hasActiveSubscription())) {
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        // Guardians MUST have active subscription (no trial allowed)
+        if ($user->isParent()) {
+            if ($user->hasActiveSubscription()) {
+                return $next($request);
+            }
+            return redirect()->route('pricing')->with('error', __('Parents must purchase a subscription to manage students.'));
+        }
+
+        // Students/Teachers/Uploaders can use trial or active subscription
+        if ($user->onTrial() || $user->hasActiveSubscription()) {
             return $next($request);
         }
 

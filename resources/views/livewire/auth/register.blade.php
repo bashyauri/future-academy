@@ -51,6 +51,17 @@
                 viewable
             />
 
+            <!-- Account Type -->
+            <flux:select
+                name="account_type"
+                :label="__('I am a...')"
+                required
+            >
+                <option value="student">{{ __('Student - Learning and taking exams') }}</option>
+                <option value="guardian">{{ __('Parent/Guardian - Managing student(s)') }}</option>
+                <option value="teacher">{{ __('Teacher - Creating and managing content') }}</option>
+            </flux:select>
+
             <div class="flex items-center justify-end">
                 <flux:button type="submit" variant="primary" class="w-full">
                     {{ __('Create account') }}
