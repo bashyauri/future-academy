@@ -41,7 +41,7 @@ class CreateNewUser implements CreatesNewUsers
         $accountType = $input['account_type'] ?? 'student';
 
         // Guardians don't get trial - they must subscribe to manage children
-        $trialEndsAt = $accountType === 'guardian' ? null : now()->addHours(48);
+        $trialEndsAt = $accountType === 'guardian' ? null : now()->addMonth();
 
         return User::create([
             'name' => $input['name'],

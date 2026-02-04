@@ -34,6 +34,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'selected_subjects',
         'exam_types',
         'has_completed_onboarding',
+        'trial_ends_at',
     ];
 
     /**
@@ -62,6 +63,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             'selected_subjects' => 'array',
             'exam_types' => 'array',
             'has_completed_onboarding' => 'boolean',
+            'trial_ends_at' => 'datetime',
         ];
     }
 

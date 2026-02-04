@@ -60,7 +60,7 @@
         </flux:button>
 
         @if($onTrial)
-            <flux:text size="sm" color="muted" class="text-center mt-2">
+            <flux:text size="sm" class="text-center mt-2 text-zinc-500">
                 {{ __('Upgrade today to continue after your trial ends.') }}
             </flux:text>
         @endif

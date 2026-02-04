@@ -6,6 +6,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -13,6 +14,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\TextInput;
 
 class UsersTable
 {
@@ -89,6 +92,50 @@ class UsersTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->description(fn(User $record): string => $record->created_at->diffForHumans()),
+
+                TextColumn::make('trial_ends_at')
+                    ->label('Trial Status')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable()
+                    ->formatStateUsing(function (?string $state): string {
+                        if (!$state) {
+                            return 'No Trial';
+                        }
+                        $trialEndsAt = \Carbon\Carbon::parse($state);
+                        if ($trialEndsAt->isAfter(now())) {
+                            $interval = now()->diff($trialEndsAt);
+                            $days = $interval->days;
+                            $hours = $interval->h;
+
+                            if ($days > 0) {
+                                return "{$days}d {$hours}h left";
+                            } else {
+                                return "{$hours}h {$interval->i}m left";
+                            }
+                        }
+                        return 'Expired';
+                    })
+                    ->color(function (?string $state): string {
+                        if (!$state) {
+                            return 'gray';
+                        }
+                        $trialEndsAt = \Carbon\Carbon::parse($state);
+                        if ($trialEndsAt->isAfter(now())) {
+                            return 'success';
+                        }
+                        return 'danger';
+                    })
+                    ->icon(function (?string $state): ?string {
+                        if (!$state) {
+                            return 'heroicon-o-x-circle';
+                        }
+                        $trialEndsAt = \Carbon\Carbon::parse($state);
+                        if ($trialEndsAt->isAfter(now())) {
+                            return 'heroicon-o-clock';
+                        }
+                        return 'heroicon-o-x-mark';
+                    }),
             ])
             ->filters([
                 SelectFilter::make('account_type')
@@ -114,11 +161,60 @@ class UsersTable
             ->recordActions([
                 EditAction::make()
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(fn() => auth()->user()?->can('manage users') ?? false),
+                    ->visible(fn() => Auth::user()?->can('manage users') ?? false),
+
+                Action::make('extendTrial')
+                    ->label('Extend Trial')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->form([
+                        TextInput::make('trial_ends_at')
+                            ->label('Trial Ends At')
+                            ->type('datetime-local')
+                            ->required()
+                            ->default(fn() => now()->startOfDay()->format('Y-m-d\TH:i'))
+                            ->helperText('Pick the exact date and time when trial should expire'),
+                    ])
+                    ->action(function (User $record, array $data) {
+                        $trialDate = \Carbon\Carbon::createFromFormat('Y-m-d\\TH:i', $data['trial_ends_at']);
+                        $record->update([
+                            'trial_ends_at' => $trialDate,
+                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Trial Extended')
+                            ->body("Trial extended until " . $trialDate->format('M d, Y H:i'))
+                            ->success()
+                            ->send();
+                    })
+                    ->modalHeading('Extend Trial')
+                    ->modalDescription('Set when this user\'s trial should expire')
+                    ->modalSubmitActionLabel('Extend Trial')
+                    ->visible(fn(User $record) => Auth::user()?->hasRole('super-admin') && $record->account_type !== 'guardian'),
+
+                Action::make('cancelTrial')
+                    ->label('Cancel Trial')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->action(function (User $record) {
+                        $record->update([
+                            'trial_ends_at' => null,
+                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Trial Cancelled')
+                            ->body('Trial has been cancelled for this user')
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Cancel Trial')
+                    ->modalDescription('Cancel this user\'s trial access?')
+                    ->modalSubmitActionLabel('Cancel Trial')
+                    ->visible(fn(User $record) => Auth::user()?->hasRole('super-admin') && $record->trial_ends_at),
+
                 DeleteAction::make()
                     ->icon('heroicon-o-trash')
                     ->visible(function (User $record): bool {
-                        $user = auth()->user();
+                        $user = Auth::user();
                         if (!$user?->hasAnyRole(['super-admin', 'admin'])) {
                             return false;
                         }
@@ -133,8 +229,59 @@ class UsersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    Action::make('extendTrialBulk')
+                        ->label('Extend Trial')
+                        ->icon('heroicon-o-plus-circle')
+                        ->color('success')
+                        ->form([
+                            TextInput::make('trial_ends_at')
+                                ->label('Trial Ends At')
+                                ->type('datetime-local')
+                                ->required()
+                                ->default(fn() => now()->startOfDay()->format('Y-m-d\TH:i'))
+                                ->helperText('Pick the exact date and time when trial should expire'),
+                        ])
+                        ->action(function ($records, array $data) {
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'trial_ends_at' => \Carbon\Carbon::createFromFormat('Y-m-d\\TH:i', $data['trial_ends_at']),
+                                ]);
+                            }
+                            \Filament\Notifications\Notification::make()
+                                ->title('Trial Extended')
+                                ->body('Trial extended for ' . $records->count() . ' user(s)')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion()
+                        ->accessSelectedRecords()
+                        ->visible(fn() => Auth::user()?->hasRole('super-admin') ?? false),
+
+                    Action::make('cancelTrialBulk')
+                        ->label('Cancel Trial')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cancel Trial for Selected Users')
+                        ->modalDescription('Remove trial access for all selected users?')
+                        ->action(function ($records) {
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'trial_ends_at' => null,
+                                ]);
+                            }
+                            \Filament\Notifications\Notification::make()
+                                ->title('Trial Cancelled')
+                                ->body('Trial cancelled for ' . $records->count() . ' user(s)')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion()
+                        ->accessSelectedRecords()
+                        ->visible(fn() => Auth::user()?->hasRole('super-admin') ?? false),
+
                     DeleteBulkAction::make()
-                        ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                        ->visible(fn() => Auth::user()?->hasRole('super-admin') ?? false),
                 ]),
             ])
             ->defaultSort('name', 'asc')

@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class UserForm
 {
@@ -145,6 +146,27 @@ class UserForm
                     ])
                     ->collapsible()
                     ->columnSpanFull(),
+
+                Section::make('Trial Management')
+                    ->description('Manage user trial period access')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Grid::make()
+                            ->schema([
+                                TextInput::make('trial_ends_at')
+                                    ->label('Trial Ends At')
+                                    ->type('datetime-local')
+                                    ->nullable()
+                                    ->default(fn() => now()->startOfDay()->format('Y-m-d\TH:i'))
+                                    ->prefixIcon('heroicon-o-calendar')
+                                    ->helperText('Set when the user\'s trial period expires. Leave empty to cancel trial.')
+                                    ->columnSpan(2),
+                            ])
+                            ->columns(2),
+                    ])
+                    ->collapsible()
+                    ->columnSpanFull()
+                    ->visible(fn() => Auth::user()?->hasRole('super-admin') ?? false),
 
             ]);
     }
