@@ -121,6 +121,45 @@ class BunnyStreamService
         ])->delete($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}");
     }
 
+    /**
+     * Get video statistics from Bunny Analytics
+     *
+     * Returns view count, watch time, and other analytics data
+     */
+    public function getVideoStats(string $videoId): ?array
+    {
+        $this->assertConfigured();
+
+        $response = Http::withHeaders([
+            'AccessKey' => $this->apiKey,
+            'Accept' => 'application/json',
+        ])->get($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/statistics");
+
+        if (!$response->successful()) {
+            \Log::warning('Failed to fetch Bunny video stats', [
+                'video_id' => $videoId,
+                'status' => $response->status(),
+            ]);
+            return null;
+        }
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Get a video's view count and basic analytics
+     */
+    public function getVideoViewCount(string $videoId): int
+    {
+        try {
+            $stats = $this->getVideoStats($videoId);
+            return $stats['views'] ?? $stats['viewCount'] ?? 0;
+        } catch (\Exception $e) {
+            \Log::error('Error fetching video view count', ['error' => $e->getMessage()]);
+            return 0;
+        }
+    }
+
     private function assertConfigured(): void
     {
         if (!$this->libraryId || !$this->apiKey) {

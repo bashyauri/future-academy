@@ -373,3 +373,22 @@
         </div>
     </div>
 </div>
+
+{{-- Video Watch Progress Tracking --}}
+@if($lesson->video_url && $lesson->video_type === 'bunny')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Track video watch progress every 30 seconds
+        const videoTrackingInterval = setInterval(() => {
+            @this.call('trackVideoWatch');
+        }, 30000); // 30 seconds
+
+        // Clean up interval when leaving page
+        window.addEventListener('beforeunload', () => {
+            clearInterval(videoTrackingInterval);
+            // Final tracking on page exit
+            @this.call('trackVideoWatch');
+        });
+    });
+</script>
+@endif

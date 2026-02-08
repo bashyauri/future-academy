@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lesson;
+use App\Models\VideoProgress;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Livewire\Livewire;
@@ -14,14 +15,17 @@ use Livewire\Livewire;
  * - Video upload completes
  * - Video encoding/transcoding finishes
  * - Processing fails
+ * - Video analytics/views (if configured)
  *
  * Webhook payload structure:
  * {
- *   "EventType": "VideoTranscodingComplete" | "VideoEncodingFailed" | etc.
+ *   "EventType": "VideoTranscodingComplete" | "VideoEncodingFailed" | "VideoAnalyticsEvent" | etc.
  *   "VideoGuid": "uuid",
  *   "VideoTitle": "string",
  *   "LibraryId": 123,
  *   "CollectionId": 456 (optional),
+ *   "WatchTime": 123456 (analytics),
+ *   "Country": "NG" (analytics),
  *   ...
  * }
  */
@@ -39,6 +43,7 @@ class BunnyWebhookController extends Controller
             \Log::info('Bunny webhook received', [
                 'event_type' => $payload['EventType'] ?? 'unknown',
                 'video_guid' => $payload['VideoGuid'] ?? 'unknown',
+                'user_id' => $payload['UserId'] ?? 'unknown',
             ]);
 
             // Validate webhook signature if AccessKey is configured
@@ -59,6 +64,7 @@ class BunnyWebhookController extends Controller
                 'VideoTranscodingComplete' => $this->handleTranscodingComplete($videoGuid, $payload),
                 'VideoEncodingFailed' => $this->handleEncodingFailed($videoGuid, $payload),
                 'VideoTranscodingStarted' => $this->handleTranscodingStarted($videoGuid, $payload),
+                'VideoAnalyticsEvent', 'ViewEvent' => $this->handleAnalyticsEvent($videoGuid, $payload),
                 default => \Log::info('Unhandled Bunny webhook event', ['type' => $eventType]),
             };
 
@@ -130,6 +136,82 @@ class BunnyWebhookController extends Controller
 
         // Could dispatch event here for real-time UI updates
         // Livewire::dispatch('video-transcoding-started', videoId: $videoGuid);
+    }
+
+    /**
+     * Handle video analytics/playback events.
+     *
+     * Called when Bunny sends analytics data about video views and watch time.
+     * This tracks actual user progress watching the video.
+     */
+    private function handleAnalyticsEvent(string $videoGuid, array $payload): void
+    {
+        $watchTime = $payload['WatchTime'] ?? 0; // In milliseconds
+        $watchPercentage = $payload['WatchPercentage'] ?? $payload['PercentageWatched'] ?? 0;
+        $userId = $payload['UserId'] ?? null;
+        $countryCode = $payload['Country'] ?? null;
+
+        // Convert milliseconds to seconds
+        $watchTimeSeconds = intval($watchTime / 1000);
+
+        \Log::info('Bunny video analytics event', [
+            'video_guid' => $videoGuid,
+            'user_id' => $userId,
+            'watch_time_seconds' => $watchTimeSeconds,
+            'watch_percentage' => $watchPercentage,
+            'country' => $countryCode,
+        ]);
+
+        // If we have user tracking data from Bunny
+        if ($userId && $watchPercentage > 0) {
+            $this->trackUserVideoProgress($videoGuid, $userId, $watchTimeSeconds, $watchPercentage);
+        }
+    }
+
+    /**
+     * Track user video progress from Bunny analytics.
+     *
+     * Creates or updates video progress based on Bunny's analytics data.
+     */
+    private function trackUserVideoProgress(string $videoGuid, $userId, int $watchTime, int $watchPercentage): void
+    {
+        try {
+            // Find lesson by video GUID
+            $lesson = Lesson::where('video_url', $videoGuid)
+                ->where('video_type', 'bunny')
+                ->first();
+
+            if (!$lesson) {
+                \Log::warning('No lesson found for video analytics', ['video_guid' => $videoGuid]);
+                return;
+            }
+
+            // Update or create video progress record
+            VideoProgress::updateOrCreate(
+                [
+                    'user_id' => $userId,
+                    'video_id' => $lesson->id, // Using lesson ID as video identifier
+                ],
+                [
+                    'watch_time' => $watchTime,
+                    'percentage' => min(100, $watchPercentage),
+                    'completed' => $watchPercentage >= 90,
+                ]
+            );
+
+            \Log::info('Updated video progress from Bunny webhook', [
+                'lesson_id' => $lesson->id,
+                'user_id' => $userId,
+                'percentage' => $watchPercentage,
+                'video_guid' => $videoGuid,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error tracking video progress from webhook', [
+                'error' => $e->getMessage(),
+                'video_guid' => $videoGuid,
+                'user_id' => $userId,
+            ]);
+        }
     }
 
     /**

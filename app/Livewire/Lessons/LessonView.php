@@ -5,6 +5,7 @@ namespace App\Livewire\Lessons;
 use App\Models\Lesson;
 use App\Models\Quiz;
 use App\Models\UserProgress;
+use App\Models\VideoProgress;
 use App\Models\QuizAttempt;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
@@ -68,6 +69,11 @@ class LessonView extends Component
             }
         }
 
+        // Track video progress if lesson has a video
+        if ($this->lesson->video_url && $this->lesson->video_type === 'bunny') {
+            $this->trackVideoProgress();
+        }
+
         $this->progress->markCompleted();
 
         session()->flash('success', 'Lesson marked as complete!');
@@ -88,9 +94,62 @@ class LessonView extends Component
         return redirect()->route('lessons.list', $this->lesson->subject_id);
     }
 
+    /**
+     * Track video watch progress
+     * For Bunny videos, we record that the user watched based on time spent on page
+     */
+    private function trackVideoProgress(): void
+    {
+        $timeSpent = now()->diffInSeconds($this->startTime);
+
+        // If user spent at least 2 minutes on the page, consider video partially watched
+        // If 5+ minutes, consider it fully watched (assuming min 5 min video)
+        $watchPercentage = min(100, ($timeSpent / 300) * 100); // 5 minutes = 100%
+
+        VideoProgress::updateOrCreate(
+            [
+                'user_id' => auth()->id(),
+                'video_id' => $this->lesson->id, // Using lesson ID as video ID
+            ],
+            [
+                'watch_time' => $timeSpent,
+                'percentage' => (int) $watchPercentage,
+                'completed' => $watchPercentage >= 90,
+            ]
+        );
+    }
+
     public function updateProgress($percentage)
     {
         $this->progress->updateProgress($percentage);
+    }
+
+    /**
+     * Track video watch time periodically (called via JavaScript interval)
+     */
+    #[On('track-video-watch')]
+    public function trackVideoWatch($watchPercentage = 0)
+    {
+        if ($this->lesson->video_url && $this->lesson->video_type === 'bunny') {
+            $timeSpent = now()->diffInSeconds($this->startTime);
+
+            // Use provided percentage or calculate based on time
+            if ($watchPercentage === 0) {
+                $watchPercentage = min(100, ($timeSpent / 300) * 100); // 5 minutes = 100%
+            }
+
+            VideoProgress::updateOrCreate(
+                [
+                    'user_id' => auth()->id(),
+                    'video_id' => $this->lesson->id,
+                ],
+                [
+                    'watch_time' => $timeSpent,
+                    'percentage' => (int) $watchPercentage,
+                    'completed' => $watchPercentage >= 90,
+                ]
+            );
+        }
     }
 
     public function refreshVideoStatus()
@@ -104,12 +163,38 @@ class LessonView extends Component
         }
     }
 
+    /**
+     * Fetch and sync video analytics from Bunny API
+     * Currently uses time-based tracking, but this prepares for direct Bunny API integration
+     */
+    public function syncVideoAnalytics()
+    {
+        try {
+            if ($this->lesson->video_type !== 'bunny' || !$this->lesson->video_url) {
+                return;
+            }
+
+            // For now, use our tracked progress
+            // In the future, this could query Bunny's analytics API directly
+            $this->trackVideoProgress();
+
+            \Log::info('Video analytics synced', ['lesson_id' => $this->lesson->id, 'user_id' => auth()->id()]);
+        } catch (\Exception $e) {
+            \Log::error('Error syncing video analytics', ['error' => $e->getMessage()]);
+        }
+    }
+
     public function destroy()
     {
         // Track time spent on page before leaving
         if ($this->startTime) {
             $timeSpent = now()->diffInSeconds($this->startTime);
             $this->progress->addTimeSpent($timeSpent);
+
+            // If lesson has a Bunny video, also track video progress
+            if ($this->lesson->video_url && $this->lesson->video_type === 'bunny') {
+                $this->trackVideoProgress();
+            }
         }
     }
 
