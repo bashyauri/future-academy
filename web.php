@@ -132,12 +132,22 @@ Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookContr
     ->middleware('throttle:60,1')
     ->name('webhooks.cloudinary');
 
+// Bunny Stream webhooks (no auth required - Bunny validates with signature when configured)
+Route::post('/webhooks/bunny', [App\Http\Controllers\BunnyWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.bunny');
+
 
     // Payment routes
     use App\Livewire\Payment\Pricing as PaymentPricing;
     Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
 Route::post('payment/initialize', [\App\Http\Controllers\PaymentController::class, 'initialize'])->name('payment.initialize');
 Route::get('payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
+
+// Subscription management
+Route::post('/subscription/cancel', [App\Http\Controllers\PaymentController::class, 'cancelSubscription'])
+    ->middleware('auth')
+    ->name('subscription.cancel');
 
 Route::get('/clear', function () {
 Artisan::call('optimize:clear');

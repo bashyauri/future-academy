@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Carbon\Carbon;
+use App\Services\BunnyStreamService;
 
 class Lesson extends Model
 {
@@ -116,9 +117,25 @@ class Lesson extends Model
         return match ($this->video_type) {
             'youtube' => $this->getYouTubeEmbedUrl(),
             'vimeo' => $this->getVimeoEmbedUrl(),
+            'bunny' => $this->getBunnyEmbedUrl(),
             'local' => $this->getSignedVideoUrl(),
             default => $this->video_url,
         };
+    }
+
+    /**
+     * Get Bunny Stream embed URL (optionally signed).
+     */
+    public function getBunnyEmbedUrl(int $expirationMinutes = 1440): ?string
+    {
+        if ($this->video_type !== 'bunny' || !$this->video_url) {
+            return null;
+        }
+
+        $service = app(BunnyStreamService::class);
+        $expires = now()->addMinutes($expirationMinutes)->getTimestamp();
+
+        return $service->getEmbedUrl($this->video_url, $expires);
     }
 
     /**
@@ -162,6 +179,21 @@ class Lesson extends Model
 
         if (isset($matches[1])) {
             return "https://www.youtube.com/embed/{$matches[1]}";
+        }
+
+        return $this->video_url;
+    }
+
+    protected function getVimeoEmbedUrl(): ?string
+    {
+        if (!$this->video_url) {
+            return null;
+        }
+
+        preg_match('/vimeo\.com\/(\d+)/', $this->video_url, $matches);
+
+        if (isset($matches[1])) {
+            return "https://player.vimeo.com/video/{$matches[1]}";
         }
 
         return $this->video_url;
@@ -217,15 +249,5 @@ class Lesson extends Model
             }
         });
     }
-
-    protected function getVimeoEmbedUrl(): ?string
-    {
-        preg_match('/vimeo\.com\/(\d+)/', $this->video_url, $matches);
-
-        if (isset($matches[1])) {
-            return "https://player.vimeo.com/video/{$matches[1]}";
-        }
-
-        return $this->video_url;
-    }
 }
+

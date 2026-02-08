@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\LessonResource\Schemas;
 
 use App\Models\Topic;
+use App\Services\BunnyStreamService;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
@@ -11,10 +12,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class LessonForm
 {
@@ -72,9 +75,10 @@ class LessonForm
                         ->options([
                             'youtube' => 'YouTube',
                             'vimeo' => 'Vimeo',
-                            'local' => 'Local Upload',
+                            'bunny' => 'Bunny Stream',
+                            'local' => 'Legacy (Cloudinary)',
                         ])
-                        ->default('youtube')
+                        ->default('bunny')
                         ->required()
                         ->live(),
 
@@ -91,19 +95,77 @@ class LessonForm
 
                     FileUpload::make('video_url')
                         ->label('Upload Video')
-                        ->disk('cloudinary')
-                        ->directory(fn(Get $get): string => self::getVideoDirectory($get))
                         ->acceptedFileTypes(['video/mp4', 'video/quicktime'])
                         ->maxSize(512000)
-                        ->visible(fn(Get $get) => $get('video_type') === 'local')
+                        ->visible(fn(Get $get) => $get('video_type') === 'bunny')
                         ->disabled(fn(Get $get): bool => !$get('subject_id'))
                         ->previewable(true)
-                        ->downloadable(true)
+                        ->downloadable(false)
                         ->deletable(true)
+                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, Set $set, Get $get): string {
+                            try {
+                                \Log::info('Bunny upload starting');
+
+                                $service = app(BunnyStreamService::class);
+                                $title = $get('title') ?: $file->getClientOriginalName();
+
+                                $video = $service->createVideo($title);
+
+                                $videoId = $video['guid'] ?? $video['videoId'] ?? $video['id'] ?? null;
+
+                                if (!$videoId) {
+                                    throw new \RuntimeException('Bunny did not return video ID');
+                                }
+
+                                $service->uploadVideo($videoId, $file);
+
+                                $set('video_status', 'processing');
+
+                                Notification::make()
+                                    ->success()
+                                    ->title('Upload Started')
+                                    ->body('Video uploaded to Bunny. Processing: 5-30 min')
+                                    ->send();
+
+                                return (string) $videoId;
+                            } catch (\Exception $e) {
+                                \Log::error('Bunny upload failed: ' . $e->getMessage());
+
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Upload Failed')
+                                    ->body('Error: ' . $e->getMessage())
+                                    ->send();
+
+                                throw $e;
+                            }
+                        })
+                        ->deleteUploadedFileUsing(function (string $file): void {
+                            try {
+                                $service = app(BunnyStreamService::class);
+                                $service->deleteVideo($file);
+
+                                \Log::info('Video deleted from Bunny', ['videoId' => $file]);
+
+                                Notification::make()
+                                    ->success()
+                                    ->title('Video Deleted')
+                                    ->body('Video removed from Bunny Stream')
+                                    ->send();
+                            } catch (\Exception $e) {
+                                \Log::error('Bunny delete failed: ' . $e->getMessage());
+
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Delete Warning')
+                                    ->body('Video might not be fully deleted from Bunny')
+                                    ->send();
+                            }
+                        })
                         ->helperText(fn(Get $get): string =>
                             !$get('subject_id')
                                 ? 'Please select a subject first to organize videos properly.'
-                                : 'Max size: 500MB. Videos will be auto-organized by subject/topic in Cloudinary.'
+                                : 'Uploads to Bunny Stream. Max size: 500MB.'
                         ),
 
                     FileUpload::make('thumbnail')
@@ -155,6 +217,9 @@ class LessonForm
                         ->label('Publish Date')
                         ->visible(fn(Get $get) => $get('status') === 'published')
                         ->default(now()),
+
+                    Hidden::make('video_status')
+                        ->default('processing'),
 
                     Hidden::make('created_by')
                         ->default(auth()->id()),

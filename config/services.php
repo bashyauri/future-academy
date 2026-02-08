@@ -47,4 +47,11 @@ return [
         ],
     ],
 
+    'bunny' => [
+        'stream_api_key' => env('BUNNY_STREAM_API_KEY'),
+        'stream_library_id' => env('BUNNY_STREAM_LIBRARY_ID'),
+        'stream_embed_url' => env('BUNNY_STREAM_EMBED_URL', 'https://iframe.mediadelivery.net/embed'),
+        'stream_embed_token_key' => env('BUNNY_STREAM_EMBED_TOKEN_KEY'),
+    ],
+
 ];
