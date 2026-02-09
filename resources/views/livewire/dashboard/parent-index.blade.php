@@ -8,18 +8,23 @@
                     {{ __('Managing :count linked student(s)', ['count' => $stats['children_count']]) }}
                 </flux:text>
             </div>
-            @if($subscriptions->isNotEmpty())
-            <div class="inline-flex items-center px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                </svg>
-                <flux:text class="font-semibold text-sm">{{ __('Active Subscription') }}</flux:text>
+            <div class="flex gap-2">
+                <flux:button wire:click="refresh" variant="subtle" icon="arrow-path">
+                    {{ __('Refresh') }}
+                </flux:button>
+                @if($subscriptions->isNotEmpty())
+                <div class="inline-flex items-center px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <flux:text class="font-semibold text-sm">{{ __('Active Subscription') }}</flux:text>
+                </div>
+                @else
+                <flux:button href="{{ route('pricing') }}" variant="primary" icon="shopping-cart" wire:navigate>
+                    {{ __('Get Subscription') }}
+                </flux:button>
+                @endif
             </div>
-            @else
-            <flux:button href="{{ route('pricing') }}" variant="primary" icon="shopping-cart" wire:navigate>
-                {{ __('Get Subscription') }}
-            </flux:button>
-            @endif
         </div>
 
         {{-- Children Summary Cards --}}
@@ -97,6 +102,55 @@
                     <div class="bg-gradient-to-r from-green-500 to-green-600 h-full transition-all" style="width: {{ ($stats['videos_watched'] / $stats['total_videos']) * 100 }}%"></div>
                 </div>
                 @endif
+            </div>
+
+            {{-- Lessons Completed --}}
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-neutral-800 hover:shadow-lg transition-shadow">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-3 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                        <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 px-3 py-1 rounded-full">
+                        {{ $stats['lessons_percentage'] }}%
+                    </span>
+                </div>
+                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 font-medium mb-1">{{ __('Lessons Completed') }}</flux:text>
+                <div class="flex items-baseline gap-2 mb-3">
+                    <flux:heading size="xl" class="text-neutral-900 dark:text-white font-bold">{{ $stats['lessons_completed'] }}</flux:heading>
+                    <flux:text class="text-neutral-500 dark:text-neutral-400">/ {{ $stats['lessons_started'] }}</flux:text>
+                </div>
+                @if($stats['lessons_started'] > 0)
+                <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full transition-all" style="width: {{ $stats['lessons_percentage'] }}%"></div>
+                </div>
+                @endif
+            </div>
+
+            {{-- Time Spent --}}
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-neutral-800 hover:shadow-lg transition-shadow">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                        <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 px-3 py-1 rounded-full">
+                        Active
+                    </span>
+                </div>
+                <flux:text class="text-sm text-neutral-600 dark:text-neutral-400 font-medium mb-1">{{ __('Total Time Spent') }}</flux:text>
+                <flux:heading size="xl" class="text-neutral-900 dark:text-white font-bold mb-1">
+                    @if($stats['time_spent_hours'] >= 1)
+                        {{ $stats['time_spent_hours'] }}h
+                    @else
+                        {{ intdiv($stats['time_spent_seconds'], 60) }}m
+                    @endif
+                </flux:heading>
+                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
+                    {{ $stats['time_spent_seconds'] }} seconds of learning
+                </flux:text>
             </div>
         </div>
 
@@ -235,6 +289,25 @@
                                 </div>
                             </div>
 
+                            {{-- Lessons Completed --}}
+                            <div class="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-700/30">
+                                <div class="flex items-center justify-between mb-2">
+                                    <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z"></path>
+                                    </svg>
+                                    <flux:text class="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                        {{ $childrenStats[$child->id]['lessons_percentage'] }}%
+                                    </flux:text>
+                                </div>
+                                <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mb-2 block">{{ __('Lessons') }}</flux:text>
+                                <div class="text-sm font-bold text-neutral-900 dark:text-white">
+                                    {{ $childrenStats[$child->id]['lessons_completed'] }}/{{ $childrenStats[$child->id]['lessons_started'] }}
+                                </div>
+                                <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 mt-2 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full" style="width: {{ $childrenStats[$child->id]['lessons_percentage'] }}%"></div>
+                                </div>
+                            </div>
+
                             {{-- Score --}}
                             <div class="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-700/30">
                                 <div class="flex items-center justify-between mb-2">
@@ -248,6 +321,20 @@
                                 <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mb-2 block">{{ __('Avg Score') }}</flux:text>
                                 <div class="text-sm font-bold text-neutral-900 dark:text-white">
                                     {{ $childrenStats[$child->id]['average_score'] }}%
+                                </div>
+                            </div>
+
+                            {{-- Time Spent --}}
+                            <div class="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-700/30">
+                                <div class="flex items-center justify-between mb-2">
+                                    <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <flux:text class="text-xs font-bold text-orange-600 dark:text-orange-400">Active</flux:text>
+                                </div>
+                                <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mb-2 block">{{ __('Time Spent') }}</flux:text>
+                                <div class="text-sm font-bold text-neutral-900 dark:text-white">
+                                    {{ $childrenStats[$child->id]['time_spent_formatted'] }}
                                 </div>
                             </div>
 

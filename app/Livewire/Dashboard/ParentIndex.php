@@ -9,6 +9,7 @@ use App\Models\Subject;
 use App\Models\Video;
 use App\Models\User;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 #[Layout('components.layouts.app')]
@@ -27,6 +28,27 @@ class ParentIndex extends Component
     public function mount()
     {
         $this->refreshDashboardData();
+    }
+
+    /**
+     * Public refresh method - can be called by Livewire listeners
+     */
+    public function refresh()
+    {
+        $this->refreshDashboardData();
+    }
+
+    /**
+     * Listen for student enrollment changes and auto-refresh dashboard
+     */
+    #[On('student-enrollment-changed')]
+    public function handleStudentEnrollmentChanged($studentId)
+    {
+        // Check if this parent is linked to the student who changed enrollments
+        $parent = auth()->user();
+        if ($parent->children()->where('users.id', $studentId)->exists()) {
+            $this->refresh();
+        }
     }
 
     public function linkStudent()
@@ -109,6 +131,9 @@ class ParentIndex extends Component
         $totalMockExamsTaken = 0;
         $bestMockScore = 0;
         $totalSubjectsEnrolled = 0;
+        $totalLessonsCompleted = 0;
+        $totalLessonsStarted = 0;
+        $totalTimeSpent = 0;
 
         foreach ($this->children as $child) {
             if (!$this->paidStudentIds->contains($child->id)) {
@@ -136,6 +161,18 @@ class ParentIndex extends Component
             $subjectsEnrolled = $child->enrolledSubjects()->count();
             $hasActiveSubscription = $child->hasActiveSubscription();
 
+            // Lesson progress tracking
+            $lessonsCompleted = $child->progress()
+                ->where('type', 'lesson')
+                ->where('is_completed', 1)
+                ->count();
+            $lessonsStarted = $child->progress()
+                ->where('type', 'lesson')
+                ->count();
+            $timeSpent = $child->progress()
+                ->where('type', 'lesson')
+                ->sum('time_spent_seconds') ?? 0;
+
             $totalVideosWatched += $videosWatched;
             $totalTotalVideos += $totalVideos;
             $totalQuizzesTaken += $quizzesTaken;
@@ -146,6 +183,9 @@ class ParentIndex extends Component
                 $bestMockScore = $bestMock;
             }
             $totalSubjectsEnrolled += $subjectsEnrolled;
+            $totalLessonsCompleted += $lessonsCompleted;
+            $totalLessonsStarted += $lessonsStarted;
+            $totalTimeSpent += $timeSpent;
         }
 
         $childCount = count($this->children);
@@ -159,6 +199,11 @@ class ParentIndex extends Component
             'subjects_enrolled' => $totalSubjectsEnrolled,
             'mock_exams_taken' => $totalMockExamsTaken,
             'best_mock_score' => $bestMockScore,
+            'lessons_completed' => $totalLessonsCompleted,
+            'lessons_started' => $totalLessonsStarted,
+            'lessons_percentage' => $totalLessonsStarted > 0 ? round(($totalLessonsCompleted / $totalLessonsStarted) * 100) : 0,
+            'time_spent_seconds' => $totalTimeSpent,
+            'time_spent_hours' => round($totalTimeSpent / 3600, 1),
             'children_count' => $childCount,
         ];
     }
@@ -183,8 +228,23 @@ class ParentIndex extends Component
                 })
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
+            // Use fresh query to ensure we get the actual count from DB with current is_active status
             $subjectsEnrolled = $child->enrolledSubjects()->count();
             $hasActiveSubscription = $child->hasActiveSubscription();
+
+            // Lesson progress metrics
+            $lessonsCompleted = $child->progress()
+                ->where('type', 'lesson')
+                ->where('is_completed', 1)
+                ->count();
+            $lessonsStarted = $child->progress()
+                ->where('type', 'lesson')
+                ->count();
+            $lessonsPercentage = $lessonsStarted > 0 ? round(($lessonsCompleted / $lessonsStarted) * 100) : 0;
+            $timeSpent = $child->progress()
+                ->where('type', 'lesson')
+                ->sum('time_spent_seconds') ?? 0;
+            $timeSpentFormatted = $this->formatSeconds($timeSpent);
 
             // Check if parent has paid for this specific student
             $parentPaidForStudent = $this->studentSubscriptions->has($child->id);
@@ -200,8 +260,28 @@ class ParentIndex extends Component
                 'has_active_subscription' => $hasActiveSubscription,
                 'parent_paid' => $parentPaidForStudent,
                 'can_view_metrics' => $parentPaidForStudent,
+                'lessons_completed' => $lessonsCompleted,
+                'lessons_started' => $lessonsStarted,
+                'lessons_percentage' => $lessonsPercentage,
+                'time_spent_seconds' => $timeSpent,
+                'time_spent_formatted' => $timeSpentFormatted,
             ];
         }
+    }
+
+    /**
+     * Format seconds to human readable format (e.g., "2h 15m")
+     */
+    private function formatSeconds($seconds): string
+    {
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+
+        if ($hours > 0) {
+            return "{$hours}h {$minutes}m";
+        }
+
+        return "{$minutes}m";
     }
 
     public function render()

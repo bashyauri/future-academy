@@ -12,6 +12,7 @@ class VideoProgress extends Model
     protected $fillable = [
         'user_id',
         'video_id',
+        'lesson_id',
         'watch_time',
         'percentage',
         'completed',
@@ -31,6 +32,11 @@ class VideoProgress extends Model
     public function video(): BelongsTo
     {
         return $this->belongsTo(Video::class);
+    }
+
+    public function lesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class);
     }
 
     /**

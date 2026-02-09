@@ -96,15 +96,22 @@ class StudentOnboarding extends Component
             'has_completed_onboarding' => true,
         ]);
 
-        // Create enrollments for selected subjects
+        // Deactivate all previous enrollments
+        $user->enrollments()->update(['is_active' => false]);
+
+        // Create/activate enrollments for selected subjects
         foreach ($this->selectedSubjects as $subjectId) {
-            $user->enrollments()->firstOrCreate([
-                'subject_id' => $subjectId,
-            ], [
-                'enrolled_at' => now(),
-                'is_active' => true,
-            ]);
+            $user->enrollments()->updateOrCreate(
+                ['subject_id' => $subjectId],
+                [
+                    'enrolled_at' => now(),
+                    'is_active' => true,
+                ]
+            );
         }
+
+        // Dispatch event to notify parents that student enrollment changed
+        $this->dispatch('student-enrollment-changed', studentId: $user->id);
 
         session()->flash('success', 'Welcome! Your account has been set up successfully.');
 

@@ -100,6 +100,11 @@ class LessonView extends Component
      */
     private function trackVideoProgress(): void
     {
+        // Only track if lesson has a video
+        if (!is_string($this->lesson->video_url)) {
+            return;
+        }
+
         $timeSpent = now()->diffInSeconds($this->startTime);
 
         // If user spent at least 2 minutes on the page, consider video partially watched
@@ -109,7 +114,8 @@ class LessonView extends Component
         VideoProgress::updateOrCreate(
             [
                 'user_id' => auth()->id(),
-                'video_id' => $this->lesson->id, // Using lesson ID as video ID
+                'lesson_id' => $this->lesson->id, // Reference lesson for querying
+                'video_id' => $this->lesson->video_url, // Bunny video ID
             ],
             [
                 'watch_time' => $timeSpent,
@@ -130,7 +136,7 @@ class LessonView extends Component
     #[On('track-video-watch')]
     public function trackVideoWatch($watchPercentage = 0)
     {
-        if ($this->lesson->video_url && $this->lesson->video_type === 'bunny') {
+        if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
             $timeSpent = now()->diffInSeconds($this->startTime);
 
             // Use provided percentage or calculate based on time
@@ -141,7 +147,8 @@ class LessonView extends Component
             VideoProgress::updateOrCreate(
                 [
                     'user_id' => auth()->id(),
-                    'video_id' => $this->lesson->id,
+                    'lesson_id' => $this->lesson->id,
+                    'video_id' => $this->lesson->video_url, // Bunny video ID
                 ],
                 [
                     'watch_time' => $timeSpent,
