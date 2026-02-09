@@ -69,174 +69,102 @@
                                 });
                             </script>
                         @elseif($lesson->video_type === 'bunny')
-                            {{-- Bunny Stream Player with SDK (Adaptive Streaming, HLS, DRM) --}}
-                            <div id="bunny-player-container" class="w-full h-full"></div>
-
-                            {{-- Load Bunny Player SDK asynchronously --}}
-                            <script src="https://cdn.bunny.net/bunnyplayer/latest/bunnyplayer.min.js"></script>
+                            {{-- Bunny Stream Player (using iframe embed with Alpine tracking) --}}
+                            <div class="w-full h-full" wire:ignore x-data="bunnyTracker($wire)" x-init="init()">
+                                <iframe
+                                    id="bunny-player"
+                                    src="{{ $lesson->getVideoEmbedUrl() }}"
+                                    class="w-full h-full"
+                                    frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen>
+                                </iframe>
+                                <div class="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-1 text-xs text-white"
+                                    x-text="trackingStatus">
+                                </div>
+                            </div>
 
                             <script>
-                                (function() {
-                                    // Wait for SDK to be available (works with Livewire navigation)
-                                    function waitForBunnyPlayer(callback, maxAttempts = 50) {
-                                        let attempts = 0;
-                                        const checkInterval = setInterval(function() {
-                                            attempts++;
-                                            if (typeof window.BunnyPlayer !== 'undefined') {
-                                                clearInterval(checkInterval);
-                                                callback();
-                                            } else if (attempts >= maxAttempts) {
-                                                clearInterval(checkInterval);
-                                                console.error('Bunny Player SDK failed to load after', maxAttempts, 'attempts');
-                                                // Fallback to iframe
-                                                const container = document.getElementById('bunny-player-container');
-                                                if (container) {
-                                                    container.innerHTML =
-                                                        '<iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>';
+                                function bunnyTracker(wire) {
+                                    return {
+                                        sessionStartTime: null,
+                                        lastSaveTime: null,
+                                        lastSavedPercentage: 0,
+                                        completionRecorded: false,
+                                        saveThresholdMs: 10000,
+                                        percentageThreshold: 5,
+                                        intervalId: null,
+                                        trackingStatus: 'Tracking: initializing',
+                                        init() {
+                                            if (!wire) {
+                                                console.error('Livewire component not available');
+                                                this.trackingStatus = 'Tracking: unavailable';
+                                                return;
+                                            }
+
+                                            this.sessionStartTime = Date.now();
+                                            this.lastSaveTime = this.sessionStartTime;
+                                            this.trackingStatus = 'Tracking: active';
+
+                                            document.addEventListener('visibilitychange', () => {
+                                                if (document.hidden) {
+                                                    this.saveProgress(true);
+                                                    this.recordCompletionIfNeeded();
                                                 }
+                                            });
+
+                                            window.addEventListener('beforeunload', () => {
+                                                this.saveProgress(true);
+                                                this.recordCompletionIfNeeded();
+                                            });
+
+                                            this.intervalId = setInterval(() => {
+                                                if (!document.hidden) {
+                                                    this.saveProgress(false);
+                                                }
+                                            }, 5000);
+                                        },
+                                        calculateWatchPercentage(timeSpentSeconds) {
+                                            return Math.min(100, Math.floor((timeSpentSeconds / 300) * 100));
+                                        },
+                                        saveProgress(forceImmediate = false) {
+                                            try {
+                                                const currentTime = Date.now();
+                                                const timeSinceLastSave = currentTime - this.lastSaveTime;
+                                                const sessionTimeSpent = Math.floor((currentTime - this.sessionStartTime) / 1000);
+                                                const currentPercentage = this.calculateWatchPercentage(sessionTimeSpent);
+                                                const percentageChange = Math.abs(currentPercentage - this.lastSavedPercentage);
+
+                                                if (forceImmediate ||
+                                                    timeSinceLastSave >= this.saveThresholdMs ||
+                                                    percentageChange >= this.percentageThreshold) {
+
+                                                    if (currentPercentage > this.lastSavedPercentage || forceImmediate) {
+                                                        wire.call('trackVideoWatch', currentPercentage, sessionTimeSpent);
+                                                        this.lastSaveTime = currentTime;
+                                                        this.lastSavedPercentage = currentPercentage;
+                                                        this.trackingStatus = 'Tracking: saved ' + currentPercentage + '%';
+                                                        this.recordCompletionIfNeeded();
+                                                    }
+                                                }
+                                            } catch (error) {
+                                                console.error('Failed to save progress:', error.message);
+                                                this.trackingStatus = 'Tracking: error';
                                             }
-                                        }, 100); // Check every 100ms
-                                    }
+                                        },
+                                        recordCompletionIfNeeded() {
+                                            if (this.completionRecorded) {
+                                                return;
+                                            }
 
-                                    // Initialize immediately (works with both full page load and Livewire navigation)
-                                    waitForBunnyPlayer(initializeBunnyPlayer);
-
-                                    function initializeBunnyPlayer() {
-                                        const container = document.getElementById('bunny-player-container');
-                                        if (!container) {
-                                            console.error('Player container not found');
-                                            return;
-                                        }
-
-                                        // Clear container first
-                                        container.innerHTML = '';
-
-                                        const player = new window.BunnyPlayer({
-                                        // Player container
-                                        targetElement: '#bunny-player-container',
-                                        // Video ID (UUID from Bunny Stream)
-                                        videoId: '{{ $lesson->video_url }}',
-                                        // Enable adaptive streaming (HLS)
-                                        autoplay: false,
-                                        // Quality settings
-                                        qualitySelector: true,
-                                        // Performance settings
-                                        controls: true,
-                                        // Resolution/quality auto-selection
-                                        width: '100%',
-                                        height: '100%',
-                                        // Keyboard shortcuts
-                                        keyboardShortcuts: true,
-                                        // Persistent playback position
-                                        persistentSettings: true,
-                                        // Enable resume if available
-                                        resumeVideo: true
-                                    });
-
-                                    // Analytics tracking variables
-                                    let sessionStartTime = Date.now();
-                                    let lastSaveTime = sessionStartTime;
-                                    let lastSavedPercentage = 0;
-                                    const SAVE_THRESHOLD_MS = 10000; // 10 seconds
-                                    const PERCENTAGE_THRESHOLD = 5;   // 5% change
-
-                                    /**
-                                     * Calculate watch percentage
-                                     */
-                                    function calculateWatchPercentage(currentTime, duration) {
-                                        if (!duration || duration === 0) return 0;
-                                        return Math.min(100, Math.floor((currentTime / duration) * 100));
-                                    }
-
-                                    /**
-                                     * Save progress to database with smart throttling
-                                     */
-                                    function saveProgress(forceImmediate = false) {
-                                        if (!player.duration || player.duration === 0) return;
-
-                                        const currentTime = Date.now();
-                                        const timeSinceLastSave = currentTime - lastSaveTime;
-                                        const sessionTimeSpent = Math.floor((currentTime - sessionStartTime) / 1000);
-                                        const currentPercentage = calculateWatchPercentage(player.currentTime, player.duration);
-                                        const percentageChange = Math.abs(currentPercentage - lastSavedPercentage);
-
-                                        // Save if: forced, threshold time reached, or significant percentage change
-                                        if (forceImmediate ||
-                                            timeSinceLastSave >= SAVE_THRESHOLD_MS ||
-                                            percentageChange >= PERCENTAGE_THRESHOLD) {
-
-                                            if (currentPercentage > lastSavedPercentage || forceImmediate) {
-                                                // Send progress to Livewire component
-                                                @this.call('trackVideoWatch', currentPercentage, sessionTimeSpent);
-                                                // Store resume time
-                                                @this.call('updateVideoTime', Math.floor(player.currentTime));
-
-                                                lastSaveTime = currentTime;
-                                                lastSavedPercentage = currentPercentage;
-
-                                                console.log('Video progress saved:', currentPercentage + '%', 'watched:', Math.round(player.currentTime) + 's');
+                                            if (this.lastSavedPercentage >= 90) {
+                                                this.completionRecorded = true;
+                                                wire.call('trackVideoProgress');
+                                                this.trackingStatus = 'Tracking: completed';
                                             }
                                         }
-                                    }
-
-                                    // Player ready event
-                                    player.on('ready', function() {
-                                        console.log('Bunny Player initialized. Video duration:', Math.round(player.duration) + 's', 'Adaptive streaming enabled');
-
-                                        // Resume from saved position if available
-                                        if ({{ $resumeTime }} > 0) {
-                                            player.currentTime = {{ $resumeTime }};
-                                            console.log('Resumed video from saved position:', Math.round({{ $resumeTime }}) + 's');
-                                        }
-                                    });
-
-                                    // Track playback progress
-                                    player.on('timeupdate', function() {
-                                        saveProgress(false);
-                                    });
-
-                                    // Track when video ends
-                                    player.on('ended', function() {
-                                        saveProgress(true);
-                                        @this.call('trackVideoProgress');
-                                        console.log('Video playback completed');
-                                    });
-
-                                    // Track play/pause
-                                    player.on('play', function() {
-                                        console.log('Video playback started');
-                                    });
-
-                                    player.on('pause', function() {
-                                        saveProgress(true);
-                                        console.log('Video paused, progress saved');
-                                    });
-
-                                    // Quality change tracking
-                                    player.on('qualitychange', function(quality) {
-                                        console.log('Quality changed to:', quality, '(Adaptive streaming active)');
-                                    });
-
-                                    // Handle page visibility to save on tab switch
-                                    document.addEventListener('visibilitychange', function() {
-                                        if (document.hidden) {
-                                            saveProgress(true);
-                                        }
-                                    });
-
-                                    // Save before unload
-                                    window.addEventListener('beforeunload', function() {
-                                        saveProgress(true);
-                                    });
-
-                                    // Periodic progress check (every 5 seconds)
-                                    setInterval(function() {
-                                        if (!document.hidden && player.currentTime > 0) {
-                                            saveProgress(false);
-                                        }
-                                    }, 5000);
+                                    };
                                 }
-                                })(); // End of IIFE
                             </script>
                         @else
                             {{-- YouTube/Vimeo embedded iframe --}}

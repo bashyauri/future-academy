@@ -140,6 +140,14 @@ class LessonView extends Component
      */
     public function trackVideoWatch($watchPercentage = 0, $timeSpent = 0)
     {
+        \Log::info('trackVideoWatch called', [
+            'lesson_id' => $this->lesson->id,
+            'user_id' => auth()->id(),
+            'percentage' => $watchPercentage,
+            'time_spent' => $timeSpent,
+            'video_type' => $this->lesson->video_type
+        ]);
+
         if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
             // Use provided parameters or calculate based on session time
             if ($timeSpent === 0) {
@@ -150,29 +158,43 @@ class LessonView extends Component
                 $watchPercentage = min(100, ($timeSpent / 300) * 100);
             }
 
-            // Update VideoProgress table (for analytics)
-            // Use lesson_id as unique key instead of video_id (which is a numeric FK)
-            VideoProgress::updateOrCreate(
-                [
-                    'user_id' => auth()->id(),
+            try {
+                // Update VideoProgress table (for analytics)
+                // Use lesson_id as unique key instead of video_id (which is a numeric FK)
+                VideoProgress::updateOrCreate(
+                    [
+                        'user_id' => auth()->id(),
+                        'lesson_id' => $this->lesson->id,
+                    ],
+                    [
+                        'watch_time' => $timeSpent,
+                        'percentage' => (int) $watchPercentage,
+                        'completed' => $watchPercentage >= 90,
+                    ]
+                );
+
+                // Update UserProgress table (for UI display)
+                $this->progress->update([
+                    'progress_percentage' => (int) $watchPercentage,
+                    'time_spent_seconds' => $timeSpent,
+                ]);
+
+                // Refresh the component property to update the UI
+                $this->progress->refresh();
+
+                \Log::info('Video progress saved successfully', [
                     'lesson_id' => $this->lesson->id,
-                ],
-                [
-                    'watch_time' => $timeSpent,
-                    'percentage' => (int) $watchPercentage,
-                    'completed' => $watchPercentage >= 90,
-                ]
-            );
-
-            // Update UserProgress table (for UI display)
-            $this->progress->update([
-                'progress_percentage' => (int) $watchPercentage,
-                'time_spent_seconds' => $timeSpent,
-            ]);
-
-            // Refresh the component property to update the UI
-            $this->progress->refresh();
+                    'percentage' => $watchPercentage
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to save video progress', [
+                    'error' => $e->getMessage(),
+                    'lesson_id' => $this->lesson->id
+                ]);
+            }
         }
+
+        $this->skipRender();
     }
 
     /**
@@ -198,6 +220,8 @@ class LessonView extends Component
                 ]);
             }
         }
+
+        $this->skipRender();
     }
 
     public function refreshVideoStatus()
