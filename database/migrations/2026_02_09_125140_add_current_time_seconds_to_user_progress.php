@@ -23,7 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('user_progress', function (Blueprint $table) {
-            //
+            $table->dropColumn('current_time_seconds');
         });
     }
 };
