@@ -64,6 +64,9 @@ class BunnyWebhookController extends Controller
                 'VideoTranscodingComplete' => $this->handleTranscodingComplete($videoGuid, $payload),
                 'VideoEncodingFailed' => $this->handleEncodingFailed($videoGuid, $payload),
                 'VideoTranscodingStarted' => $this->handleTranscodingStarted($videoGuid, $payload),
+                'ViewStarted' => $this->handleViewStarted($videoGuid, $payload),
+                'ViewEnded' => $this->handleViewEnded($videoGuid, $payload),
+                'ViewResume' => $this->handleViewResume($videoGuid, $payload),
                 'VideoAnalyticsEvent', 'ViewEvent' => $this->handleAnalyticsEvent($videoGuid, $payload),
                 default => \Log::info('Unhandled Bunny webhook event', ['type' => $eventType]),
             };
@@ -144,7 +147,78 @@ class BunnyWebhookController extends Controller
      * Called when Bunny sends analytics data about video views and watch time.
      * This tracks actual user progress watching the video.
      */
-    private function handleAnalyticsEvent(string $videoGuid, array $payload): void
+    private function handleViewStarted(string $videoGuid, array $payload): void
+    {
+        \Log::info('Bunny video view started', [
+            'video_guid' => $videoGuid,
+            'session_id' => $payload['SessionId'] ?? null,
+            'ip' => $payload['IpAddress'] ?? null,
+            'country' => $payload['Country'] ?? null,
+            'user_agent' => $payload['UserAgent'] ?? null,
+        ]);
+
+        // You could create an initial video progress record here
+        // This event fires when a user starts playing the video
+    }
+
+    /**
+     * Handle video view ended event.
+     *
+     * Called when Bunny detects that the user has finished watching (or closed the player).
+     * Contains final analytics of the viewing session.
+     */
+    private function handleViewEnded(string $videoGuid, array $payload): void
+    {
+        $watchTime = $payload['WatchTime'] ?? 0; // In milliseconds
+        $watchPercentage = $payload['WatchPercentage'] ?? $payload['PercentageWatched'] ?? 0;
+        $sessionId = $payload['SessionId'] ?? null;
+        $downloadEnable = $payload['DownloadEnabled'] ?? false;
+
+        // Convert milliseconds to seconds
+        $watchTimeSeconds = intval($watchTime / 1000);
+
+        \Log::info('Bunny video view ended', [
+            'video_guid' => $videoGuid,
+            'session_id' => $sessionId,
+            'watch_time_seconds' => $watchTimeSeconds,
+            'watch_percentage' => $watchPercentage,
+            'download_enabled' => $downloadEnable,
+        ]);
+
+        // Store final analytics data using SessionId to identify user
+        // Note: SessionId is used since Bunny doesn't always provide UserId
+        if ($watchPercentage > 0) {
+            $this->recordViewEndedAnalytics($videoGuid, $sessionId, $watchTimeSeconds, $watchPercentage, $payload);
+        }
+    }
+
+    /**
+     * Handle video resume event.
+     *
+     * Called when Bunny detects that a user resumes watching a video
+     * from where they left off (if persistentSettings is enabled).
+     */
+    private function handleViewResume(string $videoGuid, array $payload): void
+    {
+        $resumeTime = $payload['ResumeTime'] ?? 0; // Resume position in seconds
+        $sessionId = $payload['SessionId'] ?? null;
+
+        \Log::info('Bunny video resume detected', [
+            'video_guid' => $videoGuid,
+            'session_id' => $sessionId,
+            'resume_from_seconds' => $resumeTime,
+        ]);
+
+        // You could track resume events for user engagement analytics
+        // This helps identify users who come back to watch more of the video
+    }
+
+    /**
+     * Handle video analytics/playback events.
+     *
+     * Called when Bunny sends analytics data about video views and watch time.
+     * This tracks actual user progress watching the video.
+     */
     {
         $watchTime = $payload['WatchTime'] ?? 0; // In milliseconds
         $watchPercentage = $payload['WatchPercentage'] ?? $payload['PercentageWatched'] ?? 0;
@@ -172,6 +246,7 @@ class BunnyWebhookController extends Controller
      * Track user video progress from Bunny analytics.
      *
      * Creates or updates video progress based on Bunny's analytics data.
+     * Also stores the raw Bunny webhook data for future reference.
      */
     private function trackUserVideoProgress(string $videoGuid, $userId, int $watchTime, int $watchPercentage): void
     {
@@ -190,7 +265,7 @@ class BunnyWebhookController extends Controller
             VideoProgress::updateOrCreate(
                 [
                     'user_id' => $userId,
-                    'video_id' => $lesson->id, // Using lesson ID as video identifier
+                    'lesson_id' => $lesson->id,
                 ],
                 [
                     'watch_time' => $watchTime,
@@ -210,6 +285,75 @@ class BunnyWebhookController extends Controller
                 'error' => $e->getMessage(),
                 'video_guid' => $videoGuid,
                 'user_id' => $userId,
+            ]);
+        }
+    }
+
+    /**
+     * Record analytics data when a video view session ends.
+     *
+     * Stores the final viewing metrics in the bunny_watch_data JSON field
+     * for detailed analytics and user engagement tracking.
+     */
+    private function recordViewEndedAnalytics(string $videoGuid, ?string $sessionId, int $watchTimeSeconds, int $watchPercentage, array $payload): void
+    {
+        try {
+            // Find lesson by video GUID
+            $lesson = Lesson::where('video_url', $videoGuid)
+                ->where('video_type', 'bunny')
+                ->first();
+
+            if (!$lesson) {
+                \Log::warning('No lesson found for view ended analytics', ['video_guid' => $videoGuid]);
+                return;
+            }
+
+            // Prepare bunny watch data to store
+            $bunnyWatchData = [
+                'session_id' => $sessionId,
+                'watch_time_seconds' => $watchTimeSeconds,
+                'watch_percentage' => min(100, $watchPercentage),
+                'download_enabled' => $payload['DownloadEnabled'] ?? false,
+                'ip_address' => $payload['IpAddress'] ?? null,
+                'country' => $payload['Country'] ?? null,
+                'user_agent' => $payload['UserAgent'] ?? null,
+                'timestamp' => now()->toIso8601String(),
+            ];
+
+            // Get or create progress record
+            // If we have a user ID in analytics, use it; otherwise just update by lesson
+            $videoProgress = VideoProgress::where('lesson_id', $lesson->id)
+                ->latest('updated_at')
+                ->first();
+
+            if ($videoProgress) {
+                // Update existing progress with final metrics
+                $videoProgress->update([
+                    'watch_time' => max($videoProgress->watch_time, $watchTimeSeconds),
+                    'percentage' => max($videoProgress->percentage, $watchPercentage),
+                    'completed' => $watchPercentage >= 90 || $videoProgress->completed,
+                    'bunny_watch_data' => $bunnyWatchData,
+                ]);
+            } else {
+                // Create new progress record from webhook data (fallback)
+                VideoProgress::create([
+                    'lesson_id' => $lesson->id,
+                    'watch_time' => $watchTimeSeconds,
+                    'percentage' => $watchPercentage,
+                    'completed' => $watchPercentage >= 90,
+                    'bunny_watch_data' => $bunnyWatchData,
+                ]);
+            }
+
+            \Log::info('Recorded view ended analytics', [
+                'lesson_id' => $lesson->id,
+                'session_id' => $sessionId,
+                'watch_percentage' => $watchPercentage,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error recording view ended analytics', [
+                'error' => $e->getMessage(),
+                'video_guid' => $videoGuid,
             ]);
         }
     }

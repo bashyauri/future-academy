@@ -7,6 +7,7 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\Video;
+use App\Models\VideoAnalytics;
 use App\Models\User;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -134,6 +135,9 @@ class ParentIndex extends Component
         $totalLessonsCompleted = 0;
         $totalLessonsStarted = 0;
         $totalTimeSpent = 0;
+        $totalVideoViews = 0;
+        $totalVideoWatchTime = 0;
+        $averageCompletionRate = 0;
 
         foreach ($this->children as $child) {
             if (!$this->paidStudentIds->contains($child->id)) {
@@ -173,6 +177,22 @@ class ParentIndex extends Component
                 ->where('type', 'lesson')
                 ->sum('time_spent_seconds') ?? 0;
 
+            // Video analytics from Bunny Stream
+            $childLessonIds = $child->enrolledSubjects()
+                ->with('lessons')
+                ->get()
+                ->flatMap(function ($subject) {
+                    return $subject->lessons->pluck('id');
+                })
+                ->unique()
+                ->toArray();
+
+            $childVideoAnalytics = VideoAnalytics::whereIn('lesson_id', $childLessonIds)->get();
+
+            $childVideoViews = $childVideoAnalytics->sum('total_views') ?? 0;
+            $childVideoWatchTime = $childVideoAnalytics->sum('total_watch_time') ?? 0;
+            $childCompletionRate = $childVideoAnalytics->avg('completion_rate') ?? 0;
+
             $totalVideosWatched += $videosWatched;
             $totalTotalVideos += $totalVideos;
             $totalQuizzesTaken += $quizzesTaken;
@@ -186,6 +206,9 @@ class ParentIndex extends Component
             $totalLessonsCompleted += $lessonsCompleted;
             $totalLessonsStarted += $lessonsStarted;
             $totalTimeSpent += $timeSpent;
+            $totalVideoViews += $childVideoViews;
+            $totalVideoWatchTime += $childVideoWatchTime;
+            $averageCompletionRate += $childCompletionRate;
         }
 
         $childCount = count($this->children);
@@ -205,6 +228,11 @@ class ParentIndex extends Component
             'time_spent_seconds' => $totalTimeSpent,
             'time_spent_hours' => round($totalTimeSpent / 3600, 1),
             'children_count' => $childCount,
+            // Video analytics from Bunny Stream
+            'total_video_views' => $totalVideoViews,
+            'total_video_watch_time_seconds' => $totalVideoWatchTime,
+            'total_video_watch_time_hours' => round($totalVideoWatchTime / 3600, 1),
+            'average_completion_rate' => $paidCount > 0 ? round($averageCompletionRate / $paidCount, 1) : 0,
         ];
     }
 
@@ -246,6 +274,23 @@ class ParentIndex extends Component
                 ->sum('time_spent_seconds') ?? 0;
             $timeSpentFormatted = $this->formatSeconds($timeSpent);
 
+            // Video analytics from Bunny Stream
+            $childLessonIds = $child->enrolledSubjects()
+                ->with('lessons')
+                ->get()
+                ->flatMap(function ($subject) {
+                    return $subject->lessons->pluck('id');
+                })
+                ->unique()
+                ->toArray();
+
+            $childVideoAnalytics = VideoAnalytics::whereIn('lesson_id', $childLessonIds)->get();
+
+            $childVideoViews = $childVideoAnalytics->sum('total_views') ?? 0;
+            $childVideoWatchTime = $childVideoAnalytics->sum('total_watch_time') ?? 0;
+            $childCompletionRate = $childVideoAnalytics->avg('completion_rate') ?? 0;
+            $childVideoWatchTimeFormatted = $this->formatSeconds($childVideoWatchTime);
+
             // Check if parent has paid for this specific student
             $parentPaidForStudent = $this->studentSubscriptions->has($child->id);
 
@@ -265,6 +310,11 @@ class ParentIndex extends Component
                 'lessons_percentage' => $lessonsPercentage,
                 'time_spent_seconds' => $timeSpent,
                 'time_spent_formatted' => $timeSpentFormatted,
+                // Video analytics from Bunny Stream
+                'video_views' => $childVideoViews,
+                'video_watch_time_seconds' => $childVideoWatchTime,
+                'video_watch_time_formatted' => $childVideoWatchTimeFormatted,
+                'video_completion_rate' => number_format($childCompletionRate, 1),
             ];
         }
     }

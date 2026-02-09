@@ -16,6 +16,7 @@ class LessonView extends Component
     public Lesson $lesson;
     public $progress;
     public $startTime;
+    public $resumeTime = 0;
     public ?Quiz $lessonQuiz = null;
     public bool $lessonQuizCompleted = false;
 
@@ -34,7 +35,11 @@ class LessonView extends Component
         ], [
             'type' => 'lesson',
             'started_at' => now(),
+            'current_time_seconds' => 0,
         ]);
+
+        // Set resume time from previous session
+        $this->resumeTime = $this->progress->current_time_seconds ?? 0;
 
         $this->startTime = now();
 
@@ -114,8 +119,7 @@ class LessonView extends Component
         VideoProgress::updateOrCreate(
             [
                 'user_id' => auth()->id(),
-                'lesson_id' => $this->lesson->id, // Reference lesson for querying
-                'video_id' => $this->lesson->video_url, // Bunny video ID
+                'lesson_id' => $this->lesson->id,
             ],
             [
                 'watch_time' => $timeSpent,
@@ -131,24 +135,27 @@ class LessonView extends Component
     }
 
     /**
-     * Track video watch time periodically (called via JavaScript interval)
+     * Track video watch time - Event-driven approach (called only when progress changes significantly)
+     * Accepts percentage from client-side event tracking
      */
-    #[On('track-video-watch')]
-    public function trackVideoWatch($watchPercentage = 0)
+    public function trackVideoWatch($watchPercentage = 0, $timeSpent = 0)
     {
         if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
-            $timeSpent = now()->diffInSeconds($this->startTime);
-
-            // Use provided percentage or calculate based on time
-            if ($watchPercentage === 0) {
-                $watchPercentage = min(100, ($timeSpent / 300) * 100); // 5 minutes = 100%
+            // Use provided parameters or calculate based on session time
+            if ($timeSpent === 0) {
+                $timeSpent = now()->diffInSeconds($this->startTime);
             }
 
+            if ($watchPercentage === 0) {
+                $watchPercentage = min(100, ($timeSpent / 300) * 100);
+            }
+
+            // Update VideoProgress table (for analytics)
+            // Use lesson_id as unique key instead of video_id (which is a numeric FK)
             VideoProgress::updateOrCreate(
                 [
                     'user_id' => auth()->id(),
                     'lesson_id' => $this->lesson->id,
-                    'video_id' => $this->lesson->video_url, // Bunny video ID
                 ],
                 [
                     'watch_time' => $timeSpent,
@@ -156,6 +163,40 @@ class LessonView extends Component
                     'completed' => $watchPercentage >= 90,
                 ]
             );
+
+            // Update UserProgress table (for UI display)
+            $this->progress->update([
+                'progress_percentage' => (int) $watchPercentage,
+                'time_spent_seconds' => $timeSpent,
+            ]);
+
+            // Refresh the component property to update the UI
+            $this->progress->refresh();
+        }
+    }
+
+    /**
+     * Update the current playback time for video resume functionality
+     * Called periodically by the Bunny Player SDK
+     */
+    public function updateVideoTime($currentTime)
+    {
+        if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
+            // Update UserProgress with current playback position
+            $this->progress->update([
+                'current_time_seconds' => (int) $currentTime,
+            ]);
+
+            // Also store in VideoProgress for analytics
+            $videoProgress = VideoProgress::where('user_id', auth()->id())
+                ->where('lesson_id', $this->lesson->id)
+                ->first();
+
+            if ($videoProgress) {
+                $videoProgress->update([
+                    'current_time' => (int) $currentTime,
+                ]);
+            }
         }
     }
 

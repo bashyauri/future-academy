@@ -15,13 +15,17 @@ class VideoProgress extends Model
         'lesson_id',
         'watch_time',
         'percentage',
+        'current_time',
         'completed',
+        'bunny_watch_data',
     ];
 
     protected $casts = [
         'watch_time' => 'integer',
         'percentage' => 'integer',
+        'current_time' => 'integer',
         'completed' => 'boolean',
+        'bunny_watch_data' => 'array',
     ];
 
     public function user(): BelongsTo

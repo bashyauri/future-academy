@@ -7,6 +7,7 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\Video;
+use App\Models\VideoAnalytics;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -32,6 +33,25 @@ class Index extends Component
             ->get();
 
         // Calculate stats
+        $subjectIds = $this->enrolledSubjects->pluck('id')->toArray();
+
+        // Get video analytics for enrolled subjects
+        // Extract lesson IDs from enrolled subjects (reload with lessons to avoid N+1)
+        $lessonIds = $user->enrolledSubjects()
+            ->with('lessons')
+            ->get()
+            ->flatMap(function ($subject) {
+                return $subject->lessons->pluck('id');
+            })
+            ->unique()
+            ->toArray();
+
+        $videoAnalytics = VideoAnalytics::whereIn('lesson_id', $lessonIds)->get();
+
+        $totalVideoViews = $videoAnalytics->sum('total_views') ?? 0;
+        $totalVideoWatchTime = $videoAnalytics->sum('total_watch_time') ?? 0;
+        $averageCompletionRate = $videoAnalytics->avg('completion_rate') ?? 0;
+
         $this->stats = [
             'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
             'total_videos' => Video::where('is_published', true)->count(),
@@ -53,10 +73,12 @@ class Index extends Component
                 })
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0,
+            // Video analytics from Bunny Stream
+            'total_video_views' => $totalVideoViews,
+            'total_video_watch_time_seconds' => $totalVideoWatchTime,
+            'total_video_watch_time_hours' => round($totalVideoWatchTime / 3600, 1),
+            'average_completion_rate' => number_format($averageCompletionRate, 1),
         ];
-
-        // Get recent videos from enrolled subjects
-        $subjectIds = $this->enrolledSubjects->pluck('id')->toArray();
         $this->recentVideos = Video::whereIn('subject_id', $subjectIds)
             ->where('is_published', true)
             ->with(['subject', 'topic'])
