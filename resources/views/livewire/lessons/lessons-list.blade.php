@@ -79,10 +79,20 @@
                             class="group block rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-200 overflow-hidden">
                             <div class="flex gap-4 p-4">
                                 {{-- Thumbnail --}}
-                                <div class="flex-shrink-0 relative">
+                                <div class="flex-shrink-0 relative group/thumb">
                                     <div
                                         class="w-32 h-24 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 flex items-center justify-center overflow-hidden">
-                                        @if($lesson->thumbnail)
+                                        @if($lesson->video_type === 'bunny' && $lesson->video_url)
+                                            {{-- Show Bunny video thumbnail with preview animation on hover --}}
+                                            <img src="{{ $lesson->getBunnyThumbnailUrl() }}"
+                                                alt="{{ $lesson->title }}"
+                                                class="w-full h-full object-cover group-hover/thumb:opacity-0 transition-opacity duration-200">
+
+                                            {{-- Preview animation on hover --}}
+                                            <img src="{{ $lesson->getBunnyPreviewAnimationUrl() }}"
+                                                alt="{{ $lesson->title }}"
+                                                class="w-full h-full object-cover absolute inset-0 opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-200">
+                                        @elseif($lesson->thumbnail)
                                             <img src="{{ Storage::url($lesson->thumbnail) }}" alt="{{ $lesson->title }}"
                                                 class="w-full h-full object-cover">
                                         @else

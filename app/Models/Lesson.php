@@ -139,6 +139,32 @@ class Lesson extends Model
     }
 
     /**
+     * Get Bunny Stream thumbnail URL.
+     */
+    public function getBunnyThumbnailUrl(): ?string
+    {
+        if ($this->video_type !== 'bunny' || !$this->video_url) {
+            return null;
+        }
+
+        $service = app(BunnyStreamService::class);
+        return $service->getThumbnailUrl($this->video_url);
+    }
+
+    /**
+     * Get Bunny Stream preview animation (WebP).
+     */
+    public function getBunnyPreviewAnimationUrl(): ?string
+    {
+        if ($this->video_type !== 'bunny' || !$this->video_url) {
+            return null;
+        }
+
+        $service = app(BunnyStreamService::class);
+        return $service->getPreviewAnimationUrl($this->video_url);
+    }
+
+    /**
      * Get signed URL for Cloudinary video with authenticated delivery.
      */
     public function getSignedVideoUrl(): ?string

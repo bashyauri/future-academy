@@ -157,6 +157,16 @@ Route::get('/clear', function () {
     return 'Cleared!';
 });
 
+// Admin video upload (for Filament lesson form)
+Route::middleware(['auth'])->prefix('admin/video')->group(function () {
+    Route::post('/validate', [App\Http\Controllers\Admin\VideoUploadController::class, 'validate'])
+        ->name('admin.video.validate');
+    Route::post('/create', [App\Http\Controllers\Admin\VideoUploadController::class, 'create'])
+        ->name('admin.video.create');
+    Route::post('/upload-chunk', [App\Http\Controllers\Admin\VideoUploadController::class, 'uploadChunk'])
+        ->name('admin.video.upload-chunk');
+});
+
 // Webhooks
 Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')

@@ -111,6 +111,38 @@ class BunnyStreamService
         return $url;
     }
 
+    /**
+     * Get Bunny Stream thumbnail URL (JPEG).
+     */
+    public function getThumbnailUrl(string $videoId): string
+    {
+        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/thumbnail.jpg";
+    }
+
+    /**
+     * Get Bunny Stream preview animation URL (WebP).
+     */
+    public function getPreviewAnimationUrl(string $videoId): string
+    {
+        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/preview.webp";
+    }
+
+    /**
+     * Get Bunny Stream direct play URL (MP4).
+     */
+    public function getDirectPlayUrl(string $videoId): string
+    {
+        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/play.mp4";
+    }
+
+    /**
+     * Get Bunny Stream HLS playlist URL (M3U8).
+     */
+    public function getHlsPlaylistUrl(string $videoId): string
+    {
+        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/playlist.m3u8";
+    }
+
     public function deleteVideo(string $videoId): void
     {
         $this->assertConfigured();
