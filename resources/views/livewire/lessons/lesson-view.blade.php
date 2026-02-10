@@ -69,8 +69,10 @@
                                 });
                             </script>
                         @elseif($lesson->video_type === 'bunny')
-                            {{-- Bunny Stream Player (using iframe embed with Alpine tracking) --}}
-                            <div class="w-full h-full" wire:ignore x-data="bunnyTracker($wire)" x-init="init()">
+                            {{-- Bunny Stream Player (Alpine + fetch tracking, low frequency) --}}
+                            <div class="w-full h-full" wire:ignore
+                                x-data="bunnyTracker({{ $lesson->id }}, {{ (int) (($lesson->duration_minutes ?? 5) * 60) }})"
+                                x-init="init()">
                                 <iframe
                                     id="bunny-player"
                                     src="{{ $lesson->getVideoEmbedUrl() }}"
@@ -79,53 +81,154 @@
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowfullscreen>
                                 </iframe>
-                                <div class="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-1 text-xs text-white"
-                                    x-text="trackingStatus">
-                                </div>
                             </div>
 
                             <script>
-                                function bunnyTracker(wire) {
+                                function bunnyTracker(lessonId, totalSeconds) {
                                     return {
+                                        lessonId,
+                                        totalSeconds: totalSeconds || 300,
                                         sessionStartTime: null,
                                         lastSaveTime: null,
                                         lastSavedPercentage: 0,
                                         completionRecorded: false,
-                                        saveThresholdMs: 10000,
-                                        percentageThreshold: 5,
+                                        saveThresholdMs: 120000,
+                                        percentageThreshold: 15,
                                         intervalId: null,
-                                        trackingStatus: 'Tracking: initializing',
+                                        queueIntervalId: null,
+                                        progressQueue: [],
+                                        retryAttempts: new Map(),
+                                        maxRetryDelay: 60000,
+                                        queueKey: 'video_progress_queue',
                                         init() {
-                                            if (!wire) {
-                                                console.error('Livewire component not available');
-                                                this.trackingStatus = 'Tracking: unavailable';
-                                                return;
-                                            }
-
                                             this.sessionStartTime = Date.now();
                                             this.lastSaveTime = this.sessionStartTime;
-                                            this.trackingStatus = 'Tracking: active';
+                                            this.loadQueue();
 
                                             document.addEventListener('visibilitychange', () => {
                                                 if (document.hidden) {
                                                     this.saveProgress(true);
-                                                    this.recordCompletionIfNeeded();
                                                 }
                                             });
 
                                             window.addEventListener('beforeunload', () => {
-                                                this.saveProgress(true);
-                                                this.recordCompletionIfNeeded();
+                                                this.sendBeaconProgress();
+                                            });
+
+                                            window.addEventListener('online', () => {
+                                                console.log('Connection restored, flushing queue');
+                                                this.processQueue(true);
                                             });
 
                                             this.intervalId = setInterval(() => {
                                                 if (!document.hidden) {
                                                     this.saveProgress(false);
                                                 }
-                                            }, 5000);
+                                            }, 30000);
+
+                                            this.queueIntervalId = setInterval(() => {
+                                                if (this.progressQueue.length > 0 && navigator.onLine) {
+                                                    this.processQueue(false);
+                                                }
+                                            }, 15000);
+                                        },
+                                        loadQueue() {
+                                            try {
+                                                const stored = localStorage.getItem(this.queueKey);
+                                                if (stored) {
+                                                    this.progressQueue = JSON.parse(stored);
+                                                    console.log(`Loaded ${this.progressQueue.length} queued items`);
+                                                }
+                                            } catch (e) {
+                                                console.error('Failed to load queue:', e);
+                                                this.progressQueue = [];
+                                            }
+                                        },
+                                        saveQueue() {
+                                            try {
+                                                localStorage.setItem(this.queueKey, JSON.stringify(this.progressQueue));
+                                            } catch (e) {
+                                                console.error('Failed to save queue:', e);
+                                            }
+                                        },
+                                        queueProgress(payload) {
+                                            const queueItem = {
+                                                ...payload,
+                                                timestamp: Date.now(),
+                                                attempts: 0
+                                            };
+                                            this.progressQueue.push(queueItem);
+                                            this.saveQueue();
+                                            console.log('Queued progress update (offline)');
+                                        },
+                                        async processQueue(flushAll = false) {
+                                            if (this.progressQueue.length === 0) return;
+
+                                            const now = Date.now();
+                                            const itemsToProcess = flushAll ? this.progressQueue.slice() : this.progressQueue.slice(0, 3);
+
+                                            for (let i = itemsToProcess.length - 1; i >= 0; i--) {
+                                                const item = itemsToProcess[i];
+                                                const itemKey = `${item.lesson_id}_${item.timestamp}`;
+                                                const attempts = this.retryAttempts.get(itemKey) || 0;
+                                                const delay = Math.min(Math.pow(2, attempts) * 1000, this.maxRetryDelay);
+
+                                                if ((now - item.timestamp) < delay && !flushAll) {
+                                                    continue;
+                                                }
+
+                                                const success = await this.retryProgressRequest(item);
+                                                if (success) {
+                                                    const queueIndex = this.progressQueue.findIndex(q =>
+                                                        q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
+                                                    );
+                                                    if (queueIndex !== -1) {
+                                                        this.progressQueue.splice(queueIndex, 1);
+                                                    }
+                                                    this.retryAttempts.delete(itemKey);
+                                                    console.log('Successfully sent queued progress');
+                                                } else {
+                                                    this.retryAttempts.set(itemKey, attempts + 1);
+                                                    if (attempts >= 5) {
+                                                        console.warn('Max retries reached, removing old item');
+                                                        const queueIndex = this.progressQueue.findIndex(q =>
+                                                            q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
+                                                        );
+                                                        if (queueIndex !== -1) {
+                                                            this.progressQueue.splice(queueIndex, 1);
+                                                        }
+                                                        this.retryAttempts.delete(itemKey);
+                                                    }
+                                                }
+                                            }
+                                            this.saveQueue();
+                                        },
+                                        async retryProgressRequest(item) {
+                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                                            if (!csrfToken) return false;
+
+                                            try {
+                                                const response = await fetch('/video-progress', {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'X-CSRF-TOKEN': csrfToken,
+                                                    },
+                                                    body: JSON.stringify({
+                                                        lesson_id: item.lesson_id,
+                                                        watched_seconds: item.watched_seconds,
+                                                        total_seconds: item.total_seconds,
+                                                        percentage: item.percentage,
+                                                    }),
+                                                });
+                                                return response.ok;
+                                            } catch (err) {
+                                                return false;
+                                            }
                                         },
                                         calculateWatchPercentage(timeSpentSeconds) {
-                                            return Math.min(100, Math.floor((timeSpentSeconds / 300) * 100));
+                                            const total = this.totalSeconds || 300;
+                                            return Math.min(100, Math.floor((timeSpentSeconds / total) * 100));
                                         },
                                         saveProgress(forceImmediate = false) {
                                             try {
@@ -140,16 +243,14 @@
                                                     percentageChange >= this.percentageThreshold) {
 
                                                     if (currentPercentage > this.lastSavedPercentage || forceImmediate) {
-                                                        wire.call('trackVideoWatch', currentPercentage, sessionTimeSpent);
+                                                        this.sendProgress(sessionTimeSpent, currentPercentage);
                                                         this.lastSaveTime = currentTime;
                                                         this.lastSavedPercentage = currentPercentage;
-                                                        this.trackingStatus = 'Tracking: saved ' + currentPercentage + '%';
                                                         this.recordCompletionIfNeeded();
                                                     }
                                                 }
                                             } catch (error) {
                                                 console.error('Failed to save progress:', error.message);
-                                                this.trackingStatus = 'Tracking: error';
                                             }
                                         },
                                         recordCompletionIfNeeded() {
@@ -159,9 +260,84 @@
 
                                             if (this.lastSavedPercentage >= 90) {
                                                 this.completionRecorded = true;
-                                                wire.call('trackVideoProgress');
-                                                this.trackingStatus = 'Tracking: completed';
+                                                this.sendCompletion();
                                             }
+                                        },
+                                        sendProgress(watchedSeconds, percentage) {
+                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                                            if (!csrfToken) {
+                                                console.warn('CSRF token not found');
+                                                return;
+                                            }
+
+                                            const payload = {
+                                                lesson_id: this.lessonId,
+                                                watched_seconds: watchedSeconds,
+                                                total_seconds: this.totalSeconds || 300,
+                                                percentage: percentage,
+                                            };
+
+                                            fetch('/video-progress', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': csrfToken,
+                                                },
+                                                body: JSON.stringify(payload),
+                                            })
+                                            .then(response => {
+                                                if (!response.ok) {
+                                                    throw new Error(`HTTP ${response.status}`);
+                                                }
+                                            })
+                                            .catch((err) => {
+                                                console.error('Failed to report progress, queuing:', err.message);
+                                                this.queueProgress(payload);
+                                            });
+                                        },
+                                        sendCompletion() {
+                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                                            if (!csrfToken) {
+                                                console.warn('CSRF token not found');
+                                                return;
+                                            }
+
+                                            const payload = {
+                                                lesson_id: this.lessonId,
+                                                watched_percentage: 90,
+                                            };
+
+                                            fetch('/video-completion', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': csrfToken,
+                                                },
+                                                body: JSON.stringify(payload),
+                                            })
+                                            .then(response => {
+                                                if (!response.ok) {
+                                                    throw new Error(`HTTP ${response.status}`);
+                                                }
+                                            })
+                                            .catch((err) => {
+                                                console.error('Failed to report completion:', err.message);
+                                            });
+                                        },
+                                        sendBeaconProgress() {
+                                            const sessionTimeSpent = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+                                            if (sessionTimeSpent <= 0) {
+                                                return;
+                                            }
+                                            const percentage = this.calculateWatchPercentage(sessionTimeSpent);
+                                            const payload = JSON.stringify({
+                                                lesson_id: this.lessonId,
+                                                watched_seconds: sessionTimeSpent,
+                                                total_seconds: this.totalSeconds || 300,
+                                                percentage: percentage,
+                                            });
+                                            const blob = new Blob([payload], { type: 'application/json' });
+                                            navigator.sendBeacon('/video-progress', blob);
                                         }
                                     };
                                 }

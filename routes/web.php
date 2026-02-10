@@ -138,6 +138,12 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
     Route::get('lessons/{subject}', \App\Livewire\Lessons\LessonsList::class)->name('lessons.list');
     Route::get('lesson/{id}', \App\Livewire\Lessons\LessonView::class)->name('lessons.view');
 
+    // Video progress tracking (Alpine + fetch)
+    Route::post('video-progress', [\App\Http\Controllers\VideoProgressController::class, 'storeProgress'])
+        ->name('video.progress.store');
+    Route::post('video-completion', [\App\Http\Controllers\VideoProgressController::class, 'markCompletion'])
+        ->name('video.progress.complete');
+
     // Analytics
     Route::get('analytics', Analytics::class)->name('analytics');
 });
