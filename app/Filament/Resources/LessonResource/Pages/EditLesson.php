@@ -52,6 +52,7 @@ class EditLesson extends EditRecord
             Notification::make()
                 ->success()
                 ->title('Video Ready')
+                ->icon('heroicon-o-check-circle')
                 ->body('Your video has been uploaded successfully and is ready to use.')
                 ->send();
         }
