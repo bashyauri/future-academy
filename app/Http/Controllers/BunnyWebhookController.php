@@ -99,6 +99,11 @@ class BunnyWebhookController extends Controller
      * Handle successful video transcoding completion.
      *
      * Called when Bunny finishes encoding the video into multiple quality formats.
+     *
+     * Note: With synchronous uploads, video_status is already set to 'ready' immediately
+     * after upload. This webhook event serves as a confirmation that Bunny has completed
+     * transcoding and the video is fully optimized for all playback quality levels.
+     * This is optional but useful for advanced tracking.
      */
     private function handleTranscodingComplete(string $videoGuid, array $payload): void
     {
@@ -107,13 +112,40 @@ class BunnyWebhookController extends Controller
             'title' => $payload['VideoTitle'] ?? 'unknown',
         ]);
 
-        $this->updateLessonVideoStatus($videoGuid, 'ready');
+        // Video is already marked as ready from upload, but you can perform
+        // additional actions here like sending notifications or triggering events
+        $lesson = Lesson::where('video_url', $videoGuid)
+            ->where('video_type', 'bunny')
+            ->first();
+
+        if ($lesson) {
+            // Ensure status is ready (confirm from Bunny)
+            if ($lesson->video_status !== 'ready') {
+                $lesson->update([
+                    'video_status' => 'ready',
+                    'video_processed_at' => now(),
+                ]);
+            }
+
+            \Log::info('Confirmed video transcoding complete', [
+                'lesson_id' => $lesson->id,
+                'video_guid' => $videoGuid,
+            ]);
+
+            // Optional: Dispatch event for real-time UI updates
+            // Livewire::dispatch('video-transcoding-confirmed', lessonId: $lesson->id);
+        }
     }
 
     /**
      * Handle encoding failure.
      *
      * Called when Bunny encounters an error during video processing.
+     * This can occur after the upload has already completed successfully.
+     *
+     * With synchronous uploads, the video is marked as 'ready' immediately,
+     * but if Bunny encounters issues during transcoding, this webhook updates
+     * the status to 'failed' for visibility.
      */
     private function handleEncodingFailed(string $videoGuid, array $payload): void
     {
@@ -122,7 +154,24 @@ class BunnyWebhookController extends Controller
             'error' => $payload['Error'] ?? 'unknown error',
         ]);
 
-        $this->updateLessonVideoStatus($videoGuid, 'failed');
+        // Find and update the lesson with failed status
+        $lesson = Lesson::where('video_url', $videoGuid)
+            ->where('video_type', 'bunny')
+            ->first();
+
+        if ($lesson) {
+            $lesson->update([
+                'video_status' => 'failed',
+            ]);
+
+            \Log::error('Updated lesson video status to failed', [
+                'lesson_id' => $lesson->id,
+                'video_guid' => $videoGuid,
+            ]);
+
+            // Optional: Dispatch event for real-time UI updates
+            // Livewire::dispatch('video-failed', lessonId: $lesson->id);
+        }
     }
 
     /**
@@ -193,7 +242,7 @@ class BunnyWebhookController extends Controller
     }
 
     /**
-     * Handle video resume event.
+     * Handle video view resume event.
      *
      * Called when Bunny detects that a user resumes watching a video
      * from where they left off (if persistentSettings is enabled).
@@ -219,6 +268,7 @@ class BunnyWebhookController extends Controller
      * Called when Bunny sends analytics data about video views and watch time.
      * This tracks actual user progress watching the video.
      */
+    private function handleAnalyticsEvent(string $videoGuid, array $payload): void
     {
         $watchTime = $payload['WatchTime'] ?? 0; // In milliseconds
         $watchPercentage = $payload['WatchPercentage'] ?? $payload['PercentageWatched'] ?? 0;

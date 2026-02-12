@@ -3,9 +3,12 @@
 namespace App\Filament\Resources\LessonResource\Pages;
 
 use App\Filament\Resources\LessonResource;
+use App\Services\BunnyStreamService;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class EditLesson extends EditRecord
 {
@@ -23,13 +26,24 @@ class EditLesson extends EditRecord
         return $this->getResource()::getUrl('index');
     }
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        Log::info('EditLesson: mutateFormDataBeforeSave called', [
+            'video_type' => $data['video_type'] ?? 'not set',
+            'video_url' => $data['video_url'] ?? 'not set',
+        ]);
+
+        // Video URL is now set by the chunked uploader, no need to process bunny_video_file
+
+        return $data;
+    }
+
     protected function afterSave(): void
     {
-        // Automatically set video status to ready for local videos
         $record = $this->record;
 
-        if ($record->video_type === 'local' && $record->video_url) {
-            // Bypass webhook - set to ready immediately
+        // Set video status to ready if video_url is filled
+        if ($record->video_type === 'bunny' && $record->video_url) {
             $record->update([
                 'video_status' => 'ready',
                 'video_processed_at' => now(),
@@ -38,7 +52,7 @@ class EditLesson extends EditRecord
             Notification::make()
                 ->success()
                 ->title('Video Ready')
-                ->body('Your video has been uploaded and is ready to use.')
+                ->body('Your video has been uploaded successfully and is ready to use.')
                 ->send();
         }
     }

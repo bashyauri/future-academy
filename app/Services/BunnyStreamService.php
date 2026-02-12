@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class BunnyStreamService
 {
@@ -26,39 +27,95 @@ class BunnyStreamService
     {
         $this->assertConfigured();
 
+        Log::info('BunnyStreamService: Creating video', [
+            'title' => $title,
+            'library_id' => $this->libraryId,
+            'collection_id' => $collectionId,
+        ]);
+
         $payload = array_filter([
             'title' => $title,
             'collectionId' => $collectionId,
             'thumbnailTime' => $thumbnailTime,
         ], fn ($value) => $value !== null);
 
+        $url = $this->baseUrl . "/library/{$this->libraryId}/videos";
+        Log::info('BunnyStreamService: API Request', ['url' => $url, 'payload' => $payload]);
+
         $response = Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->post($this->baseUrl . "/library/{$this->libraryId}/videos", $payload);
+        ])->post($url, $payload);
+
+        Log::info('BunnyStreamService: API Response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body' => $response->body(),
+        ]);
 
         if (!$response->successful()) {
+            Log::error('BunnyStreamService: Create video failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
             throw new \RuntimeException('Bunny Stream create video failed: ' . $response->body());
         }
 
-        return (array) $response->json();
+        $result = (array) $response->json();
+        Log::info('BunnyStreamService: Video created successfully', [
+            'video_id' => $result['guid'] ?? $result['videoId'] ?? $result['id'] ?? 'unknown',
+            'result' => $result,
+        ]);
+
+        return $result;
     }
 
     public function uploadVideo(string $videoId, UploadedFile $file): void
     {
         $this->assertConfigured();
 
+        Log::info('BunnyStreamService: Starting video upload', [
+            'video_id' => $videoId,
+            'file_name' => $file->getClientOriginalName(),
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'file_path' => $file->getRealPath(),
+        ]);
+
         $contents = file_get_contents($file->getRealPath());
+        Log::info('BunnyStreamService: File contents read', ['content_length' => strlen($contents)]);
+
+        $url = $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}";
+        $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+
+        Log::info('BunnyStreamService: Uploading to Bunny', [
+            'url' => $url,
+            'content_length' => strlen($contents),
+            'mime_type' => $mimeType,
+        ]);
 
         $response = Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->withBody($contents, $file->getMimeType() ?: 'application/octet-stream')
-            ->put($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}");
+        ])->withBody($contents, $mimeType)
+            ->put($url);
+
+        Log::info('BunnyStreamService: Upload response received', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body' => $response->body(),
+        ]);
 
         if (!$response->successful()) {
+            Log::error('BunnyStreamService: Upload failed', [
+                'video_id' => $videoId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
             throw new \RuntimeException('Bunny Stream upload failed: ' . $response->body());
         }
+
+        Log::info('BunnyStreamService: Video uploaded successfully', ['video_id' => $videoId]);
     }
 
     public function fetchVideoFromUrl(string $url, ?string $title = null): array
@@ -190,6 +247,48 @@ class BunnyStreamService
             \Log::error('Error fetching video view count', ['error' => $e->getMessage()]);
             return 0;
         }
+    }
+
+    /**
+     * Validate that a video exists on Bunny by video ID.
+     * Supports both full URLs and video IDs.
+     */
+    public function validateVideoId(string $videoInput): ?string
+    {
+        try {
+            // Extract video ID from URL if it's a full URL
+            $videoId = $this->extractVideoIdFromUrl($videoInput);
+
+            // Try to fetch the video metadata to validate it exists
+            $video = $this->getVideo($videoId);
+
+            return $video ? $videoId : null;
+        } catch (\Exception $e) {
+            \Log::warning('Video ID validation failed', [
+                'input' => $videoInput,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Extract video ID from Bunny URL or return as-is if it's already an ID.
+     */
+    private function extractVideoIdFromUrl(string $input): string
+    {
+        // If it's already a UUID, return it
+        if (preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', $input)) {
+            return $input;
+        }
+
+        // Try to extract from common Bunny URL patterns
+        if (preg_match('/\/videos\/([a-f0-9\-]+)/i', $input, $matches)) {
+            return $matches[1];
+        }
+
+        // If no pattern matches, treat the entire input as the ID
+        return $input;
     }
 
     private function assertConfigured(): void

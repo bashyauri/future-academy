@@ -170,20 +170,32 @@ class VideoUploadController
     private function combineAndUploadToBunny(string $videoId, int $totalChunks): void
     {
         try {
-            $chunkPath = "{$this->chunksPath}/{$videoId}";
-            $tempFile = tmpfile();
-            $tempFilePath = stream_get_meta_data($tempFile)['uri'];
+            Log::info('Combining chunks for upload', ['video_id' => $videoId, 'total_chunks' => $totalChunks]);
 
-            // Combine all chunks
+            $chunkPath = "{$this->chunksPath}/{$videoId}";
+            $videoContent = '';
+
+            // Combine all chunks into memory
             for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkData = Storage::disk('local')->get("{$chunkPath}/chunk_{$i}.tmp");
-                fwrite($tempFile, $chunkData);
+                $chunkFile = "{$chunkPath}/chunk_{$i}.tmp";
+                $chunkData = Storage::disk('local')->get($chunkFile);
+                $videoContent .= $chunkData;
+
+                Log::debug('Chunk combined', [
+                    'video_id' => $videoId,
+                    'chunk_index' => $i,
+                    'chunk_size' => strlen($chunkData),
+                    'total_size_so_far' => strlen($videoContent)
+                ]);
             }
 
-            rewind($tempFile);
+            Log::info('All chunks combined, uploading to Bunny', [
+                'video_id' => $videoId,
+                'total_size' => strlen($videoContent)
+            ]);
 
-            // Upload to Bunny using stream
-            $this->uploadToBunnyStream($videoId, $tempFile);
+            // Upload to Bunny
+            $this->uploadToBunnyStream($videoId, $videoContent);
 
             // Clean up chunks after successful upload
             Storage::disk('local')->deleteDirectory($chunkPath);
@@ -193,39 +205,42 @@ class VideoUploadController
             Log::error('Failed to combine and upload video to Bunny', [
                 'video_id' => $videoId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
     }
 
     /**
-     * Upload stream to Bunny (streaming API)
+     * Upload video content to Bunny Stream
      */
-    private function uploadToBunnyStream(string $videoId, $stream): void
+    private function uploadToBunnyStream(string $videoId, string $content): void
     {
         $baseUrl = 'https://video.bunnycdn.com';
         $libraryId = config('services.bunny.stream_library_id');
         $apiKey = config('services.bunny.stream_api_key');
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "{$baseUrl}/library/{$libraryId}/videos/{$videoId}");
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'AccessKey: ' . $apiKey,
-            'Accept: application/json',
+        $url = "{$baseUrl}/library/{$libraryId}/videos/{$videoId}";
+
+        Log::info('Uploading to Bunny Stream', [
+            'video_id' => $videoId,
+            'url' => $url,
+            'content_size' => strlen($content)
         ]);
-        curl_setopt($ch, CURLOPT_INFILE, $stream);
-        curl_setopt($ch, CURLOPT_INFILESIZE, fstat($stream)['size']);
-        curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'AccessKey' => $apiKey,
+            'Accept' => 'application/json',
+        ])->withBody($content, 'video/mp4')->put($url);
 
-        if ($httpCode < 200 || $httpCode >= 300) {
-            throw new \RuntimeException("Bunny Stream upload failed (HTTP {$httpCode}): {$response}");
+        Log::info('Bunny Stream upload response', [
+            'video_id' => $videoId,
+            'status' => $response->status(),
+            'body' => $response->body()
+        ]);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException("Bunny Stream upload failed (HTTP {$response->status()}): {$response->body()}");
         }
     }
 }
