@@ -11,11 +11,18 @@
             <div class="lg:col-span-2 space-y-8">
                 <!-- Year Selection -->
                 <div>
-                    <flux:heading size="lg" level="2" class="mb-2">Select Exam Year</flux:heading>
-                    <flux:text class="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose which year's JAMB questions you want to practice</flux:text>
+                    <flux:heading size="lg" level="2" class="mb-2">Select Exam Year <span class="text-sm text-gray-500 dark:text-gray-400 font-normal">(Optional)</span></flux:heading>
+                    <flux:text class="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose a specific year or leave blank to practice from all available years</flux:text>
 
-                    @if($years->count() > 0)
-                        <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                        <!-- All Years Button -->
+                        <button
+                            wire:click="$set('selectedYear', null)"
+                            class="px-4 py-2 rounded-lg font-semibold transition-all {{ $selectedYear === null ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+                            All Years
+                        </button>
+
+                        @if($years->count() > 0)
                             @foreach($years as $year)
                                 <button
                                     wire:click="$set('selectedYear', {{ $year }})"
@@ -23,10 +30,12 @@
                                     {{ $year }}
                                 </button>
                             @endforeach
-                        </div>
-                    @else
-                        <div class="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                            <flux:text class="text-amber-800 dark:text-amber-200">No JAMB questions available yet. Please contact your administrator.</flux:text>
+                        @endif
+                    </div>
+
+                    @if($years->count() === 0)
+                        <div class="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                            <flux:text class="text-blue-800 dark:text-blue-200 text-sm">No specific years configured yet. Start with "All Years" to practice from all available questions.</flux:text>
                         </div>
                     @endif
 

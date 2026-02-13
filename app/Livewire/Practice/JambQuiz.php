@@ -39,7 +39,7 @@ class JambQuiz extends Component
     public function mount()
     {
         // Get params from URL query string
-        $this->year = request()->query('year') ?? 2023;
+        $this->year = request()->query('year'); // Allow null for "All Years"
         $subjectsParam = request()->query('subjects');
         $this->timeLimit = (int)(request()->query('timeLimit') ?? 180);
         $this->questionsPerSubject = (int)(request()->query('questionsPerSubject') ?? 40);
@@ -552,9 +552,13 @@ class JambQuiz extends Component
 
             $query = Question::where('exam_type_id', $examTypeId)
                 ->where('subject_id', $subjectId)
-                ->where('exam_year', $this->year)
                 ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
                 ->with('options:id,question_id,option_text,option_image,is_correct');
+
+            // Only filter by year if a specific year is selected
+            if ($this->year !== null) {
+                $query->where('exam_year', $this->year);
+            }
 
             if ($this->shuffleQuestions) {
                 $query->inRandomOrder();

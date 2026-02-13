@@ -69,27 +69,31 @@ class JambSetup extends Component
         $timeLimit = $this->timeLimit; // Can be null for unlimited time
 
         $this->validate([
-            'selectedYear' => 'required',
             'selectedSubjects' => 'required|array|size:' . $this->maxSubjects,
         ], [
-            'selectedYear.required' => 'Please select an exam year',
             'selectedSubjects.required' => 'Please select subjects',
             'selectedSubjects.size' => 'You must select exactly ' . $this->maxSubjects . ' subjects for JAMB',
         ]);
 
-        // Verify that each selected subject has enough questions for the selected year
+        // Verify that each selected subject has enough questions
         foreach ($this->selectedSubjects as $subjectId) {
-            $questionCount = \App\Models\Question::where('exam_type_id', $this->examType)
+            $query = \App\Models\Question::where('exam_type_id', $this->examType)
                 ->where('subject_id', $subjectId)
-                ->where('exam_year', $this->selectedYear)
                 ->where('is_active', true)
-                ->where('status', 'approved')
-                ->count();
+                ->where('status', 'approved');
+
+            // Filter by year only if selected
+            if ($this->selectedYear) {
+                $query->where('exam_year', $this->selectedYear);
+            }
+
+            $questionCount = $query->count();
 
             if ($questionCount < $questionsPerSubject) {
                 $subject = Subject::find($subjectId);
+                $yearText = $this->selectedYear ? $this->selectedYear : 'all available years';
                 $this->addError('selectedSubjects',
-                    "Not enough questions for {$subject->name} in {$this->selectedYear}. Available: {$questionCount}, Required: {$questionsPerSubject}");
+                    "Not enough questions for {$subject->name} in {$yearText}. Available: {$questionCount}, Required: {$questionsPerSubject}");
                 return;
             }
         }
