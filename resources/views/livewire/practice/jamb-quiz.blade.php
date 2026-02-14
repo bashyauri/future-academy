@@ -16,7 +16,9 @@
 
     init() {
         if (!this.hasResults) {
-            this.startTimer();
+            if (this.timeRemaining !== null) {
+                this.startTimer();
+            }
             // Start autosave every 10 seconds (cache-only, no database writes)
             this.autosaveTimer = setInterval(() => this.autosave(), 10000);
             // Save on page unload
@@ -94,15 +96,23 @@
 
     saveSync() {
         if (this.quizAttemptId) {
-            navigator.sendBeacon('/jamb/autosave', JSON.stringify({
-                attempt_id: this.quizAttemptId,
-                questions: this.questionsBySubject,
-                answers: this.userAnswers,
-                position: {
-                    subjectIndex: this.currentSubjectIndex,
-                    questionIndex: this.currentQuestionIndex,
+            fetch('/jamb/autosave', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken,
                 },
-            }));
+                body: JSON.stringify({
+                    attempt_id: this.quizAttemptId,
+                    questions: this.questionsBySubject,
+                    answers: this.userAnswers,
+                    position: {
+                        subjectIndex: this.currentSubjectIndex,
+                        questionIndex: this.currentQuestionIndex,
+                    },
+                }),
+                keepalive: true,
+            });
         }
     },
 
@@ -156,6 +166,19 @@
         if (confirm(`Are you sure you want to submit your test?\\n\\nYou have answered ${answered} out of ${total} questions.\\n\\nOnce submitted, you won't be able to change your answers.`)) {
             $wire.call('submitQuiz');
         }
+    },
+
+    confirmExit() {
+        const answered = Object.values(this.userAnswers).reduce((sum, answers) =>
+            sum + (Array.isArray(answers) ? answers.filter(a => a !== null).length : 0), 0
+        );
+        const total = Object.values(this.questionsBySubject).reduce((sum, questions) =>
+            sum + (Array.isArray(questions) ? questions.length : 0), 0
+        );
+
+        if (confirm(`Your progress will be saved and you can continue this practice test later.\\n\\nCurrent progress: ${answered} of ${total} questions answered.\\n\\nDo you want to exit?`)) {
+            this.autosave().then(() => $wire.call('exitQuiz'));
+        }
     }
 }" class="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
 
@@ -169,15 +192,24 @@
                     <flux:text class="text-neutral-600 dark:text-neutral-400 text-sm" x-text="subjectsData[currentSubjectIndex]?.name || ''"></flux:text>
                 </div>
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full md:w-auto">
-                    <div class="text-left" wire:ignore>
-                        <flux:text class="text-neutral-600 dark:text-neutral-400 text-xs md:text-sm">Time Remaining</flux:text>
-                        <div class="text-2xl md:text-3xl font-bold font-mono" :class="timeRemaining < 600 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'" x-text="formatTime(timeRemaining)"></div>
+                    @if($timeLimit)
+                        <div class="text-left" wire:ignore>
+                            <flux:text class="text-neutral-600 dark:text-neutral-400 text-xs md:text-sm">Time Remaining</flux:text>
+                            <div class="text-2xl md:text-3xl font-bold font-mono" :class="timeRemaining < 600 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'" x-text="formatTime(timeRemaining)"></div>
+                        </div>
+                    @endif
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button
+                            @click="confirmExit()"
+                            class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-600 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-600 text-white font-semibold rounded-lg transition-all shadow-sm text-sm sm:text-base">
+                            Exit & Continue Later
+                        </button>
+                        <button
+                            @click="confirmSubmit()"
+                            class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all shadow-sm text-sm sm:text-base">
+                            Submit Test
+                        </button>
                     </div>
-                    <button
-                        @click="confirmSubmit()"
-                        class="w-full sm:w-auto px-4 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-semibold rounded-lg transition-all">
-                        Submit Test
-                    </button>
                 </div>
             </div>
         </div>

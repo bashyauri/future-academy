@@ -45,11 +45,24 @@ class PracticeHome extends Component
         // Load all in-progress attempts for the user
         $this->allResumeAttempts = [];
         if (Auth::check()) {
+            $jambExamTypeId = ExamType::where('slug', 'jamb')->value('id');
             $this->allResumeAttempts = \App\Models\QuizAttempt::where('user_id', Auth::id())
                 ->where('status', 'in_progress')
+                ->whereNull('completed_at')
                 ->orderByDesc('created_at')
                 ->get()
-                ->filter(function ($attempt) {
+                ->filter(function ($attempt) use ($jambExamTypeId) {
+                    if ($jambExamTypeId && (int) $attempt->exam_type_id === (int) $jambExamTypeId) {
+                        return false;
+                    }
+
+                    $order = $attempt->question_order ?? [];
+                    $isAssoc = !empty($order) && array_keys($order) !== range(0, count($order) - 1);
+                    $subjectCount = $isAssoc ? count($order) : 1;
+                    if ($subjectCount !== 1) {
+                        return false;
+                    }
+
                     // If the quiz is timed and time has expired, do not show
                     if ($attempt->time_taken_seconds && $attempt->time_taken_seconds > 0 && $attempt->time_taken_seconds <= now()->diffInSeconds($attempt->started_at)) {
                         return false;
@@ -113,7 +126,8 @@ class PracticeHome extends Component
         if (Auth::check() && $this->selectedExamType) {
             $query = \App\Models\QuizAttempt::where('user_id', Auth::id())
                 ->where('exam_type_id', $this->selectedExamType)
-                ->where('status', 'in_progress');
+                ->where('status', 'in_progress')
+                ->whereNull('completed_at');
             if ($this->selectedYear) {
                 $query->where('exam_year', $this->selectedYear);
             }

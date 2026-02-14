@@ -3,9 +3,11 @@
 namespace App\Livewire\Practice;
 
 use App\Models\ExamType;
+use App\Models\QuizAttempt;
 use App\Models\Subject;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app')]
 class JambSetup extends Component
@@ -19,6 +21,7 @@ class JambSetup extends Component
     public $maxSubjects = 4;
     public $questionsPerSubject = null; // null means all available
     public $timeLimit = null; // null means no time limit
+    public $resumeAttempts = [];
 
     public function mount()
     {
@@ -47,6 +50,32 @@ class JambSetup extends Component
                 ->pluck('exam_year')
                 ->filter()
                 ->unique()
+                ->values();
+        }
+
+        $this->resumeAttempts = [];
+        if (Auth::check() && $jambExamType) {
+            $this->resumeAttempts = QuizAttempt::where('user_id', Auth::id())
+                ->where('status', 'in_progress')
+                ->whereNull('completed_at')
+                ->orderByDesc('created_at')
+                ->get()
+                ->filter(function ($attempt) use ($jambExamType) {
+                    $order = $attempt->question_order ?? [];
+                    $isAssoc = !empty($order) && array_keys($order) !== range(0, count($order) - 1);
+                    $subjectCount = $isAssoc ? count($order) : 1;
+                    if ($subjectCount !== 4 && (int) $attempt->exam_type_id !== (int) $jambExamType->id) {
+                        return false;
+                    }
+
+                    if ($attempt->time_taken_seconds && $attempt->time_taken_seconds > 0 && $attempt->started_at) {
+                        $elapsed = now()->diffInSeconds($attempt->started_at);
+                        if ($elapsed >= $attempt->time_taken_seconds) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
                 ->values();
         }
     }
@@ -105,6 +134,22 @@ class JambSetup extends Component
             'questionsPerSubject' => $questionsPerSubject,
             'shuffle' => $this->shuffleQuestions ? '1' : '0',
         ]);
+    }
+
+    public function dismissResumeAttempt($attemptId)
+    {
+        $attempt = QuizAttempt::where('id', $attemptId)
+            ->where('user_id', Auth::id())
+            ->where('status', 'in_progress')
+            ->first();
+
+        if ($attempt) {
+            $attempt->delete();
+            $this->resumeAttempts = collect($this->resumeAttempts)
+                ->filter(fn($a) => $a->id !== $attemptId)
+                ->values()
+                ->all();
+        }
     }
 
     public function render()

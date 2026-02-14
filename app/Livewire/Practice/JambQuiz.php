@@ -25,7 +25,7 @@ class JambQuiz extends Component
     public $showResults = false;
     public $quizAttemptId = null;
     public $timeRemaining;
-    public $timeLimit = 180;
+    public $timeLimit = null;
     public $timerStartedAt;
     public $questionsPerSubject = 40;
     public $showAnswersImmediately = false;
@@ -41,7 +41,13 @@ class JambQuiz extends Component
         // Get params from URL query string
         $this->year = request()->query('year'); // Allow null for "All Years"
         $subjectsParam = request()->query('subjects');
-        $this->timeLimit = (int)(request()->query('timeLimit') ?? 180);
+        $timeLimitParam = request()->query('timeLimit');
+        if (is_numeric($timeLimitParam)) {
+            $timeLimitParam = (int) $timeLimitParam;
+            $this->timeLimit = $timeLimitParam > 0 ? $timeLimitParam : null;
+        } else {
+            $this->timeLimit = null;
+        }
         $this->questionsPerSubject = (int)(request()->query('questionsPerSubject') ?? 40);
         $this->shuffleQuestions = request()->query('shuffle') === '1';
         $this->showResults = request()->boolean('results', false);
@@ -49,6 +55,16 @@ class JambQuiz extends Component
 
         if ($subjectsParam) {
             $this->subjectIds = array_filter(explode(',', $subjectsParam));
+        }
+
+        if (empty($this->subjectIds) && $this->quizAttemptId && auth()->check()) {
+            $attemptFromQuery = QuizAttempt::find($this->quizAttemptId);
+            if ($attemptFromQuery && $attemptFromQuery->user_id === auth()->id()) {
+                $order = $attemptFromQuery->question_order ?? [];
+                if (!empty($order)) {
+                    $this->subjectIds = array_map('intval', array_keys($order));
+                }
+            }
         }
 
         if (empty($this->subjectIds)) {
@@ -63,11 +79,15 @@ class JambQuiz extends Component
         }
 
         // Initialize timer defaults
-        if (!$this->timerStartedAt) {
+        if ($this->timeLimit && !$this->timerStartedAt) {
             $this->timerStartedAt = now();
         }
-        if (!$this->timeRemaining) {
+        if ($this->timeLimit && $this->timeRemaining === null) {
             $this->timeRemaining = $this->timeLimit * 60; // Convert to seconds
+        }
+        if (!$this->timeLimit) {
+            $this->timerStartedAt = null;
+            $this->timeRemaining = null;
         }
 
         $examType = ExamType::where('slug', 'jamb')->first();
@@ -91,7 +111,12 @@ class JambQuiz extends Component
                     : $this->findActiveAttempt($examType);
             }
 
-            if ($activeAttempt && $this->attemptMatchesContext($activeAttempt)) {
+            if ($attemptFromQuery && $attemptFromQuery->status === 'in_progress') {
+                $this->hydrateFromAttempt($attemptFromQuery);
+                return;
+            }
+
+            if ($activeAttempt && ($this->showResults || $this->attemptMatchesContext($activeAttempt))) {
                 $this->hydrateFromAttempt($activeAttempt);
                 return;
             }
@@ -231,9 +256,94 @@ class JambQuiz extends Component
         $this->debouncePositionCache();
     }
 
+    /**
+     * Exit the quiz and allow user to continue later (without submitting)
+     */
+    public function exitQuiz()
+    {
+        if (auth()->check() && $this->attempt) {
+            if ($this->attempt->user_id !== auth()->id()) {
+                abort(403, 'Unauthorized');
+            }
+
+            $this->saveAnswers();
+        }
+
+        return redirect()->route('practice.jamb.setup');
+    }
+
+    /**
+     * Save answers to database (for exit/resume functionality)
+     */
+    private function saveAnswers(): void
+    {
+        if (!$this->attempt) {
+            return;
+        }
+
+        $answersBySubject = $this->userAnswers;
+        $questionsBySubject = $this->questionsBySubject;
+
+        // If Livewire state is empty, fall back to cached answers from autosave
+        $cacheKey = "jamb_attempt_{$this->attempt->id}";
+        $cached = cache()->get($cacheKey);
+        if ($cached && (empty($answersBySubject) || empty($questionsBySubject))) {
+            $answersBySubject = $cached['answers'] ?? $answersBySubject;
+            $questionsBySubject = $cached['questions'] ?? $questionsBySubject;
+
+            if (isset($cached['position']['questionIndex'])) {
+                $this->currentQuestionIndex = $cached['position']['questionIndex'];
+            }
+        }
+
+        foreach ($this->subjectIds as $subjectId) {
+            if (!isset($questionsBySubject[$subjectId])) {
+                continue;
+            }
+
+            foreach ($questionsBySubject[$subjectId] as $index => $question) {
+                $userAnswer = $answersBySubject[$subjectId][$index] ?? null;
+                if ($userAnswer) {
+                    if (is_array($question)) {
+                        $options = $question['options'] ?? [];
+                        $isCorrect = (bool) collect($options)->firstWhere('id', $userAnswer)['is_correct'] ?? false;
+                        $questionId = $question['id'] ?? null;
+                    } else {
+                        $isCorrect = (bool) ($question->options->firstWhere('id', $userAnswer)?->is_correct);
+                        $questionId = $question->id ?? null;
+                    }
+
+                    if (!$questionId) {
+                        continue;
+                    }
+
+                    UserAnswer::updateOrCreate(
+                        [
+                            'quiz_attempt_id' => $this->attempt->id,
+                            'question_id' => $questionId,
+                        ],
+                        [
+                            'user_id' => auth()->id(),
+                            'option_id' => $userAnswer,
+                            'is_correct' => $isCorrect,
+                        ]
+                    );
+                }
+            }
+        }
+
+        $this->attempt->update([
+            'current_question_index' => $this->currentQuestionIndex,
+        ]);
+    }
+
     #[On('timer-ended')]
     public function handleTimerEnd()
     {
+        if ($this->timeRemaining === null) {
+            return;
+        }
+
         $this->timeRemaining = 0;
         $this->submitQuiz();
     }
@@ -256,6 +366,13 @@ class JambQuiz extends Component
             } catch (\Throwable $e) {
                 \Log::error('JambQuiz saveAttempt failed: '.$e->getMessage(), ['exception' => $e]);
             }
+
+            if ($this->attempt && $this->attempt->status !== 'completed') {
+                $this->attempt->update([
+                    'completed_at' => now(),
+                    'status' => 'completed',
+                ]);
+            }
         }
 
         $params = [
@@ -270,7 +387,7 @@ class JambQuiz extends Component
             $params['attempt'] = $this->quizAttemptId;
         }
 
-        return redirect()->route('practice.jamb.quiz', $params);
+        return redirect()->route('practice.jamb.setup');
     }
 
     public function saveAttempt()
@@ -369,7 +486,7 @@ class JambQuiz extends Component
 
     private function computeTimeSpent(): int
     {
-        if (!$this->timerStartedAt) {
+        if (!$this->timerStartedAt || !$this->timeLimit) {
             return 0;
         }
 
@@ -377,8 +494,12 @@ class JambQuiz extends Component
         return max(0, min($elapsed, $this->timeLimit * 60));
     }
 
-    private function computeRemainingTime(): int
+    private function computeRemainingTime(): ?int
     {
+        if (!$this->timeLimit) {
+            return null;
+        }
+
         $durationSeconds = $this->timeLimit * 60;
         return max(0, $durationSeconds - $this->computeTimeSpent());
     }
@@ -432,6 +553,19 @@ class JambQuiz extends Component
         $this->attempt = $attempt;
         $this->quizAttemptId = $attempt->id;
         $this->questionOrder = $attempt->question_order ?? [];
+        $this->subjectIds = array_map('intval', array_keys($this->questionOrder));
+        if (!empty($this->questionOrder)) {
+            $firstSubjectQuestions = reset($this->questionOrder);
+            if (is_array($firstSubjectQuestions)) {
+                $this->questionsPerSubject = count($firstSubjectQuestions);
+            }
+        }
+        $orderMap = array_flip($this->subjectIds);
+        $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get()
+            ->sortBy(function ($subject) use ($orderMap) {
+                return $orderMap[$subject->id] ?? 0;
+            })
+            ->values();
         $this->timerStartedAt = $attempt->started_at;
         $this->timeRemaining = $this->computeRemainingTime();
 
@@ -445,52 +579,53 @@ class JambQuiz extends Component
             $this->userAnswers = $cached['answers'];
             $this->currentSubjectIndex = $cached['position']['subjectIndex'];
             $this->currentQuestionIndex = $cached['position']['questionIndex'];
-        } else {
-            // Preserve subject order from question_order
-            $this->subjectIds = array_map('intval', array_keys($this->questionOrder));
-            $orderMap = array_flip($this->subjectIds);
-            $this->subjectsData = Subject::whereIn('id', $this->subjectIds)->get()
-                ->sortBy(function ($subject) use ($orderMap) {
-                    return $orderMap[$subject->id] ?? 0;
-                })
-                ->values();
+        }
 
+        if (empty($this->questionsBySubject)) {
             $this->generateQuestionsForSubjects($this->questionOrder);
+        }
+
+        if (empty($this->userAnswers)) {
             $this->initializeUserAnswers();
+        }
 
-            // Load saved answers and map them back into the arrays
-            $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)
-                ->with(['question:id,subject_id'])
-                ->get();
+        // Load saved answers and map them back into the arrays (merge with cache)
+        $answers = UserAnswer::where('quiz_attempt_id', $attempt->id)
+            ->with(['question:id,subject_id'])
+            ->get();
 
-            foreach ($answers as $answer) {
-                $questionId = $answer->question_id;
-                $subjectId = $answer->question?->subject_id;
-                if (!$subjectId || !isset($this->questionOrder[$subjectId])) {
-                    continue;
+        foreach ($answers as $answer) {
+            $questionId = $answer->question_id;
+            $subjectId = $answer->question?->subject_id;
+            if (!$subjectId || !isset($this->questionOrder[$subjectId])) {
+                continue;
+            }
+
+            $index = array_search($questionId, $this->questionOrder[$subjectId], true);
+            if ($index !== false) {
+                if (!isset($this->userAnswers[$subjectId])) {
+                    $this->userAnswers[$subjectId] = array_fill(0, count($this->questionOrder[$subjectId]), null);
                 }
-
-                $index = array_search($questionId, $this->questionOrder[$subjectId], true);
-                if ($index !== false) {
+                if ($this->userAnswers[$subjectId][$index] === null) {
                     $this->userAnswers[$subjectId][$index] = $answer->option_id;
                 }
             }
+        }
 
-            // Cache the unified state
-            if (!empty($this->questionsBySubject)) {
-                cache()->put($cacheKey, [
-                    'questions' => $this->questionsBySubject,
-                    'answers' => $this->userAnswers,
-                    'position' => [
-                        'subjectIndex' => $this->currentSubjectIndex,
-                        'questionIndex' => $this->currentQuestionIndex,
-                    ],
-                ], now()->addHours(3));
-            }
+        // Cache the unified state
+        if (!empty($this->questionsBySubject)) {
+            cache()->put($cacheKey, [
+                'questions' => $this->questionsBySubject,
+                'answers' => $this->userAnswers,
+                'position' => [
+                    'subjectIndex' => $this->currentSubjectIndex,
+                    'questionIndex' => $this->currentQuestionIndex,
+                ],
+            ], now()->addHours(3));
         }
 
         // If timer already expired, submit immediately
-        if ($this->timeRemaining <= 0) {
+        if ($this->timeRemaining !== null && $this->timeRemaining <= 0) {
             $this->handleTimerEnd();
         }
     }
@@ -564,8 +699,10 @@ class JambQuiz extends Component
                 $query->inRandomOrder();
             }
 
-            // Load ALL questions (not limited to questionsPerSubject)
-            // All questions available in browser for instant navigation
+            if ($this->questionsPerSubject) {
+                $query->limit($this->questionsPerSubject);
+            }
+
             $questions = $query->get();
 
             $this->questionsBySubject[$subjectId] = $questions;
