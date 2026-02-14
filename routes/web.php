@@ -120,6 +120,7 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
     Route::get('practice/quiz-js', \App\Livewire\Practice\PracticeQuizJS::class)->name('practice.quiz.js');
 
     Route::post('quiz/autosave', [\App\Http\Controllers\Practice\PracticeQuizController::class, 'autosave']);
+    Route::post('jamb/autosave', [\App\Http\Controllers\Practice\JambQuizController::class, 'autosave']);
 
     Route::prefix('api/practice')->group(function () {
         Route::post('start', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'startQuiz']);
