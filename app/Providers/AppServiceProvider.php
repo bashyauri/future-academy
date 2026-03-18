@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
+use App\Services\McpServer\McpServer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -12,7 +13,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register MCP Server as singleton
+        $this->app->singleton(McpServer::class, function ($app) {
+            return new McpServer();
+        });
     }
 
     /**

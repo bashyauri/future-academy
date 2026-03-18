@@ -177,6 +177,25 @@ Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookContr
     ->middleware('throttle:60,1')
     ->name('webhooks.cloudinary');
 
+// MCP Server Routes (Development Only)
+// Only available when MCP_SERVER_ENABLED=true
+if (config('mcp-server.enabled')) {
+    Route::prefix('mcp')->group(function () {
+        Route::post('/initialize', [App\Http\Controllers\McpController::class, 'initialize']);
+        Route::post('/call-tool', [App\Http\Controllers\McpController::class, 'callTool']);
+        Route::post('/list-resources', [App\Http\Controllers\McpController::class, 'listResources']);
+        Route::post('/read-resource', [App\Http\Controllers\McpController::class, 'readResource']);
+        Route::get('/server-info', [App\Http\Controllers\McpController::class, 'serverInfo']);
+    })->middleware('mcp.auth');
+}
+
+// Integration Routes
+Route::prefix('integration')->group(function () {
+    Route::get('/health', [App\Http\Controllers\IntegrationController::class, 'health'])->name('integration.health');
+    Route::get('/stats', [App\Http\Controllers\IntegrationController::class, 'stats'])->name('integration.stats');
+    Route::get('/recommendations', [App\Http\Controllers\IntegrationController::class, 'recommendations'])->name('integration.recommendations');
+})->middleware('auth');
+
 // Payment routes
 Route::get('payment/pricing', PaymentPricing::class)
     ->name('payment.pricing');
