@@ -24,58 +24,45 @@
         {{-- Main Content --}}
         <div class="lg:col-span-2 space-y-4 md:space-y-6">
             {{-- Video Player --}}
+            {{-- Video Player --}}
             @if($lesson->video_url)
                 <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-black">
-                    <div class="aspect-video relative">
+                    <div class="aspect-video relative" id="video-container">
                         @if($lesson->video_type === 'local')
-                            {{-- Local video with adaptive HLS streaming --}}
+                            {{-- Local video - loads on click --}}
                             @php
                                 $hlsUrl = app(\App\Services\VideoSigningService::class)->getHlsStreamingUrl($lesson->video_url);
                                 $fallbackUrl = app(\App\Services\VideoSigningService::class)->getOptimizedUrl($lesson->video_url);
                             @endphp
-                            <video id="lesson-video" class="w-full h-full" controls preload="metadata" x-ref="video">
-                                <source src="{{ $fallbackUrl }}" type="video/mp4">
-                                <p>Your browser doesn't support HTML5 video. Please update your browser.</p>
-                            </video>
+                            <div id="local-video-wrapper" class="w-full h-full">
+                                {{-- Video element will be inserted here on play --}}
+                            </div>
                             <script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    const video = document.getElementById('lesson-video');
-                                    const hlsUrl = '{{ $hlsUrl }}';
-
-                                    // Check if HLS.js is available
-                                    if (Hls.isSupported()) {
-                                        const hls = new Hls({
-                                            debug: false,
-                                            enableWorker: true,
-                                            lowLatencyMode: false,
-                                        });
-                                        hls.loadSource(hlsUrl);
-                                        hls.attachMedia(video);
-                                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                                            console.log('HLS stream loaded with adaptive bitrate');
-                                        });
-                                        hls.on(Hls.Events.ERROR, function(event, data) {
-                                            console.warn('HLS error:', data);
-                                            // Fallback to MP4
-                                            video.src = '{{ $fallbackUrl }}';
-                                        });
-                                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                        // Safari native HLS support
-                                        video.src = hlsUrl;
-                                    } else {
-                                        // Fallback to MP4
-                                        console.log('Adaptive streaming not supported, using MP4 fallback');
-                                    }
-                                });
+                                window.localVideoData = {
+                                    hlsUrl: @json($hlsUrl),
+                                    fallbackUrl: @json($fallbackUrl)
+                                };
                             </script>
+
                         @elseif($lesson->video_type === 'bunny')
-                            {{-- Bunny Stream Player (Alpine + fetch tracking, low frequency) --}}
+                            @php
+                                // Extract the video GUID from the storage path
+                                $videoPath = $lesson->video_url;
+                                $videoGuid = basename($videoPath, '.mp4');
+                                // Generate signed embed URL with 24 hour expiration
+                                $bunnyService = app(\App\Services\BunnyStreamService::class);
+                                $expires = now()->addHours(24)->getTimestamp();
+                                $signedEmbedUrl = $bunnyService->getEmbedUrl($videoGuid, $expires);
+                            @endphp
+                            {{-- Bunny Stream Player (Alpine + fetch tracking, loads on click) --}}
                             <div class="w-full h-full" wire:ignore
                                 x-data="bunnyTracker({{ $lesson->id }}, {{ (int) (($lesson->duration_minutes ?? 5) * 60) }})"
-                                x-init="init()">
+                                x-init="init()"
+                                data-embed-url="{{ $signedEmbedUrl }}">
                                 <iframe
                                     id="bunny-player"
-                                    src="{{ $lesson->getVideoEmbedUrl() }}"
+                                    x-ref="bunnyIframe"
+                                    src=""
                                     class="w-full h-full"
                                     frameborder="0"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -83,272 +70,45 @@
                                 </iframe>
                             </div>
 
-                            <script>
-                                function bunnyTracker(lessonId, totalSeconds) {
-                                    return {
-                                        lessonId,
-                                        totalSeconds: totalSeconds || 300,
-                                        sessionStartTime: null,
-                                        lastSaveTime: null,
-                                        lastSavedPercentage: 0,
-                                        completionRecorded: false,
-                                        saveThresholdMs: 120000,
-                                        percentageThreshold: 15,
-                                        intervalId: null,
-                                        queueIntervalId: null,
-                                        progressQueue: [],
-                                        retryAttempts: new Map(),
-                                        maxRetryDelay: 60000,
-                                        queueKey: 'video_progress_queue',
-                                        init() {
-                                            this.sessionStartTime = Date.now();
-                                            this.lastSaveTime = this.sessionStartTime;
-                                            this.loadQueue();
-
-                                            document.addEventListener('visibilitychange', () => {
-                                                if (document.hidden) {
-                                                    this.saveProgress(true);
-                                                }
-                                            });
-
-                                            window.addEventListener('beforeunload', () => {
-                                                this.sendBeaconProgress();
-                                            });
-
-                                            window.addEventListener('online', () => {
-                                                console.log('Connection restored, flushing queue');
-                                                this.processQueue(true);
-                                            });
-
-                                            this.intervalId = setInterval(() => {
-                                                if (!document.hidden) {
-                                                    this.saveProgress(false);
-                                                }
-                                            }, 30000);
-
-                                            this.queueIntervalId = setInterval(() => {
-                                                if (this.progressQueue.length > 0 && navigator.onLine) {
-                                                    this.processQueue(false);
-                                                }
-                                            }, 15000);
-                                        },
-                                        loadQueue() {
-                                            try {
-                                                const stored = localStorage.getItem(this.queueKey);
-                                                if (stored) {
-                                                    this.progressQueue = JSON.parse(stored);
-                                                    console.log(`Loaded ${this.progressQueue.length} queued items`);
-                                                }
-                                            } catch (e) {
-                                                console.error('Failed to load queue:', e);
-                                                this.progressQueue = [];
-                                            }
-                                        },
-                                        saveQueue() {
-                                            try {
-                                                localStorage.setItem(this.queueKey, JSON.stringify(this.progressQueue));
-                                            } catch (e) {
-                                                console.error('Failed to save queue:', e);
-                                            }
-                                        },
-                                        queueProgress(payload) {
-                                            const queueItem = {
-                                                ...payload,
-                                                timestamp: Date.now(),
-                                                attempts: 0
-                                            };
-                                            this.progressQueue.push(queueItem);
-                                            this.saveQueue();
-                                            console.log('Queued progress update (offline)');
-                                        },
-                                        async processQueue(flushAll = false) {
-                                            if (this.progressQueue.length === 0) return;
-
-                                            const now = Date.now();
-                                            const itemsToProcess = flushAll ? this.progressQueue.slice() : this.progressQueue.slice(0, 3);
-
-                                            for (let i = itemsToProcess.length - 1; i >= 0; i--) {
-                                                const item = itemsToProcess[i];
-                                                const itemKey = `${item.lesson_id}_${item.timestamp}`;
-                                                const attempts = this.retryAttempts.get(itemKey) || 0;
-                                                const delay = Math.min(Math.pow(2, attempts) * 1000, this.maxRetryDelay);
-
-                                                if ((now - item.timestamp) < delay && !flushAll) {
-                                                    continue;
-                                                }
-
-                                                const success = await this.retryProgressRequest(item);
-                                                if (success) {
-                                                    const queueIndex = this.progressQueue.findIndex(q =>
-                                                        q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
-                                                    );
-                                                    if (queueIndex !== -1) {
-                                                        this.progressQueue.splice(queueIndex, 1);
-                                                    }
-                                                    this.retryAttempts.delete(itemKey);
-                                                    console.log('Successfully sent queued progress');
-                                                } else {
-                                                    this.retryAttempts.set(itemKey, attempts + 1);
-                                                    if (attempts >= 5) {
-                                                        console.warn('Max retries reached, removing old item');
-                                                        const queueIndex = this.progressQueue.findIndex(q =>
-                                                            q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
-                                                        );
-                                                        if (queueIndex !== -1) {
-                                                            this.progressQueue.splice(queueIndex, 1);
-                                                        }
-                                                        this.retryAttempts.delete(itemKey);
-                                                    }
-                                                }
-                                            }
-                                            this.saveQueue();
-                                        },
-                                        async retryProgressRequest(item) {
-                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                                            if (!csrfToken) return false;
-
-                                            try {
-                                                const response = await fetch('/video-progress', {
-                                                    method: 'POST',
-                                                    headers: {
-                                                        'Content-Type': 'application/json',
-                                                        'X-CSRF-TOKEN': csrfToken,
-                                                    },
-                                                    body: JSON.stringify({
-                                                        lesson_id: item.lesson_id,
-                                                        watched_seconds: item.watched_seconds,
-                                                        total_seconds: item.total_seconds,
-                                                        percentage: item.percentage,
-                                                    }),
-                                                });
-                                                return response.ok;
-                                            } catch (err) {
-                                                return false;
-                                            }
-                                        },
-                                        calculateWatchPercentage(timeSpentSeconds) {
-                                            const total = this.totalSeconds || 300;
-                                            return Math.min(100, Math.floor((timeSpentSeconds / total) * 100));
-                                        },
-                                        saveProgress(forceImmediate = false) {
-                                            try {
-                                                const currentTime = Date.now();
-                                                const timeSinceLastSave = currentTime - this.lastSaveTime;
-                                                const sessionTimeSpent = Math.floor((currentTime - this.sessionStartTime) / 1000);
-                                                const currentPercentage = this.calculateWatchPercentage(sessionTimeSpent);
-                                                const percentageChange = Math.abs(currentPercentage - this.lastSavedPercentage);
-
-                                                if (forceImmediate ||
-                                                    timeSinceLastSave >= this.saveThresholdMs ||
-                                                    percentageChange >= this.percentageThreshold) {
-
-                                                    if (currentPercentage > this.lastSavedPercentage || forceImmediate) {
-                                                        this.sendProgress(sessionTimeSpent, currentPercentage);
-                                                        this.lastSaveTime = currentTime;
-                                                        this.lastSavedPercentage = currentPercentage;
-                                                        this.recordCompletionIfNeeded();
-                                                    }
-                                                }
-                                            } catch (error) {
-                                                console.error('Failed to save progress:', error.message);
-                                            }
-                                        },
-                                        recordCompletionIfNeeded() {
-                                            if (this.completionRecorded) {
-                                                return;
-                                            }
-
-                                            if (this.lastSavedPercentage >= 90) {
-                                                this.completionRecorded = true;
-                                                this.sendCompletion();
-                                            }
-                                        },
-                                        sendProgress(watchedSeconds, percentage) {
-                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                                            if (!csrfToken) {
-                                                console.warn('CSRF token not found');
-                                                return;
-                                            }
-
-                                            const payload = {
-                                                lesson_id: this.lessonId,
-                                                watched_seconds: watchedSeconds,
-                                                total_seconds: this.totalSeconds || 300,
-                                                percentage: percentage,
-                                            };
-
-                                            fetch('/video-progress', {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'X-CSRF-TOKEN': csrfToken,
-                                                },
-                                                body: JSON.stringify(payload),
-                                            })
-                                            .then(response => {
-                                                if (!response.ok) {
-                                                    throw new Error(`HTTP ${response.status}`);
-                                                }
-                                            })
-                                            .catch((err) => {
-                                                console.error('Failed to report progress, queuing:', err.message);
-                                                this.queueProgress(payload);
-                                            });
-                                        },
-                                        sendCompletion() {
-                                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                                            if (!csrfToken) {
-                                                console.warn('CSRF token not found');
-                                                return;
-                                            }
-
-                                            const payload = {
-                                                lesson_id: this.lessonId,
-                                                watched_percentage: 90,
-                                            };
-
-                                            fetch('/video-completion', {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'X-CSRF-TOKEN': csrfToken,
-                                                },
-                                                body: JSON.stringify(payload),
-                                            })
-                                            .then(response => {
-                                                if (!response.ok) {
-                                                    throw new Error(`HTTP ${response.status}`);
-                                                }
-                                            })
-                                            .catch((err) => {
-                                                console.error('Failed to report completion:', err.message);
-                                            });
-                                        },
-                                        sendBeaconProgress() {
-                                            const sessionTimeSpent = Math.floor((Date.now() - this.sessionStartTime) / 1000);
-                                            if (sessionTimeSpent <= 0) {
-                                                return;
-                                            }
-                                            const percentage = this.calculateWatchPercentage(sessionTimeSpent);
-                                            const payload = JSON.stringify({
-                                                lesson_id: this.lessonId,
-                                                watched_seconds: sessionTimeSpent,
-                                                total_seconds: this.totalSeconds || 300,
-                                                percentage: percentage,
-                                            });
-                                            const blob = new Blob([payload], { type: 'application/json' });
-                                            navigator.sendBeacon('/video-progress', blob);
-                                        }
-                                    };
-                                }
-                            </script>
                         @else
-                            {{-- YouTube/Vimeo embedded iframe --}}
-                            <iframe src="{{ $lesson->getVideoEmbedUrl() }}" class="w-full h-full" frameborder="0"
+                            {{-- YouTube/Vimeo embedded iframe (loads on click) --}}
+                            <iframe id="embed-player" src="" class="w-full h-full" frameborder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowfullscreen>
                             </iframe>
+                            @php
+                                $embedUrl = $lesson->getVideoEmbedUrl();
+                            @endphp
+                            <script>
+                                window.embedVideoUrl = @json($embedUrl);
+                            </script>
                         @endif
+
+                        {{-- Loading Overlay --}}
+                        <div id="loading-overlay"
+                             class="absolute inset-0 flex items-center justify-center bg-black/70 z-20 hidden">
+                            <div class="flex flex-col items-center gap-3">
+                                <svg class="animate-spin h-10 w-10 md:h-12 md:w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-white text-sm font-medium">{{ __('Loading video...') }}</span>
+                            </div>
+                        </div>
+
+                        {{-- Big Play Button Overlay --}}
+                        <div id="play-overlay"
+                             class="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/40 transition-all duration-300 cursor-pointer z-10">
+                            <button onclick="startVideoPlayback()"
+                                    class="w-20 h-20 md:w-28 md:h-28 rounded-full bg-white/95 hover:bg-white flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95">
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                     class="w-10 h-10 md:w-14 md:h-14 text-blue-600 ml-1"
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132z" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             @endif
@@ -641,6 +401,449 @@
         </div>
     </div>
 </div>
+<script>
+    function startVideoPlayback() {
+        const playOverlay = document.getElementById('play-overlay');
+        const loadingOverlay = document.getElementById('loading-overlay');
 
+        if (!playOverlay) return;
+
+        // Show loading overlay
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('hidden');
+        }
+
+        // Hide the play overlay
+        playOverlay.style.opacity = '0';
+        setTimeout(() => {
+            playOverlay.style.display = 'none';
+        }, 300);
+
+        // Determine video type and load accordingly
+        if (window.localVideoData) {
+            loadLocalVideo(window.localVideoData, loadingOverlay);
+        } else if (window.bunnyPlayCallback) {
+            // Bunny Stream with Alpine.js - call the registered callback
+            window.bunnyPlayCallback();
+            // Hide loader after a delay (iframe will load via Alpine)
+            setTimeout(() => {
+                if (loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+                }
+            }, 1500);
+        } else if (window.embedVideoUrl) {
+            loadEmbedVideo(window.embedVideoUrl, loadingOverlay);
+        }
+    }
+
+    function loadLocalVideo(data, loadingOverlay) {
+        const wrapper = document.getElementById('local-video-wrapper');
+        if (!wrapper) return;
+
+        // Create video element
+        const video = document.createElement('video');
+        video.id = 'lesson-video';
+        video.className = 'w-full h-full';
+        video.controls = true;
+        video.playsinline = true;
+        video.autoplay = true;
+
+        // Hide loader when ready
+        video.addEventListener('canplay', () => {
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            }
+        }, { once: true });
+
+        video.addEventListener('playing', () => {
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            }
+        }, { once: true });
+
+        // Handle errors
+        video.addEventListener('error', () => {
+            console.warn('Video error, trying fallback');
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            }
+        });
+
+        // Clear wrapper and add video
+        wrapper.innerHTML = '';
+        wrapper.appendChild(video);
+
+        // Initialize HLS if supported
+        if (typeof Hls !== 'undefined' && Hls.isSupported() && data.hlsUrl) {
+            const hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: false,
+            });
+
+            hls.loadSource(data.hlsUrl);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(err => console.warn('Autoplay prevented:', err));
+            });
+
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    console.warn('HLS error, falling back to MP4');
+                    video.src = window.localVideoData.fallbackUrl;
+                    video.play().catch(err => console.warn('Autoplay prevented:', err));
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl') && data.hlsUrl) {
+            // Safari native HLS
+            video.src = data.hlsUrl;
+            video.play().catch(err => console.warn('Autoplay prevented:', err));
+        } else {
+            // Fallback to MP4
+            video.src = data.fallbackUrl;
+            video.play().catch(err => console.warn('Autoplay prevented:', err));
+        }
+    }
+
+    function loadEmbedVideo(embedUrl, loadingOverlay) {
+        const iframe = document.getElementById('embed-player');
+        if (!iframe) return;
+
+        // Build URL safely
+        const separator = embedUrl.includes('?') ? '&' : '?';
+        iframe.src = embedUrl + separator + 'autoplay=1';
+
+        // Hide loader after iframe loads
+        iframe.onload = function() {
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            }
+        };
+
+        // Fallback if onload doesn't fire
+        setTimeout(() => {
+            if (loadingOverlay && !loadingOverlay.classList.contains('hidden')) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            }
+        }, 1500);
+    }
+
+    // Helper to get CSRF token with fallbacks
+    function getCsrfToken() {
+        // Try meta tag first
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.content;
+
+        // Try Laravel global
+        if (window.Laravel && window.Laravel.csrfToken) {
+            return window.Laravel.csrfToken;
+        }
+
+        // Try any input with name _token
+        const input = document.querySelector('input[name="_token"]');
+        if (input) return input.value;
+
+        return '';
+    }
+
+    // Bunny Stream tracking function
+    function bunnyTracker(lessonId, totalSeconds) {
+        return {
+            lessonId,
+            totalSeconds: totalSeconds || 300,
+            signedEmbedUrl: '',
+            sessionStartTime: null,
+            lastSaveTime: null,
+            lastSavedPercentage: 0,
+            completionRecorded: false,
+            saveThresholdMs: 120000,
+            percentageThreshold: 15,
+            intervalId: null,
+            queueIntervalId: null,
+            progressQueue: [],
+            retryAttempts: new Map(),
+            maxRetryDelay: 60000,
+            queueKey: 'video_progress_queue',
+            hasStarted: false,
+            init() {
+                // Get embed URL from data attribute
+                const container = this.$el;
+                this.signedEmbedUrl = container?.dataset?.embedUrl || '';
+
+                // Register global callback for play button
+                const self = this;
+                window.bunnyPlayCallback = function() {
+                    self.playVideo();
+                };
+
+                console.log('BunnyTracker init - lessonId:', this.lessonId, 'embedUrl:', this.signedEmbedUrl);
+
+                this.sessionStartTime = Date.now();
+                this.lastSaveTime = this.sessionStartTime;
+                this.loadQueue();
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.saveProgress(true);
+                    }
+                });
+                window.addEventListener('beforeunload', () => {
+                    this.sendBeaconProgress();
+                });
+                window.addEventListener('online', () => {
+                    console.log('Connection restored, flushing queue');
+                    this.processQueue(true);
+                });
+            },
+            playVideo() {
+                if (this.hasStarted) return;
+                this.hasStarted = true;
+
+                const iframe = this.$refs.bunnyIframe;
+                if (!iframe) return;
+
+                // Use signed embed URL and append autoplay
+                const separator = this.signedEmbedUrl.includes('?') ? '&' : '?';
+                iframe.src = this.signedEmbedUrl + separator + 'autoplay=true';
+
+                // Start tracking intervals
+                this.intervalId = setInterval(() => {
+                    if (!document.hidden) {
+                        this.saveProgress(false);
+                    }
+                }, 30000);
+
+                this.queueIntervalId = setInterval(() => {
+                    if (this.progressQueue.length > 0 && navigator.onLine) {
+                        this.processQueue(false);
+                    }
+                }, 15000);
+            },
+            loadQueue() {
+                try {
+                    const stored = localStorage.getItem(this.queueKey);
+                    if (stored) {
+                        const allItems = JSON.parse(stored);
+                        // Only keep items for current lesson, drop others
+                        const currentLessonItems = allItems.filter(item => item.lesson_id === this.lessonId);
+                        const otherLessonItems = allItems.filter(item => item.lesson_id !== this.lessonId);
+
+                        if (otherLessonItems.length > 0) {
+                            console.log(`Cleared ${otherLessonItems.length} stale queued items for other lessons`, otherLessonItems.map(i => i.lesson_id));
+                            // Save back only current lesson items
+                            localStorage.setItem(this.queueKey, JSON.stringify(currentLessonItems));
+                        }
+
+                        this.progressQueue = currentLessonItems;
+                        if (this.progressQueue.length > 0) {
+                            console.log(`Loaded ${this.progressQueue.length} queued items for lesson ${this.lessonId}`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load queue:', e);
+                    this.progressQueue = [];
+                }
+            },
+            saveQueue() {
+                try {
+                    localStorage.setItem(this.queueKey, JSON.stringify(this.progressQueue));
+                } catch (e) {
+                    console.error('Failed to save queue:', e);
+                }
+            },
+            queueProgress(payload) {
+                const queueItem = {
+                    ...payload,
+                    timestamp: Date.now(),
+                    attempts: 0
+                };
+                this.progressQueue.push(queueItem);
+                this.saveQueue();
+                console.log('Queued progress update (offline)');
+            },
+            async processQueue(flushAll = false) {
+                if (this.progressQueue.length === 0) return;
+                const now = Date.now();
+                const itemsToProcess = flushAll ? this.progressQueue.slice() : this.progressQueue.slice(0, 3);
+                for (let i = itemsToProcess.length - 1; i >= 0; i--) {
+                    const item = itemsToProcess[i];
+                    const itemKey = `${item.lesson_id}_${item.timestamp}`;
+                    const attempts = this.retryAttempts.get(itemKey) || 0;
+                    const delay = Math.min(Math.pow(2, attempts) * 1000, this.maxRetryDelay);
+                    if ((now - item.timestamp) < delay && !flushAll) {
+                        continue;
+                    }
+                    const success = await this.retryProgressRequest(item);
+                    if (success) {
+                        const queueIndex = this.progressQueue.findIndex(q =>
+                            q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
+                        );
+                        if (queueIndex !== -1) {
+                            this.progressQueue.splice(queueIndex, 1);
+                        }
+                        this.retryAttempts.delete(itemKey);
+                        console.log('Successfully sent queued progress');
+                    } else {
+                        this.retryAttempts.set(itemKey, attempts + 1);
+                        if (attempts >= 5) {
+                            console.warn('Max retries reached, removing old item');
+                            const queueIndex = this.progressQueue.findIndex(q =>
+                                q.lesson_id === item.lesson_id && q.timestamp === item.timestamp
+                            );
+                            if (queueIndex !== -1) {
+                                this.progressQueue.splice(queueIndex, 1);
+                            }
+                            this.retryAttempts.delete(itemKey);
+                        }
+                    }
+                }
+                this.saveQueue();
+            },
+            async retryProgressRequest(item) {
+                const csrfToken = getCsrfToken();
+                if (!csrfToken) {
+                    console.warn('CSRF token not found for retry');
+                    return false;
+                }
+                try {
+                    const response = await fetch('/video-progress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            lesson_id: item.lesson_id,
+                            watched_seconds: item.watched_seconds,
+                            total_seconds: item.total_seconds,
+                            percentage: item.percentage,
+                        }),
+                    });
+                    return response.ok;
+                } catch (err) {
+                    return false;
+                }
+            },
+            calculateWatchPercentage(timeSpentSeconds) {
+                const total = this.totalSeconds || 300;
+                return Math.min(100, Math.floor((timeSpentSeconds / total) * 100));
+            },
+            saveProgress(forceImmediate = false) {
+                try {
+                    const currentTime = Date.now();
+                    const timeSinceLastSave = currentTime - this.lastSaveTime;
+                    const sessionTimeSpent = Math.floor((currentTime - this.sessionStartTime) / 1000);
+                    const currentPercentage = this.calculateWatchPercentage(sessionTimeSpent);
+                    const percentageChange = Math.abs(currentPercentage - this.lastSavedPercentage);
+                    if (forceImmediate ||
+                        timeSinceLastSave >= this.saveThresholdMs ||
+                        percentageChange >= this.percentageThreshold) {
+                        if (currentPercentage > this.lastSavedPercentage || forceImmediate) {
+                            this.sendProgress(sessionTimeSpent, currentPercentage);
+                            this.lastSaveTime = currentTime;
+                            this.lastSavedPercentage = currentPercentage;
+                            this.recordCompletionIfNeeded();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to save progress:', error.message);
+                }
+            },
+            recordCompletionIfNeeded() {
+                if (this.completionRecorded) {
+                    return;
+                }
+                if (this.lastSavedPercentage >= 90) {
+                    this.completionRecorded = true;
+                    this.sendCompletion();
+                }
+            },
+            sendProgress(watchedSeconds, percentage) {
+                const csrfToken = getCsrfToken();
+                if (!csrfToken) {
+                    console.warn('CSRF token not found, cannot send progress');
+                    return;
+                }
+                const payload = {
+                    lesson_id: this.lessonId,
+                    watched_seconds: watchedSeconds,
+                    total_seconds: this.totalSeconds || 300,
+                    percentage: percentage,
+                };
+                console.log('Sending progress:', payload);
+                fetch('/video-progress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to report progress, queuing:', err.message);
+                    this.queueProgress(payload);
+                });
+            },
+            sendCompletion() {
+                const csrfToken = getCsrfToken();
+                if (!csrfToken) {
+                    console.warn('CSRF token not found, cannot send completion');
+                    return;
+                }
+                const payload = {
+                    lesson_id: this.lessonId,
+                    watched_percentage: 90,
+                };
+                fetch('/video-completion', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to report completion:', err.message);
+                });
+            },
+            sendBeaconProgress() {
+                const sessionTimeSpent = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+                if (sessionTimeSpent <= 0) {
+                    return;
+                }
+                const percentage = this.calculateWatchPercentage(sessionTimeSpent);
+                const csrfToken = getCsrfToken();
+                const payload = JSON.stringify({
+                    lesson_id: this.lessonId,
+                    watched_seconds: sessionTimeSpent,
+                    total_seconds: this.totalSeconds || 300,
+                    percentage: percentage,
+                    _token: csrfToken, // Include CSRF in body for beacon
+                });
+                const blob = new Blob([payload], { type: 'application/json' });
+                navigator.sendBeacon('/video-progress', blob);
+            }
+        };
+    }
+</script>
 {{-- Video tracking is now integrated into the player SDK scripts above --}}
 
