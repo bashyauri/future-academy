@@ -583,7 +583,6 @@
                     self.playVideo();
                 };
 
-                console.log('BunnyTracker init - lessonId:', this.lessonId, 'embedUrl:', this.signedEmbedUrl);
 
                 this.sessionStartTime = Date.now();
                 this.lastSaveTime = this.sessionStartTime;
@@ -635,15 +634,10 @@
                         const otherLessonItems = allItems.filter(item => item.lesson_id !== this.lessonId);
 
                         if (otherLessonItems.length > 0) {
-                            console.log(`Cleared ${otherLessonItems.length} stale queued items for other lessons`, otherLessonItems.map(i => i.lesson_id));
                             // Save back only current lesson items
                             localStorage.setItem(this.queueKey, JSON.stringify(currentLessonItems));
                         }
-
                         this.progressQueue = currentLessonItems;
-                        if (this.progressQueue.length > 0) {
-                            console.log(`Loaded ${this.progressQueue.length} queued items for lesson ${this.lessonId}`);
-                        }
                     }
                 } catch (e) {
                     console.error('Failed to load queue:', e);
@@ -777,7 +771,6 @@
                     total_seconds: this.totalSeconds || 300,
                     percentage: percentage,
                 };
-                console.log('Sending progress:', payload);
                 fetch('/video-progress', {
                     method: 'POST',
                     headers: {
