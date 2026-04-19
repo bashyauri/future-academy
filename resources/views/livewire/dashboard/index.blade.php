@@ -48,14 +48,14 @@
         <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8">
             <flux:heading size="lg" class="mb-6 font-bold text-neutral-900 dark:text-white">{{ __('Quick Access') }}</flux:heading>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <!-- Dashboard -->
-                <a href="{{ route('dashboard') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all">
+                <!-- Quizzes -->
+                <a href="{{ route('quizzes.index') }}" class="group flex flex-col items-center p-5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 bg-neutral-50 dark:bg-neutral-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all">
                     <div class="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors mb-3">
                         <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 11l4-4m0 0l4 4m-4-4v4"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-14C6.48 4 2 8.48 2 14s4.48 10 10 10 10-4.48 10-10S17.52 4 12 4z"></path>
                         </svg>
                     </div>
-                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Dashboard') }}</flux:text>
+                    <flux:text class="text-xs font-bold text-neutral-700 dark:text-neutral-300 text-center">{{ __('Quizzes') }}</flux:text>
                 </a>
 
                 <!-- Lessons -->
