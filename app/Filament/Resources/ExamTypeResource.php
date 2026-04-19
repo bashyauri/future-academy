@@ -9,9 +9,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class ExamTypeResource extends Resource
 {
+    // Show all exam types (active and inactive) in Filament admin.
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery();
+    }
     protected static ?string $model = ExamType::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::AcademicCap;
@@ -45,24 +51,25 @@ class ExamTypeResource extends Resource
         ];
     }
 
+
     public static function canViewAny(): bool
     {
-        return auth()->check() && auth()->user()->hasAnyRole(['admin', 'super-admin']);
+        return Auth::check() && Auth::user()->hasAnyRole(['admin', 'super-admin']);
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check() && auth()->user()->hasAnyRole(['admin', 'super-admin']);
+        return Auth::check() && Auth::user()->hasAnyRole(['admin', 'super-admin']);
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->check() && auth()->user()->hasAnyRole(['admin', 'super-admin']);
+        return Auth::check() && Auth::user()->hasAnyRole(['admin', 'super-admin']);
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->check() && auth()->user()->hasRole('super-admin');
+        return Auth::check() && Auth::user()->hasRole('super-admin');
     }
 
     public static function getPages(): array

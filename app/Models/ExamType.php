@@ -9,6 +9,21 @@ use Illuminate\Support\Str;
 
 class ExamType extends Model
 {
+    /**
+     * Scope a query to only include active exam types.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Get all active exam types (helper).
+     */
+    public static function active()
+    {
+        return static::where('is_active', true)->get();
+    }
     protected $fillable = [
         'name',
         'slug',
