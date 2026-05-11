@@ -1,6 +1,9 @@
-<div class="flex aspect-square size-8 items-center justify-center rounded-md bg-accent-content text-accent-foreground">
-    <x-app-logo-icon class="size-5 fill-current text-white dark:text-black" />
-</div>
-<div class="ms-1 grid flex-1 text-start text-sm">
-    <span class="mb-0.5 truncate leading-tight font-semibold">Laravel Starter Kit</span>
+<div class="flex items-center gap-2">
+    <span class="flex size-8 items-center justify-center overflow-hidden rounded-md">
+        <x-app-logo-icon class="size-8" />
+    </span>
+
+    <span class="truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-white">
+        {{ config('app.name', 'Future Academy') }}
+    </span>
 </div>

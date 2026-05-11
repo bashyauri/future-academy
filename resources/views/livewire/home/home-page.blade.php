@@ -1,4 +1,37 @@
 <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800 font-sans">
+    {{-- Top Navigation --}}
+    <div class="sticky top-0 z-40 border-b border-blue-100/80 bg-white/90 backdrop-blur-md dark:border-neutral-700/80 dark:bg-neutral-900/90">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+            <a href="{{ route('home') }}" class="flex items-center gap-2.5" wire:navigate>
+                <img
+                    src="{{ asset('images/icons/logo-64.png') }}"
+                    alt="{{ config('app.name', 'Future Academy') }} logo"
+                    class="size-9 rounded-md object-contain"
+                />
+                <span class="text-sm font-bold tracking-wide text-neutral-900 dark:text-white sm:text-base">
+                    {{ config('app.name', 'Future Academy') }}
+                </span>
+            </a>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <a
+                    href="{{ route('login') }}"
+                    class="rounded-lg px-3 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 sm:px-4"
+                    wire:navigate
+                >
+                    Log in
+                </a>
+                <a
+                    href="{{ route('register') }}"
+                    class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 sm:px-4"
+                    wire:navigate
+                >
+                    Get Started
+                </a>
+            </div>
+        </div>
+    </div>
+
     {{-- Hero Section --}}
     <div class="relative overflow-hidden">
         {{-- Background Pattern --}}
@@ -16,12 +49,31 @@
         <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
             {{-- Header Text --}}
             <div class="text-center mb-16 md:mb-20">
-                <flux:heading size="2xl" class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6">
-                    Welcome to <span class="text-blue-600 dark:text-blue-400">Future Academy</span>
+                <div class="inline-flex items-center gap-3 rounded-full border border-blue-200/70 bg-white/90 px-4 py-2 shadow-sm dark:border-blue-800/60 dark:bg-neutral-900/80">
+                    <img
+                        src="{{ asset('images/icons/logo-64.png') }}"
+                        alt="{{ config('app.name', 'Future Academy') }} logo"
+                        class="size-8 rounded-md object-contain"
+                    />
+                    <span class="text-sm font-semibold tracking-wide text-neutral-800 dark:text-neutral-100">
+                        {{ config('app.name', 'Future Academy') }}
+                    </span>
+                </div>
+
+                <flux:heading size="2xl" class="mt-6 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6">
+                    Pass JAMB, WAEC & NECO
+                    <span class="block text-blue-600 dark:text-blue-400">with confidence</span>
                 </flux:heading>
+
                 <flux:text class="text-lg sm:text-xl md:text-2xl text-neutral-700 dark:text-neutral-300 max-w-3xl mx-auto leading-relaxed px-4">
-                    Your comprehensive learning platform for JAMB, WAEC, and NECO exam preparation
+                    Low-data learning, real past questions, smart explanations, and exam-ready mock practice.
                 </flux:text>
+
+                <div class="mt-6 flex flex-wrap items-center justify-center gap-2.5 px-4">
+                    <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Real CBT-style practice</span>
+                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">Detailed explanations</span>
+                    <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Parent progress tracking</span>
+                </div>
             </div>
 
             {{-- Access Cards --}}
