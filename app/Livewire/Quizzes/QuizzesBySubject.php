@@ -5,6 +5,7 @@ namespace App\Livewire\Quizzes;
 use App\Models\Quiz;
 use App\Models\Subject;
 use App\Models\Topic;
+use App\Services\QuizGeneratorService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -13,7 +14,9 @@ use Livewire\Component;
 class QuizzesBySubject extends Component
 {
     public $subject;
+
     public ?int $topicFilter = null;
+
     public string $typeFilter = 'all';
 
     public function mount($subject)
@@ -38,20 +41,27 @@ class QuizzesBySubject extends Component
                         $q->whereNull('available_until')
                             ->orWhere('available_until', '>=', now());
                     })
-                    ->whereRaw("JSON_CONTAINS(topic_ids, ?)", [json_encode([$topic->id])])
+                    ->whereRaw('JSON_CONTAINS(topic_ids, ?)', [json_encode([$topic->id])])
                     ->count();
+
                 return $topic;
             })
-            ->filter(fn($topic) => $topic->quizzes_count > 0)
+            ->filter(fn ($topic) => $topic->quizzes_count > 0)
             ->values();
+
+        $isTrial = Auth::user()->onTrial() && ! Auth::user()->hasActiveSubscription();
 
         // Get quizzes for this subject
         $quizzes = Quiz::query()
             ->active()
             ->available()
-            ->whereRaw("JSON_CONTAINS(subject_ids, ?)", [json_encode([$this->subject->id])])
+            ->whereRaw('JSON_CONTAINS(subject_ids, ?)', [json_encode([$this->subject->id])])
+            ->when($isTrial, fn ($q) => $q->where(function ($q) {
+                $q->where('is_free', true)
+                    ->orWhereHas('lesson', fn ($l) => $l->where('is_free', true));
+            }))
             ->when($this->topicFilter, function ($query) {
-                $query->whereRaw("JSON_CONTAINS(topic_ids, ?)", [json_encode([$this->topicFilter])]);
+                $query->whereRaw('JSON_CONTAINS(topic_ids, ?)', [json_encode([$this->topicFilter])]);
             })
             ->when($this->typeFilter !== 'all', function ($query) {
                 $query->where('type', $this->typeFilter);
@@ -60,7 +70,7 @@ class QuizzesBySubject extends Component
             ->latest()
             ->get()
             ->map(function ($quiz) {
-                $stats = app(\App\Services\QuizGeneratorService::class)
+                $stats = app(QuizGeneratorService::class)
                     ->getUserStats($quiz, Auth::user());
                 $quiz->user_stats = $stats;
                 $quiz->can_attempt = $quiz->canUserAttempt(Auth::user());

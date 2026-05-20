@@ -6,9 +6,9 @@ use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Services\QuizGeneratorService;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
+use Livewire\Component;
 
 class TakeQuiz extends Component
 {
@@ -17,22 +17,36 @@ class TakeQuiz extends Component
     {
         return $this->quiz->questions()->count() > 0;
     }
+
     public Quiz $quiz;
+
     public ?QuizAttempt $attempt = null;
+
     public $currentQuestionIndex = 0;
+
     public $answers = [];
+
     public $questions = [];
+
     public $shuffledOptions = [];
+
     public $timeRemaining = null;
+
     public $showResults = false;
+
     public $showFeedback = []; // Track which questions show feedback
+
     public $autoSaveStatus = 'idle'; // idle, saving, saved
+
     public $lastSavedTime = null;
+
     public $autoSaveInterval = 10; // Auto-save every 10 seconds (cache-only)
 
     // Performance optimizations
     public $nextQuestionPrefetched = false;
+
     public $positionCacheDebounce = false; // Debounce position cache writes
+
     public $lazyLoadedImages = []; // Track lazy-loaded images
 
     public function mount($id)
@@ -40,8 +54,12 @@ class TakeQuiz extends Component
         // Quick validation without full relationship load
         $this->quiz = Quiz::findOrFail($id);
 
-        if (!$this->quiz->isAvailable()) {
+        if (! $this->quiz->isAvailable()) {
             abort(403, 'This quiz is not currently available.');
+        }
+
+        if (! $this->quiz->canUserAccess(auth()->user())) {
+            abort(403, 'This quiz is not available on your current plan. Please subscribe to access all quizzes.');
         }
 
         // Check for active quiz attempt (in_progress status)
@@ -65,18 +83,19 @@ class TakeQuiz extends Component
                     $this->handleTimerExpired();
                 }
             }
+
             return;
         }
 
         // No active attempt exists, user can start a new one
-        if (!$this->quiz->canUserAttempt(auth()->user())) {
+        if (! $this->quiz->canUserAttempt(auth()->user())) {
             abort(403, 'You have reached the maximum number of attempts for this quiz.');
         }
     }
 
     private function loadAttemptQuestions()
     {
-        if (!$this->attempt) {
+        if (! $this->attempt) {
             return;
         }
 
@@ -91,6 +110,7 @@ class TakeQuiz extends Component
             $this->shuffledOptions = $cached['options'];
             $this->answers = $cached['answers'];
             $this->currentQuestionIndex = $cached['position'] ?? 0;
+
             return;
         }
 
@@ -128,17 +148,18 @@ class TakeQuiz extends Component
 
     private function calculateRemainingSeconds()
     {
-        if (!$this->attempt || !$this->quiz->isTimed()) {
+        if (! $this->attempt || ! $this->quiz->isTimed()) {
             return null;
         }
 
         // Ensure started_at and duration_minutes are set
-        if (!$this->attempt->started_at || !$this->quiz->duration_minutes) {
+        if (! $this->attempt->started_at || ! $this->quiz->duration_minutes) {
             \Log::warning('Quiz timer issue', [
                 'attempt_id' => $this->attempt->id,
                 'started_at' => $this->attempt->started_at,
                 'duration_minutes' => $this->quiz->duration_minutes,
             ]);
+
             return null;
         }
         // Use timestamps to avoid Carbon diff quirks and clamp to a valid range
@@ -163,7 +184,7 @@ class TakeQuiz extends Component
     #[On('update-timer')]
     public function updateTimerFromServer()
     {
-        if (!$this->attempt || !$this->quiz->isTimed()) {
+        if (! $this->attempt || ! $this->quiz->isTimed()) {
             return;
         }
 
@@ -222,7 +243,7 @@ class TakeQuiz extends Component
 
     public function autoSaveAnswers()
     {
-        if (!$this->attempt || $this->attempt->isCompleted()) {
+        if (! $this->attempt || $this->attempt->isCompleted()) {
             return;
         }
 
@@ -236,7 +257,7 @@ class TakeQuiz extends Component
             // Reset saved status after 2 seconds
             $this->dispatch('resetAutoSaveStatus');
         } catch (\Throwable $e) {
-            \Log::error('Quiz auto-save failed: ' . $e->getMessage());
+            \Log::error('Quiz auto-save failed: '.$e->getMessage());
             $this->autoSaveStatus = 'idle';
         }
     }
@@ -309,7 +330,7 @@ class TakeQuiz extends Component
 
     public function exitQuiz()
     {
-        if ($this->attempt && !$this->attempt->isCompleted()) {
+        if ($this->attempt && ! $this->attempt->isCompleted()) {
             // Save all cached answers to database before exit
             $service = app(QuizGeneratorService::class);
             foreach ($this->answers as $questionId => $optionId) {
@@ -345,7 +366,7 @@ class TakeQuiz extends Component
 
     public function submitQuiz($timedOut = false)
     {
-        if (!$this->attempt || $this->attempt->isCompleted()) {
+        if (! $this->attempt || $this->attempt->isCompleted()) {
             return;
         }
 

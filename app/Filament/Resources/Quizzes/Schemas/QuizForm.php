@@ -10,12 +10,12 @@ use App\Models\Subject;
 use App\Models\Topic;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class QuizForm
@@ -43,15 +43,15 @@ class QuizForm
 
                         Select::make('lesson_id')
                             ->label('Attach to Lesson')
-                            ->options(fn() => Lesson::with('subject')
+                            ->options(fn () => Lesson::with('subject')
                                 ->orderBy('title')
                                 ->get()
-                                ->mapWithKeys(fn($lesson) => [
-                                    $lesson->id => $lesson->title . ($lesson->subject?->name ? ' · ' . $lesson->subject->name : ''),
+                                ->mapWithKeys(fn ($lesson) => [
+                                    $lesson->id => $lesson->title.($lesson->subject?->name ? ' · '.$lesson->subject->name : ''),
                                 ]))
                             ->searchable()
                             ->preload()
-                            ->default(fn() => request()->integer('lesson_id'))
+                            ->default(fn () => request()->integer('lesson_id'))
                             ->placeholder('None (standalone quiz)')
                             ->helperText('Optional: Link to a lesson. This quiz will appear on that lesson page.')
                             ->columnSpanFull(),
@@ -64,11 +64,11 @@ class QuizForm
                                     ->required()
                                     ->default(QuizType::Practice->value)
                                     ->rules([
-                                        'in:' . implode(',', QuizType::values()),
+                                        'in:'.implode(',', QuizType::values()),
                                     ])
                                     ->helperText('Mock exams auto-configure: English=70Q, Others=50Q, 100min total')
                                     ->reactive()
-                                    ->columnSpan(fn($get) => $get('type') === QuizType::Mock->value ? 2 : 1),
+                                    ->columnSpan(fn ($get) => $get('type') === QuizType::Mock->value ? 2 : 1),
 
                                 TextInput::make('question_count')
                                     ->label('Number of Questions')
@@ -77,7 +77,7 @@ class QuizForm
                                     ->minValue(1)
                                     ->default(20)
                                     ->placeholder('20')
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
                             ]),
 
                         Grid::make(2)
@@ -100,8 +100,8 @@ class QuizForm
                                     ->placeholder('60')
                                     ->suffix('min')
                                     ->helperText('Time limit for this quiz')
-                                    ->required(fn($get) => $get('type') === QuizType::Timed->value)
-                                    ->visible(fn($get) => $get('type') === QuizType::Timed->value)
+                                    ->required(fn ($get) => $get('type') === QuizType::Timed->value)
+                                    ->visible(fn ($get) => $get('type') === QuizType::Timed->value)
                                     ->columnSpan(1),
                             ]),
                     ])
@@ -167,7 +167,7 @@ class QuizForm
                                     ->searchable()
                                     ->live()
                                     ->placeholder('All subjects')
-                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->afterStateUpdated(fn ($state, $set) => $set('question_id', null))
                                     ->helperText('Optional: narrow down search')
                                     ->columnSpanFull(),
 
@@ -180,7 +180,7 @@ class QuizForm
                                     ])
                                     ->live()
                                     ->placeholder('All difficulties')
-                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->afterStateUpdated(fn ($state, $set) => $set('question_id', null))
                                     ->helperText('Optional: narrow down search')
                                     ->columnSpanFull(),
 
@@ -190,7 +190,7 @@ class QuizForm
                                     ->searchable()
                                     ->live()
                                     ->placeholder('All exam types')
-                                    ->afterStateUpdated(fn($state, $set) => $set('question_id', null))
+                                    ->afterStateUpdated(fn ($state, $set) => $set('question_id', null))
                                     ->helperText('Optional: narrow down search')
                                     ->columnSpanFull(),
 
@@ -220,18 +220,20 @@ class QuizForm
                                             ->with(['subject', 'examType'])
                                             ->limit(50)
                                             ->get()
-                                            ->mapWithKeys(fn($question) => [
-                                                $question->id => "#{$question->id} - " .
-                                                    \Str::limit($question->question_text, 80) .
-                                                    " ({$question->subject?->name} - {$question->difficulty})"
+                                            ->mapWithKeys(fn ($question) => [
+                                                $question->id => "#{$question->id} - ".
+                                                    \Str::limit($question->question_text, 80).
+                                                    " ({$question->subject?->name} - {$question->difficulty})",
                                             ]);
                                     })
                                     ->getOptionLabelUsing(function ($value) {
                                         $question = Question::with(['subject', 'examType'])->find($value);
-                                        if (!$question) return "Question #{$value}";
+                                        if (! $question) {
+                                            return "Question #{$value}";
+                                        }
 
-                                        return "#{$question->id} - " .
-                                            \Str::limit($question->question_text, 80) .
+                                        return "#{$question->id} - ".
+                                            \Str::limit($question->question_text, 80).
                                             " ({$question->subject?->name} - {$question->difficulty})";
                                     })
                                     ->required()
@@ -247,10 +249,9 @@ class QuizForm
                             ->helperText('Drag to reorder questions. Leave empty to use automatic selection based on criteria above.')
                             ->collapsible()
                             ->itemLabel(
-                                fn(array $state): ?string =>
-                                $state['question_id']
+                                fn (array $state): ?string => $state['question_id']
                                     ? Question::find($state['question_id'])?->question_text
-                                    ? '#' . $state['question_id'] . ' - ' . \Str::limit(Question::find($state['question_id'])->question_text, 50)
+                                    ? '#'.$state['question_id'].' - '.\Str::limit(Question::find($state['question_id'])->question_text, 50)
                                     : "Question #{$state['question_id']}"
                                     : 'New Question'
                             ),
@@ -269,23 +270,23 @@ class QuizForm
                                     ->helperText('Select random questions from criteria')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_questions')
                                     ->label('Shuffle Question Order')
                                     ->helperText('Display questions in random order')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('shuffle_options')
                                     ->label('Shuffle Answer Options')
                                     ->helperText('Randomize A, B, C, D order')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
                             ])
-                            ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                            ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
 
                         Grid::make(3)
                             ->schema([
@@ -294,7 +295,7 @@ class QuizForm
                                     ->helperText('Display correct answers immediately')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
 
                                 Toggle::make('allow_review')
                                     ->label('Allow Review After Completion')
@@ -307,9 +308,9 @@ class QuizForm
                                     ->helperText('Display answer explanations')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                                    ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
                             ])
-                            ->visible(fn($get) => $get('type') !== QuizType::Mock->value),
+                            ->visible(fn ($get) => $get('type') !== QuizType::Mock->value),
 
                         Grid::make(2)
                             ->schema([
@@ -324,6 +325,12 @@ class QuizForm
                                     ->label('Active')
                                     ->helperText('Make quiz available to students')
                                     ->default(true)
+                                    ->inline(false),
+
+                                Toggle::make('is_free')
+                                    ->label('Free (Trial Access)')
+                                    ->helperText('Allow trial users to access this quiz without a subscription')
+                                    ->default(false)
                                     ->inline(false),
                             ]),
                     ])

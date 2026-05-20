@@ -1,13 +1,16 @@
 <?php
 
-use App\Http\Middleware\EnsureSubscriptionOrTrial;
+use App\Http\Middleware\ApplyImpersonation;
 use App\Http\Middleware\EnsureStudentRole;
-use Spatie\Permission\Middleware\RoleMiddleware;
-use Spatie\Permission\Middleware\PermissionMiddleware;
-use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use App\Http\Middleware\EnsureSubscriptionOrTrial;
+use App\Http\Middleware\McpAuth;
+use App\Services\PerformanceBoost\BoostServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,16 +20,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withProviders([
-        \App\Services\PerformanceBoost\BoostServiceProvider::class,
+        BoostServiceProvider::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->appendToGroup('web', [
+            ApplyImpersonation::class,
+        ]);
+
         $middleware->alias([
             'ensure.subscription.or.trial' => EnsureSubscriptionOrTrial::class,
             'ensure.student' => EnsureStudentRole::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
-            'mcp.auth' => \App\Http\Middleware\McpAuth::class,
+            'mcp.auth' => McpAuth::class,
         ]);
 
         // Exclude webhook routes from CSRF verification

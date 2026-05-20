@@ -27,7 +27,7 @@ class Quiz extends Model
             }
 
             // Nullify lesson_id to avoid unique constraint violation
-            if (!is_null($quiz->lesson_id)) {
+            if (! is_null($quiz->lesson_id)) {
                 $quiz->lesson_id = null;
                 $quiz->saveQuietly();
             }
@@ -58,6 +58,7 @@ class Quiz extends Model
         'is_active',
         'status',
         'is_mock',
+        'is_free',
         'published_at',
         'available_from',
         'available_until',
@@ -78,6 +79,7 @@ class Quiz extends Model
         'show_explanations' => 'boolean',
         'is_active' => 'boolean',
         'is_mock' => 'boolean',
+        'is_free' => 'boolean',
         'published_at' => 'datetime',
         'available_from' => 'datetime',
         'available_until' => 'datetime',
@@ -159,7 +161,7 @@ class Quiz extends Model
     // Helper methods
     public function isAvailable(): bool
     {
-        if (!$this->is_active || $this->status !== 'published') {
+        if (! $this->is_active || $this->status !== 'published') {
             return false;
         }
 
@@ -190,7 +192,7 @@ class Quiz extends Model
 
     public function canUserAttempt(User $user): bool
     {
-        if (!$this->isAvailable()) {
+        if (! $this->isAvailable()) {
             return false;
         }
 
@@ -203,5 +205,25 @@ class Quiz extends Model
         return $this->attempts()
             ->where('user_id', $user->id)
             ->max('attempt_number') + 1;
+    }
+
+    public function canUserAccess(User $user): bool
+    {
+        // Free quizzes are accessible to everyone
+        if ($this->is_free) {
+            return true;
+        }
+
+        // Lesson-attached quizzes inherit the lesson's free status
+        if ($this->lesson_id && $this->lesson?->is_free) {
+            return true;
+        }
+
+        // Trial users can only access free content
+        if ($user->onTrial() && ! $user->hasActiveSubscription()) {
+            return false;
+        }
+
+        return $user->hasActiveSubscription();
     }
 }

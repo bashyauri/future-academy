@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\BunnyStreamService;
+use App\Services\VideoSigningService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Carbon\Carbon;
-use App\Services\BunnyStreamService;
 
 class Lesson extends Model
 {
@@ -104,13 +103,17 @@ class Lesson extends Model
             return true;
         }
 
-        // Check if user has active subscription
+        // Trial users can only access free content
+        if ($user->onTrial() && ! $user->hasActiveSubscription()) {
+            return false;
+        }
+
         return $user->hasActiveSubscription();
     }
 
     public function getVideoEmbedUrl(): ?string
     {
-        if (!$this->video_url) {
+        if (! $this->video_url) {
             return null;
         }
 
@@ -128,7 +131,7 @@ class Lesson extends Model
      */
     public function getBunnyEmbedUrl(int $expirationMinutes = 1440): ?string
     {
-        if ($this->video_type !== 'bunny' || !$this->video_url) {
+        if ($this->video_type !== 'bunny' || ! $this->video_url) {
             return null;
         }
 
@@ -143,11 +146,12 @@ class Lesson extends Model
      */
     public function getBunnyThumbnailUrl(): ?string
     {
-        if ($this->video_type !== 'bunny' || !$this->video_url) {
+        if ($this->video_type !== 'bunny' || ! $this->video_url) {
             return null;
         }
 
         $service = app(BunnyStreamService::class);
+
         return $service->getThumbnailUrl($this->video_url);
     }
 
@@ -156,11 +160,12 @@ class Lesson extends Model
      */
     public function getBunnyPreviewAnimationUrl(): ?string
     {
-        if ($this->video_type !== 'bunny' || !$this->video_url) {
+        if ($this->video_type !== 'bunny' || ! $this->video_url) {
             return null;
         }
 
         $service = app(BunnyStreamService::class);
+
         return $service->getPreviewAnimationUrl($this->video_url);
     }
 
@@ -169,11 +174,12 @@ class Lesson extends Model
      */
     public function getSignedVideoUrl(): ?string
     {
-        if ($this->video_type !== 'local' || !$this->video_url) {
+        if ($this->video_type !== 'local' || ! $this->video_url) {
             return null;
         }
 
-        $service = app(\App\Services\VideoSigningService::class);
+        $service = app(VideoSigningService::class);
+
         return $service->getSignedUrl($this->video_url);
     }
 
@@ -182,11 +188,12 @@ class Lesson extends Model
      */
     public function getStreamingUrl(): ?string
     {
-        if ($this->video_type !== 'local' || !$this->video_url) {
+        if ($this->video_type !== 'local' || ! $this->video_url) {
             return null;
         }
 
-        $service = app(\App\Services\VideoSigningService::class);
+        $service = app(VideoSigningService::class);
+
         return $service->getHlsStreamingUrl($this->video_url);
     }
 
@@ -212,7 +219,7 @@ class Lesson extends Model
 
     protected function getVimeoEmbedUrl(): ?string
     {
-        if (!$this->video_url) {
+        if (! $this->video_url) {
             return null;
         }
 
@@ -237,9 +244,9 @@ class Lesson extends Model
                 $newVideo = $lesson->video_url;
 
                 // If video was cleared (old has value, new is empty)
-                if ($oldVideo && !$newVideo && $lesson->video_type === 'local') {
+                if ($oldVideo && ! $newVideo && $lesson->video_type === 'local') {
                     try {
-                        $videoService = app(\App\Services\VideoSigningService::class);
+                        $videoService = app(VideoSigningService::class);
                         $videoService->delete($oldVideo);
 
                         \Log::info('Video cleared and deleted from Cloudinary', [
@@ -262,7 +269,7 @@ class Lesson extends Model
         static::deleting(function ($lesson) {
             if ($lesson->video_type === 'local' && $lesson->video_url) {
                 try {
-                    $videoService = app(\App\Services\VideoSigningService::class);
+                    $videoService = app(VideoSigningService::class);
                     $videoService->delete($lesson->video_url);
                 } catch (\Exception $e) {
                     \Log::warning('Failed to delete video from Cloudinary', [
@@ -276,4 +283,3 @@ class Lesson extends Model
         });
     }
 }
-

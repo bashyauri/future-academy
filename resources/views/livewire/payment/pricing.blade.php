@@ -1,4 +1,19 @@
 <div class="flex flex-col items-center p-8 rounded-2xl border-0 shadow-2xl bg-gradient-to-br from-green-400/90 via-green-200/80 to-white dark:from-green-900 dark:via-green-950 dark:to-green-900 max-w-lg mx-auto w-full">
+    @if(session('trial_upgrade_prompt'))
+        <div class="w-full mb-4 p-4 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+            <div class="font-semibold">{{ session('trial_upgrade_prompt') }}</div>
+            <div class="text-sm mt-1">
+                {{ __('Blocked feature: :feature', ['feature' => session('blocked_feature', __('Premium Features'))]) }}
+            </div>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="w-full mb-4 p-4 rounded-xl border border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-100">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="flex items-center gap-3 mb-4">
         <span class="inline-flex items-center justify-center p-3 rounded-full bg-green-600 dark:bg-green-700 shadow-lg">
             <svg class="w-7 h-7 text-white dark:text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">

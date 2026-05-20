@@ -4,11 +4,12 @@ namespace App\Livewire\Dashboard;
 
 use App\Enums\QuizType;
 use App\Models\Quiz;
-use App\Models\QuizAttempt;
-use App\Models\Subject;
+use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoAnalytics;
-use App\Models\User;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -17,14 +18,32 @@ use Livewire\Component;
 class ParentIndex extends Component
 {
     public $stats = [];
-    public $children = [];
+
+    public Collection $children;
+
     public $childrenProgress = [];
+
     public $childrenStats = [];
-    public $subscriptions = [];
+
+    public Collection $subscriptions;
+
     public $studentEmail = '';
+
+    public $newStudentName = '';
+
+    public $newStudentEmail = '';
+
     public $linkSuccessMessage = '';
-    public $studentSubscriptions = [];
-    public $paidStudentIds = [];
+
+    public $createStudentSuccessMessage = '';
+
+    public Collection $studentSubscriptions;
+
+    public Collection $paidStudentIds;
+
+    public Collection $unassignedSubscriptions;
+
+    public bool $showProgressMetrics = false;
 
     public function mount()
     {
@@ -56,6 +75,7 @@ class ParentIndex extends Component
     {
         $this->resetErrorBag('studentEmail');
         $this->linkSuccessMessage = '';
+        $this->createStudentSuccessMessage = '';
 
         $this->validate([
             'studentEmail' => ['required', 'email'],
@@ -64,30 +84,24 @@ class ParentIndex extends Component
         $parent = auth()->user();
         $student = User::where('email', $this->studentEmail)->first();
 
-        if (!$student || !$student->isStudent()) {
+        if (! $student || ! $student->isStudent()) {
             $this->addError('studentEmail', __('Student not found.'));
+
             return;
         }
 
         if ($student->id === $parent->id) {
             $this->addError('studentEmail', __('You cannot link your own account.'));
+
             return;
         }
 
         $alreadyLinked = $parent->children()->where('users.id', $student->id)->exists();
 
         if ($alreadyLinked) {
-            $parent->children()->updateExistingPivot($student->id, [
-                'is_active' => true,
-                'linked_at' => now(),
-            ]);
+            $this->attachStudentToParent($parent, $student, true);
         } else {
-            $parent->children()->syncWithoutDetaching([
-                $student->id => [
-                    'is_active' => true,
-                    'linked_at' => now(),
-                ],
-            ]);
+            $this->attachStudentToParent($parent, $student);
         }
 
         $this->studentEmail = '';
@@ -95,9 +109,61 @@ class ParentIndex extends Component
         $this->refreshDashboardData();
     }
 
+    public function createStudent(): void
+    {
+        $this->resetErrorBag(['newStudentName', 'newStudentEmail']);
+        $this->linkSuccessMessage = '';
+        $this->createStudentSuccessMessage = '';
+
+        $this->validate([
+            'newStudentName' => ['required', 'string', 'max:255'],
+            'newStudentEmail' => ['required', 'email', 'max:255', 'unique:users,email'],
+        ]);
+
+        $parent = auth()->user();
+        $temporaryPassword = Str::password(12);
+
+        $student = User::create([
+            'name' => $this->newStudentName,
+            'email' => $this->newStudentEmail,
+            'password' => Hash::make($temporaryPassword),
+            'account_type' => 'student',
+            'email_verified_at' => now(),
+            'has_completed_onboarding' => false,
+        ]);
+
+        $this->attachStudentToParent($parent, $student);
+
+        $this->newStudentName = '';
+        $this->newStudentEmail = '';
+        $this->createStudentSuccessMessage = __('Student account created and linked. Temporary password: :password', ['password' => $temporaryPassword]);
+
+        $this->refreshDashboardData();
+    }
+
+    private function attachStudentToParent(User $parent, User $student, bool $alreadyLinked = false): void
+    {
+        if ($alreadyLinked) {
+            $parent->children()->updateExistingPivot($student->id, [
+                'is_active' => true,
+                'linked_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $parent->children()->syncWithoutDetaching([
+            $student->id => [
+                'is_active' => true,
+                'linked_at' => now(),
+            ],
+        ]);
+    }
+
     private function refreshDashboardData()
     {
         $parent = auth()->user();
+        $this->showProgressMetrics = $this->canViewProgressMetrics($parent);
 
         // Get linked children (students)
         $this->children = $parent->children()
@@ -106,13 +172,31 @@ class ParentIndex extends Component
 
         // Get parent's subscriptions for each student
         $this->subscriptions = $parent->subscriptions()
-            ->where('status', 'active')
-            ->orWhere('status', 'pending')
+            ->whereIn('status', ['active', 'pending'])
+            ->with('student')
             ->latest('created_at')
             ->get();
 
         // Map subscriptions by student_id for quick lookup
-        $this->studentSubscriptions = $this->subscriptions->keyBy('student_id');
+        $this->studentSubscriptions = $this->subscriptions
+            ->whereNotNull('student_id')
+            ->keyBy('student_id');
+
+        // Keep legacy subscriptions without student mapping visible for admin cleanup.
+        $this->unassignedSubscriptions = $this->subscriptions
+            ->whereNull('student_id')
+            ->values();
+
+        // Backward compatibility: when one student exists and legacy subscription has no student_id,
+        // treat it as that single student's plan for display purposes.
+        if (
+            $this->children->count() === 1
+            && $this->unassignedSubscriptions->isNotEmpty()
+            && ! $this->studentSubscriptions->has($this->children->first()->id)
+        ) {
+            $this->studentSubscriptions->put($this->children->first()->id, $this->unassignedSubscriptions->first());
+        }
+
         $this->paidStudentIds = $this->studentSubscriptions->keys()->filter()->values();
 
         // Calculate combined stats from all children
@@ -140,7 +224,7 @@ class ParentIndex extends Component
         $averageCompletionRate = 0;
 
         foreach ($this->children as $child) {
-            if (!$this->paidStudentIds->contains($child->id)) {
+            if (! $this->showProgressMetrics && ! $this->paidStudentIds->contains($child->id)) {
                 continue;
             }
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
@@ -238,6 +322,8 @@ class ParentIndex extends Component
 
     private function calculateChildrenProgress()
     {
+        $parent = auth()->user();
+
         foreach ($this->children as $child) {
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
             $totalVideos = Video::where('is_published', true)->count();
@@ -293,6 +379,7 @@ class ParentIndex extends Component
 
             // Check if parent has paid for this specific student
             $parentPaidForStudent = $this->studentSubscriptions->has($child->id);
+            $canViewMetrics = $this->showProgressMetrics || $parentPaidForStudent;
 
             $this->childrenStats[$child->id] = [
                 'videos_watched' => $videosWatched,
@@ -304,7 +391,10 @@ class ParentIndex extends Component
                 'subjects_enrolled' => $subjectsEnrolled,
                 'has_active_subscription' => $hasActiveSubscription,
                 'parent_paid' => $parentPaidForStudent,
-                'can_view_metrics' => $parentPaidForStudent,
+                'can_view_metrics' => $canViewMetrics,
+                'access_label' => $parentPaidForStudent
+                    ? __('✓ You Paid')
+                    : ($parent->hasAnyRole(['super-admin', 'admin']) ? __('Staff View') : __('Progress Access')),
                 'lessons_completed' => $lessonsCompleted,
                 'lessons_started' => $lessonsStarted,
                 'lessons_percentage' => $lessonsPercentage,
@@ -317,6 +407,12 @@ class ParentIndex extends Component
                 'video_completion_rate' => number_format($childCompletionRate, 1),
             ];
         }
+    }
+
+    private function canViewProgressMetrics($user): bool
+    {
+        return $user->hasAnyRole(['super-admin', 'admin'])
+            || $user->hasActiveSubscription();
     }
 
     /**

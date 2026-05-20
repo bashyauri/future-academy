@@ -3,9 +3,10 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\ExamType;
-use App\Models\MockGroup;
+use App\Models\Question;
 use App\Models\Subject;
 use App\Services\MockGroupService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Layout;
@@ -15,12 +16,19 @@ use Livewire\Component;
 class MockGroupSelection extends Component
 {
     public ?int $examTypeId = null;
+
     public ?int $subjectId = null;
+
     public ?string $subjectName = null;
+
     public ?string $examTypeName = null;
+
     public array $mockGroups = [];
+
     public array $completedMockGroupIds = [];
+
     public array $bestScores = [];
+
     public ?int $selectedBatchNumber = null;
 
     // Rate limiting and throttling
@@ -32,18 +40,27 @@ class MockGroupSelection extends Component
         $this->examTypeId = (int) request()->query('exam_type', 0) ?: null;
         $this->subjectId = (int) request()->query('subject', 0) ?: null;
 
+        // Trial users cannot access mock exams
+        $user = auth()->user();
+        if ($user->onTrial() && ! $user->hasActiveSubscription()) {
+            session()->flash('error', 'Mock exams require an active subscription. Please subscribe to access them.');
+
+            return redirect()->route('mock.setup');
+        }
+
         // Clear completion cache on fresh load to show latest completions
         $cacheKey = "user_{$this->getUserId()}_completed_mocks_{$this->examTypeId}_{$this->subjectId}";
         cache()->forget($cacheKey);
 
         // Validate required parameters
-        if (!$this->examTypeId || !$this->subjectId) {
+        if (! $this->examTypeId || ! $this->subjectId) {
             Log::warning('MockGroupSelection: Missing required parameters', [
                 'user_id' => auth()->id(),
                 'exam_type' => request()->query('exam_type'),
                 'subject' => request()->query('subject'),
             ]);
             session()->flash('error', 'Invalid parameters. Please select exam type and subject first.');
+
             return redirect()->route('mock.setup');
         }
 
@@ -60,13 +77,14 @@ class MockGroupSelection extends Component
             // Store names for display
             $this->subjectName = $subject->name;
             $this->examTypeName = $examType->name;
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             Log::warning('MockGroupSelection: Invalid subject or exam type', [
                 'user_id' => auth()->id(),
                 'subject_id' => $this->subjectId,
                 'exam_type_id' => $this->examTypeId,
             ]);
             session()->flash('error', 'Subject or exam type not found or is inactive.');
+
             return redirect()->route('mock.setup');
         }
 
@@ -89,6 +107,7 @@ class MockGroupSelection extends Component
                     'exam_type_id' => $this->examTypeId,
                 ]);
                 session()->flash('warning', 'No mock questions available for the selected subject and exam type.');
+
                 return redirect()->route('mock.setup');
             }
 
@@ -96,7 +115,7 @@ class MockGroupSelection extends Component
             $this->loadCompletedMocks($groups);
 
             // Map groups with security considerations
-            $this->mockGroups = $groups->map(fn($group) => [
+            $this->mockGroups = $groups->map(fn ($group) => [
                 'id' => (int) $group->id, // Ensure ID is integer
                 'batch_number' => (int) $group->batch_number,
                 'total_questions' => (int) $group->total_questions,
@@ -177,12 +196,14 @@ class MockGroupSelection extends Component
                 'user_id' => auth()->id(),
                 'batch_number' => $batchNumber,
             ]);
+
             return;
         }
 
         // Check rate limiting
-        if (!$this->checkRateLimit()) {
+        if (! $this->checkRateLimit()) {
             session()->flash('error', 'Too many requests. Please wait a moment.');
+
             return;
         }
 
@@ -196,7 +217,7 @@ class MockGroupSelection extends Component
             // Verify batch number is valid for this subject/exam combo
             $mockGroup = $mockGroupService->getMockGroupByBatchNumber($subject, $examType, $batchNumber);
 
-            if (!$mockGroup) {
+            if (! $mockGroup) {
                 Log::warning('MockGroupSelection: Mock group not found', [
                     'user_id' => auth()->id(),
                     'subject_id' => $this->subjectId,
@@ -204,11 +225,12 @@ class MockGroupSelection extends Component
                     'batch_number' => $batchNumber,
                 ]);
                 session()->flash('error', 'Mock group not found.');
+
                 return;
             }
 
             // Verify questions exist and user hasn't tampered with data
-            $questionCount = \App\Models\Question::where('mock_group_id', $mockGroup->id)
+            $questionCount = Question::where('mock_group_id', $mockGroup->id)
                 ->where('is_active', true)
                 ->where('status', 'approved')
                 ->count();
@@ -219,6 +241,7 @@ class MockGroupSelection extends Component
                     'mock_group_id' => $mockGroup->id,
                 ]);
                 session()->flash('error', 'No active questions available in this mock group.');
+
                 return;
             }
 
@@ -233,13 +256,14 @@ class MockGroupSelection extends Component
             return redirect()->route('mock.quiz', [
                 'group' => $mockGroup->id,
             ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             Log::warning('MockGroupSelection: Subject or exam type not found', [
                 'user_id' => auth()->id(),
                 'subject_id' => $this->subjectId,
                 'exam_type_id' => $this->examTypeId,
             ]);
             session()->flash('error', 'Invalid subject or exam type.');
+
             return redirect()->route('mock.setup');
         } catch (\Exception $e) {
             Log::error('MockGroupSelection: Error selecting batch', [
@@ -264,6 +288,7 @@ class MockGroupSelection extends Component
         }
 
         cache()->put($key, $attempts + 1, now()->addMinute());
+
         return true;
     }
 
@@ -280,4 +305,3 @@ class MockGroupSelection extends Component
         return view('livewire.quizzes.mock-group-selection');
     }
 }
-

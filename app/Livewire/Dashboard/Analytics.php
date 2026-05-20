@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\Topic;
+use App\Models\User;
 use App\Models\UserProgress;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,10 +14,33 @@ use Livewire\Component;
 
 class Analytics extends Component
 {
+    /**
+     * Defensive no-op for malformed frontend method calls.
+     */
+    public function toJSON(): void
+    {
+        // Intentionally blank.
+    }
+
     #[Layout('components.layouts.app')]
     public function render()
     {
-        $user = Auth::user();
+        $authenticatedUser = Auth::user();
+        $studentId = request()->integer('student');
+        $user = $authenticatedUser;
+
+        // If student parameter provided, verify parent is linked to this student
+        if ($studentId > 0) {
+            $student = User::find($studentId);
+            $canViewStudent = $authenticatedUser->hasAnyRole(['admin', 'super-admin'])
+                || $authenticatedUser->children()->where('users.id', $studentId)->exists();
+
+            if (! $student || ! $canViewStudent) {
+                abort(403, 'Unauthorized to view this student\'s analytics');
+            }
+
+            $user = $student;
+        }
 
         // Quiz scores over time (last 30 days)
         $quizScoresOverTime = QuizAttempt::where('user_id', $user->id)
@@ -46,14 +70,16 @@ class Analytics extends Component
             ->get()
             ->map(function ($item) {
                 $subjectIds = json_decode($item->subject_ids, true);
-                if (!empty($subjectIds)) {
+                if (! empty($subjectIds)) {
                     $subject = Subject::find($subjectIds[0]);
+
                     return [
                         'subject' => $subject?->name ?? 'Unknown',
                         'avg_score' => round($item->avg_score, 1),
                         'total_attempts' => $item->total_attempts,
                     ];
                 }
+
                 return null;
             })
             ->filter()
@@ -73,8 +99,9 @@ class Analytics extends Component
             ->get()
             ->map(function ($item) {
                 $topicIds = json_decode($item->topic_ids, true);
-                if (!empty($topicIds)) {
+                if (! empty($topicIds)) {
                     $topic = Topic::find($topicIds[0]);
+
                     return [
                         'topic' => $topic?->name ?? 'Unknown',
                         'avg_score' => round($item->avg_score, 1),
@@ -82,6 +109,7 @@ class Analytics extends Component
                         'mastery_level' => $this->getMasteryLevel($item->avg_score),
                     ];
                 }
+
                 return null;
             })
             ->filter()
@@ -166,9 +194,16 @@ class Analytics extends Component
 
     private function getMasteryLevel($score)
     {
-        if ($score >= 90) return 'Expert';
-        if ($score >= 75) return 'Proficient';
-        if ($score >= 60) return 'Developing';
+        if ($score >= 90) {
+            return 'Expert';
+        }
+        if ($score >= 75) {
+            return 'Proficient';
+        }
+        if ($score >= 60) {
+            return 'Developing';
+        }
+
         return 'Beginner';
     }
 }

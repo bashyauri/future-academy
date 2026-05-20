@@ -2,13 +2,19 @@
     {{-- Page Header --}}
     <div>
         <flux:heading size="2xl">{{ __('Browse Lessons') }}</flux:heading>
-        <flux:text class="mt-2">{{ __('Choose a subject to start learning') }}</flux:text>
+        <flux:text class="mt-2">
+            @if($isParentViewing)
+                {{ __('Manage enrollment for :name', ['name' => $viewingStudent->name]) }}
+            @else
+                {{ __('Choose a subject to start learning') }}
+            @endif
+        </flux:text>
     </div>
 
     {{-- Subjects Grid --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @forelse($subjects as $subject)
-            <a href="{{ route('lessons.list', $subject->id) }}" wire:navigate
+            <a href="{{ route('lessons.list', ['subject' => $subject->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate
                 class="group relative rounded-xl border-2 border-neutral-200 dark:border-neutral-700 p-6 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg transition-all duration-200 overflow-hidden">
 
                 {{-- Background Gradient --}}

@@ -2,7 +2,7 @@
     {{-- Breadcrumb & Header --}}
     <div>
         <div class="flex items-center gap-2 text-sm mb-2">
-            <a href="{{ route('lessons.subjects') }}" wire:navigate
+            <a href="{{ route('lessons.subjects', $isParentViewing ? ['student' => $viewingStudent->id] : []) }}" wire:navigate
                 class="text-blue-600 dark:text-blue-400 hover:underline">
                 {{ __('Lessons') }}
             </a>
@@ -70,12 +70,12 @@
                 <div class="space-y-4">
                     @foreach($lessons as $lesson)
                         @php
-                            $userProgress = $lesson->userProgress(auth()->user());
+                            $userProgress = $lesson->userProgress($viewingStudent ?? auth()->user());
                             $isCompleted = $userProgress?->is_completed ?? false;
                             $progressPercentage = $userProgress?->progress_percentage ?? 0;
                         @endphp
 
-                        <a href="{{ route('lessons.view', $lesson->id) }}" wire:navigate
+                        <a href="{{ route('lessons.view', ['id' => $lesson->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate
                             class="group block rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-200 overflow-hidden">
                             <div class="flex gap-4 p-4">
                                 {{-- Thumbnail --}}

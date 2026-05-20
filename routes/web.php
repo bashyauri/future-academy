@@ -1,22 +1,44 @@
 <?php
 
-use Laravel\Fortify\Features;
-use App\Livewire\Home\HomePage;
-use App\Livewire\Dashboard\Index;
-use App\Livewire\Dashboard\ParentIndex;
-use App\Livewire\Quizzes\QuizList;
-use App\Livewire\Quizzes\TakeQuiz;
-use App\Livewire\Settings\Profile;
-use App\Livewire\Settings\Password;
-use App\Livewire\Settings\TwoFactor;
+use App\Http\Controllers\Admin\VideoUploadController;
+use App\Http\Controllers\CloudinaryWebhookController;
+use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\McpController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaystackWebhookController;
+use App\Http\Controllers\Practice\JambQuizController;
+use App\Http\Controllers\Practice\PracticeQuizApiController;
+use App\Http\Controllers\Practice\PracticeQuizController;
+use App\Http\Controllers\VideoProgressController;
 use App\Livewire\Dashboard\Analytics;
-use App\Livewire\Settings\Appearance;
-use App\Livewire\Subscription\Manage; // ← Added
-use App\Livewire\Payment\Pricing as PaymentPricing;
+use App\Livewire\Dashboard\Index; // ← Added
+use App\Livewire\Dashboard\ParentIndex;
+use App\Livewire\Home\HomePage;
+use App\Livewire\Lessons\LessonsList; // ← Added
+use App\Livewire\Lessons\LessonView;
 use App\Livewire\Onboarding\StudentOnboarding;
-use App\Http\Controllers\PaymentController; // ← Added
-use Illuminate\Support\Facades\Route;
+use App\Livewire\Payment\Pricing as PaymentPricing;
+use App\Livewire\Practice\JambQuiz;
+use App\Livewire\Practice\JambSetup;
+use App\Livewire\Practice\PracticeHome;
+use App\Livewire\Practice\PracticeQuiz;
+use App\Livewire\Practice\PracticeQuizJS;
+use App\Livewire\Quizzes\MockGroupSelection;
+use App\Livewire\Quizzes\MockQuiz;
+use App\Livewire\Quizzes\MockSetup;
+use App\Livewire\Quizzes\QuizList;
+use App\Livewire\Quizzes\QuizzesBySubject;
+use App\Livewire\Quizzes\SubjectsList;
+use App\Livewire\Quizzes\TakeQuiz;
+use App\Livewire\Settings\Appearance;
+use App\Livewire\Settings\Password;
+use App\Livewire\Settings\Profile;
+use App\Livewire\Settings\TwoFactor;
+use App\Livewire\Subscription\Manage;
+use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Route;
+use Laravel\Fortify\Features;
 
 // Public home page
 Route::get('/', HomePage::class)->name('home');
@@ -24,25 +46,31 @@ Route::get('/', HomePage::class)->name('home');
 // Redirect after login
 Route::get('/redirect-dashboard', function () {
     $user = auth()->user();
-    if (!$user) {
+    if (! $user) {
         return redirect()->route('login');
     }
 
-    if (!$user->hasVerifiedEmail()) {
+    if (! $user->hasVerifiedEmail()) {
         return redirect()->route('verification.notice');
     }
 
-    if ($user->isStudent() && !$user->has_completed_onboarding) {
+    $activeContext = $user->resolveActiveRoleContext();
+
+    if (! session()->has('active_role_context') && in_array($activeContext, ['guardian', 'student'], true)) {
+        session(['active_role_context' => $activeContext]);
+    }
+
+    if ($activeContext === 'student' && ! $user->has_completed_onboarding) {
         return redirect()->route('onboarding');
     }
 
     return match ($user->account_type) {
         'super-admin', 'admin' => redirect('/admin'),
-        'uploader'             => redirect('/staff'),
-        'teacher'              => redirect()->route('dashboard'),
-        'guardian'             => redirect()->route('dashboard'),
-        'student'              => redirect()->route('dashboard'),
-        default                => redirect()->route('dashboard'),
+        'uploader' => redirect('/staff'),
+        'teacher' => redirect()->route('dashboard'),
+        'guardian' => redirect()->route('dashboard'),
+        'student' => redirect()->route('dashboard'),
+        default => redirect()->route('dashboard'),
     };
 })->middleware('auth')->name('redirect.dashboard');
 
@@ -55,23 +83,74 @@ Route::get('/onboarding', StudentOnboarding::class)
 // Uses smart routing: Parents → ParentIndex, Students/Teachers → Index
 Route::get('dashboard', function () {
     $user = auth()->user();
-    // Check Spatie role with fallback to account_type
-    if ($user && ($user->hasRole('guardian') || $user->isParent())) {
+
+    if (! $user) {
+        return redirect()->route('login');
+    }
+
+    if ($user->hasAnyRole(['admin', 'super-admin']) && ! session('impersonator_id')) {
+        return redirect('/admin');
+    }
+
+    $activeContext = $user->resolveActiveRoleContext();
+
+    if (! session()->has('active_role_context') && in_array($activeContext, ['guardian', 'student'], true)) {
+        session(['active_role_context' => $activeContext]);
+    }
+
+    if ($activeContext === 'guardian') {
         return redirect()->route('parent.dashboard');
     }
+
     return redirect()->route('student.dashboard');
 })
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
+Route::post('/role-context/switch', function () {
+    $user = auth()->user();
+
+    if (! $user) {
+        return redirect()->route('login');
+    }
+
+    $context = request()->string('context')->toString();
+
+    $allowedContexts = [
+        'guardian' => $user->canUseGuardianContext(),
+        'student' => $user->canUseStudentContext(),
+    ];
+
+    if (! array_key_exists($context, $allowedContexts) || ! $allowedContexts[$context]) {
+        return redirect()->back()->with('error', __('You cannot switch to that role context.'));
+    }
+
+    session(['active_role_context' => $context]);
+
+    return redirect()->route('dashboard');
+})->middleware(['auth', 'verified'])->name('role-context.switch');
+
+Route::post('/impersonate/stop', function () {
+    $impersonatorId = session('impersonator_id');
+    $impersonator = $impersonatorId ? User::find($impersonatorId) : null;
+
+    if (! $impersonator || ! $impersonator->hasAnyRole(['admin', 'super-admin'])) {
+        abort(403);
+    }
+
+    session()->forget(['impersonator_id', 'impersonated_user_id', 'impersonated_user_email', 'impersonated_user_name']);
+
+    return redirect()->route('dashboard')->with('success', __('Stopped impersonation and returned to admin.'));
+})->middleware('auth')->name('impersonate.stop');
+
 // Student dashboard (default)
-Route::get('/student-dashboard', \App\Livewire\Dashboard\Index::class)
-    ->middleware(['auth', 'verified'])
+Route::get('/student-dashboard', Index::class)
+    ->middleware(['auth', 'verified', 'role:student|teacher|uploader|admin|super-admin'])
     ->name('student.dashboard');
 
-// Alternative: Explicit parent-only route with strict role middleware
-Route::get('/parent-dashboard', \App\Livewire\Dashboard\ParentIndex::class)
-    ->middleware(['auth', 'verified', 'role:guardian'])
+// Guardian dashboard
+Route::get('/parent-dashboard', ParentIndex::class)
+    ->middleware(['auth', 'verified', 'role:guardian|admin|super-admin'])
     ->name('parent.dashboard');
 
 // Subscription management (Livewire)
@@ -104,45 +183,45 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
         ->name('two-factor.show');
 
     // Quiz routes
-    Route::get('quizzes', \App\Livewire\Quizzes\SubjectsList::class)->name('quizzes.index');
+    Route::get('quizzes', SubjectsList::class)->name('quizzes.index');
     Route::get('quizzes/all', QuizList::class)->name('quizzes.all');
-    Route::get('quizzes/subject/{subject}', \App\Livewire\Quizzes\QuizzesBySubject::class)->name('quizzes.subject');
+    Route::get('quizzes/subject/{subject}', QuizzesBySubject::class)->name('quizzes.subject');
     Route::get('quiz/{id}', TakeQuiz::class)->name('quiz.take');
 
     // Mock exam
-    Route::get('mock', \App\Livewire\Quizzes\MockSetup::class)->name('mock.setup');
-    Route::get('mock/quiz', \App\Livewire\Quizzes\MockQuiz::class)->name('mock.quiz');
-    Route::get('mock/groups', \App\Livewire\Quizzes\MockGroupSelection::class)->name('mock.group-selection');
+    Route::get('mock', MockSetup::class)->name('mock.setup');
+    Route::get('mock/quiz', MockQuiz::class)->name('mock.quiz');
+    Route::get('mock/groups', MockGroupSelection::class)->name('mock.group-selection');
 
     // Practice routes
-    Route::get('practice', \App\Livewire\Practice\PracticeHome::class)->name('practice.home');
-    Route::get('practice/quiz', \App\Livewire\Practice\PracticeQuiz::class)->name('practice.quiz');
-    Route::get('practice/quiz-js', \App\Livewire\Practice\PracticeQuizJS::class)->name('practice.quiz.js');
+    Route::get('practice', PracticeHome::class)->name('practice.home');
+    Route::get('practice/quiz', PracticeQuiz::class)->name('practice.quiz');
+    Route::get('practice/quiz-js', PracticeQuizJS::class)->name('practice.quiz.js');
 
-    Route::post('quiz/autosave', [\App\Http\Controllers\Practice\PracticeQuizController::class, 'autosave']);
-    Route::post('jamb/autosave', [\App\Http\Controllers\Practice\JambQuizController::class, 'autosave']);
+    Route::post('quiz/autosave', [PracticeQuizController::class, 'autosave']);
+    Route::post('jamb/autosave', [JambQuizController::class, 'autosave']);
 
     Route::prefix('api/practice')->group(function () {
-        Route::post('start', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'startQuiz']);
-        Route::get('load/{attempt}', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'loadAttempt']);
-        Route::post('load-batch', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'loadBatch']);
-        Route::post('save', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'saveAnswers']);
-        Route::post('submit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'submitQuiz']);
-        Route::post('exit', [\App\Http\Controllers\Practice\PracticeQuizApiController::class, 'exitQuiz']);
+        Route::post('start', [PracticeQuizApiController::class, 'startQuiz']);
+        Route::get('load/{attempt}', [PracticeQuizApiController::class, 'loadAttempt']);
+        Route::post('load-batch', [PracticeQuizApiController::class, 'loadBatch']);
+        Route::post('save', [PracticeQuizApiController::class, 'saveAnswers']);
+        Route::post('submit', [PracticeQuizApiController::class, 'submitQuiz']);
+        Route::post('exit', [PracticeQuizApiController::class, 'exitQuiz']);
     });
 
-    Route::get('practice/jamb/setup', \App\Livewire\Practice\JambSetup::class)->name('practice.jamb.setup');
-    Route::get('practice/jamb/quiz', \App\Livewire\Practice\JambQuiz::class)->name('practice.jamb.quiz');
+    Route::get('practice/jamb/setup', JambSetup::class)->name('practice.jamb.setup');
+    Route::get('practice/jamb/quiz', JambQuiz::class)->name('practice.jamb.quiz');
 
     // Lessons
-    Route::get('lessons', \App\Livewire\Lessons\SubjectsList::class)->name('lessons.subjects');
-    Route::get('lessons/{subject}', \App\Livewire\Lessons\LessonsList::class)->name('lessons.list');
-    Route::get('lesson/{id}', \App\Livewire\Lessons\LessonView::class)->name('lessons.view');
+    Route::get('lessons', App\Livewire\Lessons\SubjectsList::class)->name('lessons.subjects');
+    Route::get('lessons/{subject}', LessonsList::class)->name('lessons.list');
+    Route::get('lesson/{id}', LessonView::class)->name('lessons.view');
 
     // Video progress tracking (Alpine + fetch)
-    Route::post('video-progress', [\App\Http\Controllers\VideoProgressController::class, 'storeProgress'])
+    Route::post('video-progress', [VideoProgressController::class, 'storeProgress'])
         ->name('video.progress.store');
-    Route::post('video-completion', [\App\Http\Controllers\VideoProgressController::class, 'markCompletion'])
+    Route::post('video-completion', [VideoProgressController::class, 'markCompletion'])
         ->name('video.progress.complete');
 
     // Analytics
@@ -155,25 +234,26 @@ Route::get('/clear', function () {
     Artisan::call('config:clear');
     Artisan::call('route:clear');
     Artisan::call('view:clear');
+
     return 'Cleared!';
 });
 
 // Admin video upload (for Filament lesson form)
 Route::middleware(['auth'])->prefix('admin/video')->group(function () {
-    Route::post('/validate', [App\Http\Controllers\Admin\VideoUploadController::class, 'validate'])
+    Route::post('/validate', [VideoUploadController::class, 'validate'])
         ->name('admin.video.validate');
-    Route::post('/create', [App\Http\Controllers\Admin\VideoUploadController::class, 'create'])
+    Route::post('/create', [VideoUploadController::class, 'create'])
         ->name('admin.video.create');
-    Route::post('/upload-chunk', [App\Http\Controllers\Admin\VideoUploadController::class, 'uploadChunk'])
+    Route::post('/upload-chunk', [VideoUploadController::class, 'uploadChunk'])
         ->name('admin.video.upload-chunk');
 });
 
 // Webhooks
-Route::post('/webhooks/paystack', [App\Http\Controllers\PaystackWebhookController::class, 'handle'])
+Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
     ->name('webhooks.paystack');
 
-Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookController::class, 'handle'])
+Route::post('/webhooks/cloudinary', [CloudinaryWebhookController::class, 'handle'])
     ->middleware('throttle:60,1')
     ->name('webhooks.cloudinary');
 
@@ -181,19 +261,19 @@ Route::post('/webhooks/cloudinary', [App\Http\Controllers\CloudinaryWebhookContr
 // Only available when MCP_SERVER_ENABLED=true
 if (config('mcp-server.enabled')) {
     Route::prefix('mcp')->group(function () {
-        Route::post('/initialize', [App\Http\Controllers\McpController::class, 'initialize']);
-        Route::post('/call-tool', [App\Http\Controllers\McpController::class, 'callTool']);
-        Route::post('/list-resources', [App\Http\Controllers\McpController::class, 'listResources']);
-        Route::post('/read-resource', [App\Http\Controllers\McpController::class, 'readResource']);
-        Route::get('/server-info', [App\Http\Controllers\McpController::class, 'serverInfo']);
+        Route::post('/initialize', [McpController::class, 'initialize']);
+        Route::post('/call-tool', [McpController::class, 'callTool']);
+        Route::post('/list-resources', [McpController::class, 'listResources']);
+        Route::post('/read-resource', [McpController::class, 'readResource']);
+        Route::get('/server-info', [McpController::class, 'serverInfo']);
     })->middleware('mcp.auth');
 }
 
 // Integration Routes
 Route::prefix('integration')->group(function () {
-    Route::get('/health', [App\Http\Controllers\IntegrationController::class, 'health'])->name('integration.health');
-    Route::get('/stats', [App\Http\Controllers\IntegrationController::class, 'stats'])->name('integration.stats');
-    Route::get('/recommendations', [App\Http\Controllers\IntegrationController::class, 'recommendations'])->name('integration.recommendations');
+    Route::get('/health', [IntegrationController::class, 'health'])->name('integration.health');
+    Route::get('/stats', [IntegrationController::class, 'stats'])->name('integration.stats');
+    Route::get('/recommendations', [IntegrationController::class, 'recommendations'])->name('integration.recommendations');
 })->middleware('auth');
 
 // Payment routes
@@ -201,5 +281,5 @@ Route::get('payment/pricing', PaymentPricing::class)
     ->name('payment.pricing');
 Route::get('pricing', PaymentPricing::class)
     ->name('pricing');
-Route::post('payment/initialize', [\App\Http\Controllers\PaymentController::class, 'initialize'])->name('payment.initialize');
-Route::get('payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
+Route::post('payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
+Route::get('payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');

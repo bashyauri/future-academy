@@ -21,8 +21,12 @@
 
     @if($onTrial)
         <div class="mb-6 p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-center">
-            <strong>{{ __('Trial Active:') }}</strong>
-            {{ __('You have :days day(s) left on your free trial.', ['days' => $trialDaysLeft]) }}
+            <strong>{{ __('48-Hour Trial Active:') }}</strong>
+            @if($trialHoursLeft >= 24)
+                {{ __('You have about :days day(s) left. During trial, you can access only free lessons and quizzes.', ['days' => $trialDaysLeft]) }}
+            @else
+                {{ __('You have about :hours hour(s) left. During trial, you can access only free lessons and quizzes.', ['hours' => $trialHoursLeft]) }}
+            @endif
         </div>
     @endif
 

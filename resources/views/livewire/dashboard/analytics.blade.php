@@ -5,7 +5,7 @@
             <flux:heading size="2xl">{{ __('Performance Analytics') }}</flux:heading>
             <flux:text class="mt-1">{{ __('Track your learning progress and performance trends') }}</flux:text>
         </div>
-        <flux:button href="{{ route('dashboard') }}" variant="ghost" icon="arrow-left" wire:navigate>
+        <flux:button href="{{ route('dashboard') }}" variant="ghost" icon="arrow-left">
             {{ __('Back to Dashboard') }}
         </flux:button>
     </div>

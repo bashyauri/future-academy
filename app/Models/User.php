@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,8 +16,8 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasRoles;
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -75,9 +77,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return Str::of($this->name)
             ->explode(' ')
             ->take(2)
-            ->map(fn($word) => Str::substr($word, 0, 1))
+            ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
     }
+
     protected static function booted(): void
     {
         static::creating(function (User $user) {
@@ -92,7 +95,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         static::created(function (User $user) {
             $primaryRole = $user->account_type ?: 'student';
             $existing = $user->roles()->pluck('name')->all();
-            if (!in_array($primaryRole, $existing, true)) {
+            if (! in_array($primaryRole, $existing, true)) {
                 $existing[] = $primaryRole;
             }
             $user->syncRoles(array_values(array_unique($existing)));
@@ -100,7 +103,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         static::saved(function (User $user) {
             $primaryRole = $user->account_type ?: 'student';
             $existing = $user->roles()->pluck('name')->all();
-            if (!in_array($primaryRole, $existing, true)) {
+            if (! in_array($primaryRole, $existing, true)) {
                 $existing[] = $primaryRole;
                 $user->syncRoles(array_values(array_unique($existing)));
             }
@@ -161,21 +164,21 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->hasMany(QuizAttempt::class);
     }
 
-        /**
-         * Get all subscriptions for the user.
-         */
-        public function subscriptions()
-        {
-            return $this->hasMany(Subscription::class);
-        }
+    /**
+     * Get all subscriptions for the user.
+     */
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
+    }
 
-        /**
-         * Get the user's current active subscription.
-         */
-        public function currentSubscription()
-        {
-            return $this->hasOne(Subscription::class)->where('status', 'active')->latest('ends_at');
-        }
+    /**
+     * Get the user's current active subscription.
+     */
+    public function currentSubscription()
+    {
+        return $this->hasOne(Subscription::class)->where('status', 'active')->latest('ends_at');
+    }
 
     public function userAnswers()
     {
@@ -206,9 +209,49 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         return $this->account_type === 'student';
     }
 
+    public function canUseGuardianContext(): bool
+    {
+        return $this->hasRole('guardian') || $this->isParent();
+    }
+
+    public function canUseStudentContext(): bool
+    {
+        return $this->hasRole('student') || $this->isStudent();
+    }
+
+    public function resolveActiveRoleContext(): ?string
+    {
+        $requestedContext = session('active_role_context');
+
+        if ($requestedContext === 'guardian' && $this->canUseGuardianContext()) {
+            return 'guardian';
+        }
+
+        if ($requestedContext === 'student' && $this->canUseStudentContext()) {
+            return 'student';
+        }
+
+        if ($this->canUseGuardianContext() && ! $this->canUseStudentContext()) {
+            return 'guardian';
+        }
+
+        if ($this->canUseStudentContext()) {
+            return 'student';
+        }
+
+        if ($this->canUseGuardianContext()) {
+            return 'guardian';
+        }
+
+        return null;
+    }
 
     public function onTrial(): bool
     {
+        if ($this->isParent()) {
+            return false;
+        }
+
         return $this->trial_ends_at && now()->lt($this->trial_ends_at);
     }
 
@@ -218,13 +261,14 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function hasActiveSubscription(): bool
     {
         $subscription = $this->currentSubscription;
+
         return $subscription && $subscription->ends_at && now()->lt($subscription->ends_at);
     }
 
     /**
      * Check if user can access Filament admin panel
      */
-    public function canAccessPanel(\Filament\Panel $panel): bool
+    public function canAccessPanel(Panel $panel): bool
     {
         return $this->hasRole(['super-admin', 'admin', 'teacher']) && $this->is_active;
     }
@@ -234,6 +278,6 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
      */
     public function sendEmailVerificationNotification()
     {
-        $this->notify(new \Illuminate\Auth\Notifications\VerifyEmail());
+        $this->notify(new VerifyEmail);
     }
 }
