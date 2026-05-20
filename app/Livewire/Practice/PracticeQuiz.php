@@ -7,11 +7,11 @@ use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\UserAnswer;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
-use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 #[Layout('components.layouts.app')]
@@ -45,18 +45,30 @@ class PracticeQuiz extends Component
     public $attempt = null;
 
     public $questions = [];
+
     public $currentQuestionIndex = 0;
+
     public $userAnswers = [];
+
     public $timeStarted;
+
     public $timeRemaining;
+
     public $showResults = false;
+
     public $score = 0;
+
     public $totalQuestions = 0;
+
     public $allQuestionIds = []; // Store all question IDs for lazy loading
+
     public $questionsPerPage = 30; // Pre-load 30 questions at a time (up from 5)
+
     public $loadedUpToIndex = -1; // Track which questions have been loaded
+
     #[Locked]
     public ?QuizAttempt $quizAttempt = null;
+
     public $csrfToken = ''; // For autosave fetch requests
 
     /**
@@ -89,23 +101,26 @@ class PracticeQuiz extends Component
         $this->showResults = false;
 
         // Validate required parameters
-        if (!$this->subject) {
+        if (! $this->subject) {
             session()->flash('error', 'Invalid subject. Please select a subject to practice.');
+
             return redirect()->route('practice.home');
         }
 
         // Validate subject exists
         $subject = Subject::where('id', $this->subject)->where('is_active', true)->first();
-        if (!$subject) {
+        if (! $subject) {
             session()->flash('error', 'The selected subject is not available.');
+
             return redirect()->route('practice.home');
         }
 
         // Validate exam_type if provided
         if ($this->exam_type) {
             $examType = ExamType::where('id', $this->exam_type)->where('is_active', true)->first();
-            if (!$examType) {
+            if (! $examType) {
                 session()->flash('error', 'The selected exam type is not available.');
+
                 return redirect()->route('practice.home');
             }
         }
@@ -124,19 +139,22 @@ class PracticeQuiz extends Component
                 $this->quizAttempt = $attemptFromQuery;
                 $this->loadQuestionsAndAnswers($attemptFromQuery);
                 $this->showResults = true;
+
                 return;
             }
 
             // If attempt provided and in-progress, resume it
-            if ($attemptFromQuery && $attemptFromQuery->status === 'in_progress') {
+            if ($attemptFromQuery && $attemptFromQuery->status === 'in_progress' && $this->attemptMatchesSelectedContext($attemptFromQuery)) {
                 $this->quizAttempt = $attemptFromQuery;
                 $this->loadQuestionsAndAnswers($attemptFromQuery);
+
                 return;
             }
 
             // Find active in-progress attempt
             $activeAttempt = QuizAttempt::where('user_id', auth()->id())
                 ->where('exam_type_id', $this->exam_type)
+                ->where('subject_id', $this->subject)
                 ->where('exam_year', $this->year)
                 ->where('status', 'in_progress')
                 ->latest('created_at')
@@ -145,6 +163,7 @@ class PracticeQuiz extends Component
             if ($activeAttempt) {
                 $this->quizAttempt = $activeAttempt;
                 $this->loadQuestionsAndAnswers($activeAttempt);
+
                 return;
             }
 
@@ -153,11 +172,12 @@ class PracticeQuiz extends Component
                 $this->quizAttempt = $attemptFromQuery;
                 $this->loadQuestionsAndAnswers($attemptFromQuery);
                 $this->showResults = true;
+
                 return;
             }
 
             // Start new attempt
-            if (!$this->showResults) {
+            if (! $this->showResults) {
                 $this->startNewAttempt();
             } else {
                 return redirect()->route('practice.home');
@@ -166,6 +186,13 @@ class PracticeQuiz extends Component
             // Guest: fresh session
             $this->loadAllQuestions();
         }
+    }
+
+    private function attemptMatchesSelectedContext(QuizAttempt $attempt): bool
+    {
+        return (int) $attempt->exam_type_id === (int) $this->exam_type
+            && (int) $attempt->subject_id === (int) $this->subject
+            && (int) $attempt->exam_year === (int) $this->year;
     }
 
     /**
@@ -187,9 +214,9 @@ class PracticeQuiz extends Component
         if ($this->year) {
             $query->where(function ($q) {
                 $q->where('exam_year', $this->year)
-                  ->orWhere(function ($sub) {
-                      $sub->whereNull('exam_year')->where('year', $this->year);
-                  });
+                    ->orWhere(function ($sub) {
+                        $sub->whereNull('exam_year')->where('year', $this->year);
+                    });
             });
         }
 
@@ -202,7 +229,7 @@ class PracticeQuiz extends Component
 
         $this->totalQuestions = $totalQuestions;
         $this->allQuestionIds = $query
-            ->when($this->limit && $this->limit > 0, fn($q) => $q->limit($this->limit))
+            ->when($this->limit && $this->limit > 0, fn ($q) => $q->limit($this->limit))
             ->pluck('id')
             ->toArray();
 
@@ -218,7 +245,7 @@ class PracticeQuiz extends Component
         $this->questions = [];
         $this->loadedUpToIndex = -1;
 
-        if (!empty($this->allQuestionIds)) {
+        if (! empty($this->allQuestionIds)) {
             $this->loadAllQuestionsBatch();
         }
     }
@@ -267,6 +294,7 @@ class PracticeQuiz extends Component
             $questionArray = array_map(function ($question) {
                 $question['options'] = array_values($question['options']);
                 shuffle($question['options']);
+
                 return $question;
             }, $questionArray);
         }
@@ -313,6 +341,7 @@ class PracticeQuiz extends Component
                     if ($this->shuffle == 1) {
                         // Already shuffled via relationship
                     }
+
                     return [
                         'id' => $option->id,
                         'option_text' => $option->option_text,
@@ -328,6 +357,7 @@ class PracticeQuiz extends Component
             $newQuestions = array_map(function ($question) {
                 $question['options'] = array_values($question['options']);
                 shuffle($question['options']);
+
                 return $question;
             }, $newQuestions);
         }
@@ -359,6 +389,7 @@ class PracticeQuiz extends Component
             $this->allQuestionIds = $cached['all_question_ids'] ?? array_column($this->questions, 'id');
             $this->loadedUpToIndex = $cached['loaded_up_to_index'] ?? count($this->questions) - 1;
             $this->totalQuestions = $cached['total_questions'] ?? count($this->allQuestionIds);
+
             return;
         } elseif ($cached && isset($cached['answers'])) {
             // Partial cache (new autosave format with answers only)
@@ -370,14 +401,14 @@ class PracticeQuiz extends Component
 
         // Load from database if cache miss
         $questionIds = $attempt->question_order ?? [];
-        if (is_array($questionIds) && !empty($questionIds)) {
+        if (is_array($questionIds) && ! empty($questionIds)) {
             $firstValue = reset($questionIds);
             if (is_array($firstValue)) {
                 $questionIds = array_merge(...array_values($questionIds));
             }
         }
 
-        if (!empty($questionIds)) {
+        if (! empty($questionIds)) {
             $this->totalQuestions = count($questionIds);
             $this->allQuestionIds = $questionIds;
             $this->loadedUpToIndex = -1;
@@ -405,7 +436,7 @@ class PracticeQuiz extends Component
         }
 
         // Cache the unified state
-        if (!empty($this->questions)) {
+        if (! empty($this->questions)) {
             cache()->put($cacheKey, [
                 'questions' => $this->questions,
                 'answers' => $this->userAnswers,
@@ -417,7 +448,7 @@ class PracticeQuiz extends Component
         }
 
         // Auto-submit if time expired
-        if ($this->timeRemaining <= 0 && !$this->showResults) {
+        if ($this->timeRemaining <= 0 && ! $this->showResults) {
             $this->handleTimerExpired();
         }
     }
@@ -460,12 +491,13 @@ class PracticeQuiz extends Component
 
     private function computeRemainingTime(): int
     {
-        if (!$this->time || !$this->timeStarted) {
+        if (! $this->time || ! $this->timeStarted) {
             return $this->time ? $this->time * 60 : 0;
         }
 
         $durationSeconds = $this->time * 60;
         $elapsedSeconds = $this->timeStarted->diffInSeconds(now());
+
         return max(0, $durationSeconds - $elapsedSeconds);
     }
 
@@ -477,10 +509,8 @@ class PracticeQuiz extends Component
     {
         // Answer selection is now purely client-side via Alpine.js
         // This method serves as a fallback if needed
-        return;
+
     }
-
-
 
     /**
      * Navigation - just update position and cache state
@@ -554,15 +584,15 @@ class PracticeQuiz extends Component
      */
     private function saveAnswers(): void
     {
-        if (!$this->quizAttempt) {
+        if (! $this->quizAttempt) {
             return;
         }
 
         // Load ALL questions first if we're using lazy loading
-        if (!empty($this->allQuestionIds) && count($this->questions) < $this->totalQuestions) {
+        if (! empty($this->allQuestionIds) && count($this->questions) < $this->totalQuestions) {
             // Load remaining questions for answer validation
             $remainingIds = array_slice($this->allQuestionIds, $this->loadedUpToIndex + 1);
-            if (!empty($remainingIds)) {
+            if (! empty($remainingIds)) {
                 $remainingQuestions = Question::whereIn('id', $remainingIds)
                     ->select('id', 'question_text', 'question_image', 'difficulty', 'explanation')
                     ->with('options:id,question_id,option_text,option_image,is_correct')
@@ -675,15 +705,13 @@ class PracticeQuiz extends Component
     {
         $this->timeRemaining = $this->computeRemainingTime();
 
-        if ($this->timeRemaining <= 0 && !$this->showResults) {
+        if ($this->timeRemaining <= 0 && ! $this->showResults) {
             $this->handleTimerExpired();
         }
     }
-
 
     public function render()
     {
         return view('livewire.practice.practice-quiz');
     }
 }
-

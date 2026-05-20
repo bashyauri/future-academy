@@ -4,39 +4,82 @@ namespace App\Livewire\Lessons;
 
 use App\Models\Lesson;
 use App\Models\Quiz;
+use App\Models\QuizAttempt;
+use App\Models\User;
 use App\Models\UserProgress;
 use App\Models\VideoProgress;
-use App\Models\QuizAttempt;
-use Livewire\Component;
+use App\Services\QuizGeneratorService;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
+use Livewire\Component;
 
 class LessonView extends Component
 {
     public Lesson $lesson;
-    public $progress;
+
+    public UserProgress $progress;
+
     public $startTime;
+
     public $resumeTime = 0;
+
     public ?Quiz $lessonQuiz = null;
+
     public bool $lessonQuizCompleted = false;
+
+    public ?User $viewingStudent = null;
+
+    public bool $isParentViewing = false;
 
     public function mount($id)
     {
+        $authenticatedUser = auth()->user();
+        $studentId = request()->integer('student');
+
+        $this->viewingStudent = $authenticatedUser;
+
+        if ($studentId > 0) {
+            $student = User::find($studentId);
+            $canViewStudent = $authenticatedUser->hasAnyRole(['admin', 'super-admin'])
+                || $authenticatedUser->children()->where('users.id', $studentId)->exists();
+
+            if (! $student || ! $canViewStudent) {
+                abort(403, 'Unauthorized to view this student\'s lesson.');
+            }
+
+            $this->viewingStudent = $student;
+            $this->isParentViewing = $this->viewingStudent->id !== $authenticatedUser->id;
+        }
+
         $this->lesson = Lesson::with(['subject', 'topic', 'questions.options'])->findOrFail($id);
 
-        if (!$this->lesson->canUserAccess(auth()->user())) {
+        if (! $this->lesson->canUserAccess($this->viewingStudent)) {
             abort(403, 'You do not have access to this lesson.');
         }
 
-        // Get or create progress
-        $this->progress = UserProgress::firstOrCreate([
-            'user_id' => auth()->id(),
-            'lesson_id' => $this->lesson->id,
-        ], [
-            'type' => 'lesson',
-            'started_at' => now(),
-            'current_time_seconds' => 0,
-        ]);
+        if ($this->isParentViewing) {
+            // Read-only mode for guardians: inspect student's current progress without writing by default.
+            $this->progress = UserProgress::where('user_id', $this->viewingStudent->id)
+                ->where('lesson_id', $this->lesson->id)
+                ->first() ?? new UserProgress([
+                    'user_id' => $this->viewingStudent->id,
+                    'lesson_id' => $this->lesson->id,
+                    'type' => 'lesson',
+                    'progress_percentage' => 0,
+                    'time_spent_seconds' => 0,
+                    'current_time_seconds' => 0,
+                    'is_completed' => false,
+                ]);
+        } else {
+            // Student self-view: create a progress record if missing.
+            $this->progress = UserProgress::firstOrCreate([
+                'user_id' => $this->viewingStudent->id,
+                'lesson_id' => $this->lesson->id,
+            ], [
+                'type' => 'lesson',
+                'started_at' => now(),
+                'current_time_seconds' => 0,
+            ]);
+        }
 
         // Set resume time from previous session
         $this->resumeTime = $this->progress->current_time_seconds ?? 0;
@@ -53,7 +96,7 @@ class LessonView extends Component
         if ($this->lessonQuiz) {
             $this->lessonQuizCompleted = QuizAttempt::query()
                 ->where('quiz_id', $this->lessonQuiz->id)
-                ->where('user_id', auth()->id())
+                ->where('user_id', $this->viewingStudent->id)
                 ->where('status', 'completed')
                 ->exists();
         }
@@ -61,15 +104,22 @@ class LessonView extends Component
 
     public function markComplete()
     {
+        if ($this->isParentViewing) {
+            session()->flash('error', 'Guardians can view progress, but students must complete lessons from their own account.');
+
+            return;
+        }
+
         if ($this->lessonQuiz) {
             $this->lessonQuizCompleted = QuizAttempt::query()
                 ->where('quiz_id', $this->lessonQuiz->id)
-                ->where('user_id', auth()->id())
+                ->where('user_id', $this->viewingStudent->id)
                 ->where('status', 'completed')
                 ->exists();
 
-            if (!$this->lessonQuizCompleted) {
+            if (! $this->lessonQuizCompleted) {
                 session()->flash('error', 'Please complete the lesson quiz before marking this lesson as complete.');
+
                 return redirect()->route('quiz.take', $this->lessonQuiz);
             }
         }
@@ -93,10 +143,10 @@ class LessonView extends Component
             ->first();
 
         if ($nextLesson) {
-            return redirect()->route('lessons.view', $nextLesson);
+            return redirect()->route('lessons.view', ['id' => $nextLesson->id]);
         }
 
-        return redirect()->route('lessons.list', $this->lesson->subject_id);
+        return redirect()->route('lessons.list', ['subject' => $this->lesson->subject_id]);
     }
 
     /**
@@ -105,8 +155,12 @@ class LessonView extends Component
      */
     private function trackVideoProgress(): void
     {
+        if ($this->isParentViewing) {
+            return;
+        }
+
         // Only track if lesson has a video
-        if (!is_string($this->lesson->video_url)) {
+        if (! is_string($this->lesson->video_url)) {
             return;
         }
 
@@ -118,7 +172,7 @@ class LessonView extends Component
 
         VideoProgress::updateOrCreate(
             [
-                'user_id' => auth()->id(),
+                'user_id' => $this->viewingStudent->id,
                 'lesson_id' => $this->lesson->id,
             ],
             [
@@ -131,6 +185,10 @@ class LessonView extends Component
 
     public function updateProgress($percentage)
     {
+        if ($this->isParentViewing) {
+            return;
+        }
+
         $this->progress->updateProgress($percentage);
     }
 
@@ -140,12 +198,18 @@ class LessonView extends Component
      */
     public function trackVideoWatch($watchPercentage = 0, $timeSpent = 0)
     {
+        if ($this->isParentViewing) {
+            $this->skipRender();
+
+            return;
+        }
+
         \Log::info('trackVideoWatch called', [
             'lesson_id' => $this->lesson->id,
-            'user_id' => auth()->id(),
+            'user_id' => $this->viewingStudent->id,
             'percentage' => $watchPercentage,
             'time_spent' => $timeSpent,
-            'video_type' => $this->lesson->video_type
+            'video_type' => $this->lesson->video_type,
         ]);
 
         if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
@@ -163,7 +227,7 @@ class LessonView extends Component
                 // Use lesson_id as unique key instead of video_id (which is a numeric FK)
                 VideoProgress::updateOrCreate(
                     [
-                        'user_id' => auth()->id(),
+                        'user_id' => $this->viewingStudent->id,
                         'lesson_id' => $this->lesson->id,
                     ],
                     [
@@ -184,12 +248,12 @@ class LessonView extends Component
 
                 \Log::info('Video progress saved successfully', [
                     'lesson_id' => $this->lesson->id,
-                    'percentage' => $watchPercentage
+                    'percentage' => $watchPercentage,
                 ]);
             } catch (\Exception $e) {
                 \Log::error('Failed to save video progress', [
                     'error' => $e->getMessage(),
-                    'lesson_id' => $this->lesson->id
+                    'lesson_id' => $this->lesson->id,
                 ]);
             }
         }
@@ -203,6 +267,12 @@ class LessonView extends Component
      */
     public function updateVideoTime($currentTime)
     {
+        if ($this->isParentViewing) {
+            $this->skipRender();
+
+            return;
+        }
+
         if (is_string($this->lesson->video_url) && $this->lesson->video_type === 'bunny') {
             // Update UserProgress with current playback position
             $this->progress->update([
@@ -210,7 +280,7 @@ class LessonView extends Component
             ]);
 
             // Also store in VideoProgress for analytics
-            $videoProgress = VideoProgress::where('user_id', auth()->id())
+            $videoProgress = VideoProgress::where('user_id', $this->viewingStudent->id)
                 ->where('lesson_id', $this->lesson->id)
                 ->first();
 
@@ -241,8 +311,12 @@ class LessonView extends Component
      */
     public function syncVideoAnalytics()
     {
+        if ($this->isParentViewing) {
+            return;
+        }
+
         try {
-            if ($this->lesson->video_type !== 'bunny' || !$this->lesson->video_url) {
+            if ($this->lesson->video_type !== 'bunny' || ! $this->lesson->video_url) {
                 return;
             }
 
@@ -250,7 +324,7 @@ class LessonView extends Component
             // In the future, this could query Bunny's analytics API directly
             $this->trackVideoProgress();
 
-            \Log::info('Video analytics synced', ['lesson_id' => $this->lesson->id, 'user_id' => auth()->id()]);
+            \Log::info('Video analytics synced', ['lesson_id' => $this->lesson->id, 'user_id' => $this->viewingStudent->id]);
         } catch (\Exception $e) {
             \Log::error('Error syncing video analytics', ['error' => $e->getMessage()]);
         }
@@ -258,6 +332,10 @@ class LessonView extends Component
 
     public function destroy()
     {
+        if ($this->isParentViewing) {
+            return;
+        }
+
         // Track time spent on page before leaving
         if ($this->startTime) {
             $timeSpent = now()->diffInSeconds($this->startTime);
@@ -288,10 +366,10 @@ class LessonView extends Component
         $lessonQuiz = $this->lessonQuiz;
 
         if ($lessonQuiz) {
-            $service = app(\App\Services\QuizGeneratorService::class);
-            $stats = $service->getUserStats($lessonQuiz, auth()->user());
+            $service = app(QuizGeneratorService::class);
+            $stats = $service->getUserStats($lessonQuiz, $this->viewingStudent);
             $lessonQuiz->user_stats = $stats;
-            $lessonQuiz->can_attempt = $lessonQuiz->canUserAttempt(auth()->user());
+            $lessonQuiz->can_attempt = ! $this->isParentViewing && $lessonQuiz->canUserAttempt($this->viewingStudent);
         }
 
         return view('livewire.lessons.lesson-view', [
@@ -299,6 +377,8 @@ class LessonView extends Component
             'previousLesson' => $previousLesson,
             'lessonQuiz' => $lessonQuiz,
             'lessonQuizCompleted' => $this->lessonQuizCompleted,
+            'viewingStudent' => $this->viewingStudent,
+            'isParentViewing' => $this->isParentViewing,
         ]);
     }
 }

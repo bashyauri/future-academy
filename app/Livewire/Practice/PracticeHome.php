@@ -4,26 +4,37 @@ namespace App\Livewire\Practice;
 
 use App\Models\ExamType;
 use App\Models\Question;
+use App\Models\QuizAttempt;
 use App\Models\Subject;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
-use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app')]
 class PracticeHome extends Component
 {
     public $selectedExamType = null;
+
     public $selectedSubject = null;
+
     public $selectedYear = null;
+
     public $shuffleQuestions = false;
+
     public $questionLimit = null; // null means all questions
+
     public $timeLimit = null; // null means no time limit
 
     public $examTypes = [];
+
     public $subjects = [];
+
     public $filteredYears = [];
+
     public $availableQuestionCount = 0;
+
     public $resumeAttempt = null;
+
     public $allResumeAttempts = [];
 
     public function mount()
@@ -45,40 +56,38 @@ class PracticeHome extends Component
         // Load all in-progress attempts for the user
         $this->allResumeAttempts = [];
         if (Auth::check()) {
-            $jambExamTypeId = ExamType::where('slug', 'jamb')->value('id');
-            $this->allResumeAttempts = \App\Models\QuizAttempt::where('user_id', Auth::id())
+            $this->allResumeAttempts = QuizAttempt::where('user_id', Auth::id())
                 ->where('status', 'in_progress')
                 ->whereNull('completed_at')
                 ->orderByDesc('created_at')
                 ->get()
-                ->filter(function ($attempt) use ($jambExamTypeId) {
-                    if ($jambExamTypeId && (int) $attempt->exam_type_id === (int) $jambExamTypeId) {
-                        return false;
-                    }
-
-                    $order = $attempt->question_order ?? [];
-                    $isAssoc = !empty($order) && array_keys($order) !== range(0, count($order) - 1);
-                    $subjectCount = $isAssoc ? count($order) : 1;
-                    if ($subjectCount !== 1) {
-                        return false;
-                    }
-
-                    // If the quiz is timed and time has expired, do not show
-                    if ($attempt->time_taken_seconds && $attempt->time_taken_seconds > 0 && $attempt->time_taken_seconds <= now()->diffInSeconds($attempt->started_at)) {
-                        return false;
-                    }
-                    if ($attempt->started_at && $attempt->time_taken_seconds) {
-                        $elapsed = now()->diffInSeconds($attempt->started_at);
-                        if ($attempt->time_taken_seconds > 0 && $elapsed >= $attempt->time_taken_seconds) {
-                            return false;
-                        }
-                    }
-                    return true;
-                })
+                ->filter(fn ($attempt) => $this->shouldDisplayResumeAttempt($attempt))
                 ->values();
         }
     }
 
+    private function shouldDisplayResumeAttempt($attempt): bool
+    {
+        $order = $attempt->question_order ?? [];
+        $isAssoc = ! empty($order) && array_keys($order) !== range(0, count($order) - 1);
+        $subjectCount = $isAssoc ? count($order) : 1;
+        if ($subjectCount !== 1) {
+            return false;
+        }
+
+        // If the quiz is timed and time has expired, do not show
+        if ($attempt->time_taken_seconds && $attempt->time_taken_seconds > 0 && $attempt->time_taken_seconds <= now()->diffInSeconds($attempt->started_at)) {
+            return false;
+        }
+        if ($attempt->started_at && $attempt->time_taken_seconds) {
+            $elapsed = now()->diffInSeconds($attempt->started_at);
+            if ($attempt->time_taken_seconds > 0 && $elapsed >= $attempt->time_taken_seconds) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public function updatedSelectedSubject()
     {
@@ -124,8 +133,9 @@ class PracticeHome extends Component
         // Check for in-progress attempt for resume
         $this->resumeAttempt = null;
         if (Auth::check() && $this->selectedExamType) {
-            $query = \App\Models\QuizAttempt::where('user_id', Auth::id())
+            $query = QuizAttempt::where('user_id', Auth::id())
                 ->where('exam_type_id', $this->selectedExamType)
+                ->where('subject_id', $this->selectedSubject)
                 ->where('status', 'in_progress')
                 ->whereNull('completed_at');
             if ($this->selectedYear) {
@@ -154,21 +164,23 @@ class PracticeHome extends Component
         if ($this->selectedYear) {
             $questionQuery->where(function ($q) {
                 $q->where('exam_year', $this->selectedYear)
-                  ->orWhere(function ($sub) {
-                      $sub->whereNull('exam_year')->where('year', $this->selectedYear);
-                  });
+                    ->orWhere(function ($sub) {
+                        $sub->whereNull('exam_year')->where('year', $this->selectedYear);
+                    });
             });
         }
         $questionCount = $questionQuery->count();
 
         if ($questionCount === 0) {
             $this->addError('selectedYear', 'No questions available for this combination. Please select a different option.');
+
             return;
         }
 
         // Validate question limit if set
         if ($this->questionLimit && $this->questionLimit > $questionCount) {
             $this->addError('questionLimit', "Only {$questionCount} questions available for this combination.");
+
             return;
         }
 
@@ -197,14 +209,14 @@ class PracticeHome extends Component
 
     public function dismissResumeAttempt($attemptId)
     {
-        $attempt = \App\Models\QuizAttempt::where('id', $attemptId)
+        $attempt = QuizAttempt::where('id', $attemptId)
             ->where('user_id', Auth::id())
             ->where('status', 'in_progress')
             ->first();
         if ($attempt) {
             $attempt->delete();
             // Refresh the list
-            $this->allResumeAttempts = $this->allResumeAttempts->filter(fn($a) => $a->id !== $attemptId)->values();
+            $this->allResumeAttempts = $this->allResumeAttempts->filter(fn ($a) => $a->id !== $attemptId)->values();
         }
     }
 
@@ -216,4 +228,3 @@ class PracticeHome extends Component
         ]);
     }
 }
-

@@ -1,7 +1,7 @@
 <div class="space-y-6">
     {{-- Breadcrumb - Hide on mobile, show on md+ --}}
     <div class="hidden md:flex items-center gap-2 text-xs md:text-sm overflow-x-auto pb-2">
-        <a href="{{ route('lessons.subjects') }}" wire:navigate
+        <a href="{{ route('lessons.subjects', $isParentViewing ? ['student' => $viewingStudent->id] : []) }}" wire:navigate
             class="text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
             {{ __('Lessons') }}
         </a>
@@ -9,7 +9,7 @@
             stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-        <a href="{{ route('lessons.list', $lesson->subject_id) }}" wire:navigate
+        <a href="{{ route('lessons.list', ['subject' => $lesson->subject_id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate
             class="text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
             {{ $lesson->subject->name }}
         </a>
@@ -135,6 +135,12 @@
                         </div>
                     </div>
 
+                    @if($isParentViewing)
+                        <flux:badge color="zinc" size="sm" class="w-fit">
+                            {{ __('Viewing as guardian: :name', ['name' => $viewingStudent->name]) }}
+                        </flux:badge>
+                    @endif
+
                     @if(!$progress->is_completed)
                         <div class="flex flex-col gap-2 w-full md:w-auto md:items-end">
                             @if($lessonQuiz && !$lessonQuizCompleted)
@@ -144,12 +150,18 @@
                                 </flux:badge>
                             @endif
 
-                            <flux:button wire:click="markComplete" wire:loading.attr="disabled" wire:target="markComplete"
-                                variant="primary" icon="check" class="w-full md:w-auto text-sm"
-                                :disabled="$lessonQuiz && !$lessonQuizCompleted">
-                                <span wire:loading.remove wire:target="markComplete">{{ __('Mark Complete') }}</span>
-                                <span wire:loading wire:target="markComplete">{{ __('Saving...') }}</span>
-                            </flux:button>
+                            @if($isParentViewing)
+                                <flux:button variant="outline" class="w-full md:w-auto text-sm" disabled>
+                                    {{ __('Student can complete this lesson from their account') }}
+                                </flux:button>
+                            @else
+                                <flux:button wire:click="markComplete" wire:loading.attr="disabled" wire:target="markComplete"
+                                    variant="primary" icon="check" class="w-full md:w-auto text-sm"
+                                    :disabled="$lessonQuiz && !$lessonQuizCompleted">
+                                    <span wire:loading.remove wire:target="markComplete">{{ __('Mark Complete') }}</span>
+                                    <span wire:loading wire:target="markComplete">{{ __('Saving...') }}</span>
+                                </flux:button>
+                            @endif
                         </div>
                     @else
                         <flux:badge color="green" size="lg" class="flex items-center gap-2 w-fit">
@@ -184,7 +196,7 @@
             </div>
 
             {{-- Practice Questions - Positioned before notes for immediate reinforcement --}}
-            @if($lesson->questions->isNotEmpty())
+            @if(!$isParentViewing && $lesson->questions->isNotEmpty())
                 <livewire:lessons.practice-questions :questions="$lesson->questions" :lesson-id="$lesson->id"
                     :key="'practice-' . $lesson->id" />
             @endif
@@ -205,7 +217,7 @@
             {{-- Navigation Buttons --}}
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pt-4">
                 @if($previousLesson)
-                    <flux:button href="{{ route('lessons.view', $previousLesson) }}" wire:navigate variant="ghost"
+                    <flux:button href="{{ route('lessons.view', ['id' => $previousLesson->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate variant="ghost"
                         icon="arrow-left" class="w-full md:w-auto text-sm">
                         <span class="hidden sm:inline">{{ __('Previous Lesson') }}</span>
                         <span class="sm:hidden">{{ __('Previous') }}</span>
@@ -215,14 +227,14 @@
                 @endif
 
                 @if($nextLesson)
-                    <flux:button href="{{ route('lessons.view', $nextLesson) }}" wire:navigate variant="primary"
+                    <flux:button href="{{ route('lessons.view', ['id' => $nextLesson->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate variant="primary"
                         icon-trailing="arrow-right" class="w-full md:w-auto text-sm"
-                        :disabled="$lessonQuiz && !$lessonQuizCompleted">
-                        <span class="hidden sm:inline">{{ $lessonQuiz && !$lessonQuizCompleted ? __('Complete Quiz to Unlock') : __('Next Lesson') }}</span>
-                        <span class="sm:hidden">{{ $lessonQuiz && !$lessonQuizCompleted ? __('Unlock') : __('Next') }}</span>
+                        :disabled="!$isParentViewing && $lessonQuiz && !$lessonQuizCompleted">
+                        <span class="hidden sm:inline">{{ (!$isParentViewing && $lessonQuiz && !$lessonQuizCompleted) ? __('Complete Quiz to Unlock') : __('Next Lesson') }}</span>
+                        <span class="sm:hidden">{{ (!$isParentViewing && $lessonQuiz && !$lessonQuizCompleted) ? __('Unlock') : __('Next') }}</span>
                     </flux:button>
                 @else
-                    <flux:button href="{{ route('lessons.list', $lesson->subject_id) }}" wire:navigate variant="primary" class="w-full md:w-auto text-sm">
+                    <flux:button href="{{ route('lessons.list', ['subject' => $lesson->subject_id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate variant="primary" class="w-full md:w-auto text-sm">
                         {{ __('Back to Lessons') }}
                     </flux:button>
                 @endif
