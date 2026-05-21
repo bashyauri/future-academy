@@ -22,6 +22,20 @@
         </div>
     </div>
 
+    @if($isTrial)
+        <flux:callout variant="secondary" icon="lock-closed">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <flux:text>
+                    {{ __('You are on a free trial. You can study free lessons now, while premium lessons remain locked until you subscribe.') }}
+                </flux:text>
+                <a href="{{ route('payment.pricing') }}" wire:navigate
+                    class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                    {{ __('Upgrade to Unlock All') }}
+                </a>
+            </div>
+        </flux:callout>
+    @endif
+
     <div class="grid lg:grid-cols-4 gap-6">
         {{-- Topics Sidebar --}}
         @if($topics->isNotEmpty())
@@ -37,11 +51,19 @@
                             </div>
                         </button>
                         @foreach($topics as $topic)
+                            @php
+                                $isTopicLocked = $isTrial && $topic->published_lessons_count > 0 && $topic->free_lessons_count === 0;
+                            @endphp
                             <button wire:click="$set('topicId', {{ $topic->id }})"
-                                class="w-full text-left px-3 py-2 rounded-lg transition {{ $topicId == $topic->id ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800' }}">
+                                class="w-full text-left px-3 py-2 rounded-lg transition {{ $topicId == $topic->id ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800' }} {{ $isTopicLocked ? 'opacity-70' : '' }}">
                                 <div class="flex items-center justify-between">
-                                    <flux:text class="flex-1">{{ $topic->name }}</flux:text>
-                                    <flux:badge size="sm" color="neutral">{{ $topic->lessons_count }}</flux:badge>
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <flux:text class="flex-1 truncate">{{ $topic->name }}</flux:text>
+                                        @if($isTopicLocked)
+                                            <flux:badge size="sm" color="zinc">{{ __('Locked') }}</flux:badge>
+                                        @endif
+                                    </div>
+                                    <flux:badge size="sm" color="neutral">{{ $topic->published_lessons_count }}</flux:badge>
                                 </div>
                             </button>
                         @endforeach
@@ -73,10 +95,16 @@
                             $userProgress = $lesson->userProgress($viewingStudent ?? auth()->user());
                             $isCompleted = $userProgress?->is_completed ?? false;
                             $progressPercentage = $userProgress?->progress_percentage ?? 0;
+                            $isLocked = $isTrial && ! $lesson->is_free;
                         @endphp
 
-                        <a href="{{ route('lessons.view', ['id' => $lesson->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate
-                            class="group block rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-200 overflow-hidden">
+                        @if($isLocked)
+                            <div
+                                class="group block rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-900/50 opacity-75 overflow-hidden">
+                        @else
+                            <a href="{{ route('lessons.view', ['id' => $lesson->id] + ($isParentViewing ? ['student' => $viewingStudent->id] : [])) }}" wire:navigate
+                                class="group block rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-200 overflow-hidden">
+                        @endif
                             <div class="flex gap-4 p-4">
                                 {{-- Thumbnail --}}
                                 <div class="flex-shrink-0 relative group/thumb">
@@ -136,6 +164,10 @@
                                             <flux:badge color="blue" size="sm">{{ $lesson->topic->name }}</flux:badge>
                                         @endif
 
+                                        @if($isLocked)
+                                            <flux:badge color="zinc" size="sm">{{ __('Locked') }}</flux:badge>
+                                        @endif
+
                                         @if($lesson->duration_minutes)
                                             <div class="flex items-center gap-1 text-sm text-neutral-500">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
@@ -165,15 +197,24 @@
 
                                 {{-- Arrow --}}
                                 <div
-                                    class="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    class="flex-shrink-0 flex items-center {{ $isLocked ? 'opacity-70' : 'opacity-0 group-hover:opacity-100 transition-opacity' }}">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 dark:text-blue-400"
                                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 5l7 7-7 7" />
+                                        @if($isLocked)
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M7 11V8a5 5 0 0110 0v3m-11 0h12a1 1 0 011 1v7a1 1 0 01-1 1H6a1 1 0 01-1-1v-7a1 1 0 011-1z" />
+                                        @else
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 5l7 7-7 7" />
+                                        @endif
                                     </svg>
                                 </div>
                             </div>
-                        </a>
+                        @if($isLocked)
+                            </div>
+                        @else
+                            </a>
+                        @endif
                     @endforeach
                 </div>
             @endif

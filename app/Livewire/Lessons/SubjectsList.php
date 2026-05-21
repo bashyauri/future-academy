@@ -45,17 +45,12 @@ class SubjectsList extends Component
             return to_route('onboarding');
         }
 
-        $isTrial = $authenticatedUser->onTrial() && ! $authenticatedUser->hasActiveSubscription();
-
         $subjects = Subject::query()
             ->where('is_active', true)
             ->when(! empty($selectedSubjectIds), fn ($q) => $q->whereIn('id', $selectedSubjectIds))
             ->withCount([
-                'lessons' => function ($query) use ($isTrial) {
+                'lessons' => function ($query) {
                     $query->where('status', 'published');
-                    if ($isTrial) {
-                        $query->where('is_free', true);
-                    }
                 },
             ])->get();
 

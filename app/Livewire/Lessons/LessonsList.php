@@ -63,11 +63,12 @@ class LessonsList extends Component
 
         $topics = Topic::where('subject_id', $this->subjectId)
             ->withCount([
-                'lessons' => function ($query) use ($isTrial) {
+                'lessons as published_lessons_count' => function ($query) {
                     $query->where('status', 'published');
-                    if ($isTrial) {
-                        $query->where('is_free', true);
-                    }
+                },
+                'lessons as free_lessons_count' => function ($query) {
+                    $query->where('status', 'published')
+                        ->where('is_free', true);
                 },
             ])
             ->get();
@@ -75,7 +76,6 @@ class LessonsList extends Component
         $lessonsQuery = Lesson::with(['subject', 'topic'])
             ->where('subject_id', $this->subjectId)
             ->where('status', 'published')
-            ->when($isTrial, fn ($q) => $q->where('is_free', true))
             ->ordered();
 
         if ($this->topicId) {
@@ -88,6 +88,7 @@ class LessonsList extends Component
             'subject' => $subject,
             'topics' => $topics,
             'lessons' => $lessons,
+            'isTrial' => $isTrial,
             'viewingStudent' => $this->viewingStudent,
             'isParentViewing' => $this->isParentViewing,
         ]);
