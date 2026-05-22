@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 -m-6 p-6">
     <div class="max-w-7xl mx-auto space-y-8">
         {{-- Onboarding Setup Card - Prominent Banner --}}
-        @if(auth()->user()->isStudent() && !auth()->user()->has_completed_onboarding)
+        @if(auth()->check() && auth()->user()->isStudent() && !auth()->user()->has_completed_onboarding)
         <div class="rounded-2xl border-0 p-8 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 dark:from-blue-700 dark:via-blue-600 dark:to-cyan-600 shadow-xl hover:shadow-2xl transition-shadow">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div class="flex-1">

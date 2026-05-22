@@ -37,7 +37,7 @@
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Account')" class="grid">
-                @if(auth()->user()->isStudent())
+                @if(auth()->check() && auth()->user()->isStudent())
                 <flux:navlist.item icon="clipboard-document-list" :href="route('onboarding')"
                     :current="request()->routeIs('onboarding')" wire:navigate>
                     {{ __('Onboarding') }}

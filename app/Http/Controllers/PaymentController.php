@@ -223,6 +223,50 @@ class PaymentController extends Controller
             return redirect('/payment/pricing')->withErrors(['payment' => 'Invalid or missing payment reference.']);
         }
 
+        $user = Auth::user();
+        if (! $user) {
+            return redirect('/payment/pricing')->withErrors(['payment' => 'Session expired. Please log in again.']);
+        }
+
+        $studentIdFromSession = session('selected_student_id');
+
+        if ($user->isParent()) {
+            $studentIdFromSession = (int) $studentIdFromSession;
+
+            if ($studentIdFromSession <= 0) {
+                Log::warning('Guardian payment callback blocked: missing selected_student_id', [
+                    'user_id' => $user->id,
+                    'reference' => $reference,
+                ]);
+
+                $request->session()->forget(['paystack_reference', 'selected_plan', 'selected_type', 'selected_plan_code', 'selected_student_id']);
+
+                return redirect('/payment/pricing')->withErrors([
+                    'payment' => __('Guardians can only complete payment for a linked student. Please select a student and try again.'),
+                ]);
+            }
+
+            $isLinkedStudent = $user->children()
+                ->where('users.id', $studentIdFromSession)
+                ->exists();
+
+            if (! $isLinkedStudent) {
+                Log::warning('Guardian payment callback blocked: selected_student_id not linked', [
+                    'user_id' => $user->id,
+                    'student_id' => $studentIdFromSession,
+                    'reference' => $reference,
+                ]);
+
+                $request->session()->forget(['paystack_reference', 'selected_plan', 'selected_type', 'selected_plan_code', 'selected_student_id']);
+
+                return redirect('/payment/pricing')->withErrors([
+                    'payment' => __('You can only complete payment for students linked to your account.'),
+                ]);
+            }
+        } else {
+            $studentIdFromSession = null;
+        }
+
         $verify = $this->paymentService->verifyPaystack($reference);
 
         if (! $verify['success'] || $verify['data']['status'] !== 'success') {
@@ -235,19 +279,12 @@ class PaymentController extends Controller
             return redirect('/payment/pricing')->withErrors(['payment' => $verify['message'] ?? 'Payment was not successful.']);
         }
 
-        $user = Auth::user();
-        if (! $user) {
-            return redirect('/payment/pricing')->withErrors(['payment' => 'Session expired. Please log in again.']);
-        }
-
         $data = $verify['data'];
         $amount = $data['amount'] / 100;
 
         $planFromSession = session('selected_plan');
         $typeFromSession = session('selected_type');
         $planCodeFromSession = session('selected_plan_code');
-        $studentIdFromSession = session('selected_student_id');
-
         Log::info('Payment callback session data', [
             'user_id' => $user->id,
             'student_id_from_session' => $studentIdFromSession,
@@ -297,6 +334,7 @@ class PaymentController extends Controller
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
         $customerCode = $data['customer']['customer_code'] ?? null;
 
+
         DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $data, $subscriptionCode, $authorizationCode, $planCodeFromSession, $customerCode, $studentIdFromSession) {
             // Clear any active trial
             if ($user->trial_ends_at) {
@@ -304,13 +342,20 @@ class PaymentController extends Controller
                 $user->save();
             }
 
-            // Deactivate all previous active subscriptions
-            Subscription::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->update([
-                    'status' => 'inactive',
-                    'is_active' => false,
-                ]);
+            // Deactivate only previous active subscription for the same subscription scope.
+            $activeSubscriptionQuery = Subscription::where('user_id', $user->id)
+                ->where('status', 'active');
+
+            if ($user->isParent()) {
+                $activeSubscriptionQuery->where('student_id', $studentIdFromSession);
+            } else {
+                $activeSubscriptionQuery->whereNull('student_id');
+            }
+
+            $activeSubscriptionQuery->update([
+                'status' => 'inactive',
+                'is_active' => false,
+            ]);
 
             // Unify ends_at logic for recurring plans
             $nextPaymentDate = $data['subscription']['next_payment_date'] ?? null;
@@ -326,10 +371,11 @@ class PaymentController extends Controller
             ]);
 
             // Prepare subscription data (save both plan name and Paystack plan code)
+
             $planCode = $data['plan']['plan_code'] ?? $planCodeFromSession;
             $subscriptionData = [
                 'user_id' => $user->id,
-                'student_id' => $studentIdFromSession, // Link to specific student for guardians
+                'student_id' => $studentIdFromSession,
                 'plan' => $plan, // human-readable (monthly/yearly)
                 'plan_code' => $planCode, // Paystack code (PLN_xxx)
                 'subscription_code' => $subscriptionCode, // Include subscription_code here
@@ -394,7 +440,7 @@ class PaymentController extends Controller
         ]);
 
         // Clean up session
-        session()->forget(['paystack_reference', 'selected_plan', 'selected_type', 'selected_student_id']);
+        $request->session()->forget(['paystack_reference', 'selected_plan', 'selected_type', 'selected_plan_code', 'selected_student_id']);
 
         return redirect('/dashboard')->with('success', 'Payment successful! Your subscription is now active.');
     }

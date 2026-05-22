@@ -73,3 +73,48 @@ it('shows mixed paid and unpaid student dashboard actions for guardians', functi
         ->assertSee('View Performance')
         ->assertSee('Unlock Performance');
 });
+
+it('does not unlock all linked students when guardian has only self-scoped subscription', function (): void {
+    $guardian = User::factory()->create([
+        'account_type' => 'guardian',
+    ]);
+
+    $firstStudent = User::factory()->create([
+        'account_type' => 'student',
+    ]);
+
+    $secondStudent = User::factory()->create([
+        'account_type' => 'student',
+    ]);
+
+    $guardian->children()->syncWithoutDetaching([
+        $firstStudent->id => [
+            'is_active' => true,
+            'linked_at' => now(),
+        ],
+        $secondStudent->id => [
+            'is_active' => true,
+            'linked_at' => now(),
+        ],
+    ]);
+
+    Subscription::create([
+        'user_id' => $guardian->id,
+        'student_id' => null,
+        'plan' => 'monthly',
+        'type' => 'recurring',
+        'status' => 'active',
+        'is_active' => true,
+        'amount' => 5000,
+        'reference' => 'guardian-self-scope',
+        'starts_at' => now()->subDay(),
+        'ends_at' => now()->addMonth(),
+    ]);
+
+    Livewire::actingAs($guardian)
+        ->test(ParentIndex::class)
+        ->assertSee('Unlock Progress')
+        ->assertSee('Unlock Performance')
+        ->assertDontSee('Track Progress')
+        ->assertDontSee('View Performance');
+});

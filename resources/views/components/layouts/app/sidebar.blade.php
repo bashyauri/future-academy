@@ -31,7 +31,7 @@
             </flux:navlist.group>
         </flux:navlist>
 
-        @if(auth()->user()->isStudent() || auth()->user()->isTeacher())
+        @if(auth()->check() && (auth()->user()->isStudent() || auth()->user()->isTeacher()))
             <div class="my-4 w-full flex flex-col items-center gap-4">
                 <livewire:payment.status />
                 {{-- <livewire:payment.history /> --}}
@@ -43,8 +43,10 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
-                icon:trailing="chevrons-up-down" />
+            @if(auth()->check())
+                <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
+                    icon:trailing="chevrons-up-down" />
+            @endif
 
             <flux:menu class="w-[220px]">
                 <flux:menu.radio.group>
@@ -144,7 +146,9 @@
         <flux:spacer />
 
         <flux:dropdown position="top" align="end">
-            <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            @if(auth()->check())
+                <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            @endif
 
             <flux:menu>
                 <flux:menu.radio.group>

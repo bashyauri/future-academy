@@ -1,6 +1,6 @@
 {
     "agents": [
-        "copilot"
+        "codex"
     ],
     "editors": [
         "vscode"

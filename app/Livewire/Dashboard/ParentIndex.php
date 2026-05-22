@@ -187,15 +187,7 @@ class ParentIndex extends Component
             ->whereNull('student_id')
             ->values();
 
-        // Backward compatibility: when one student exists and legacy subscription has no student_id,
-        // treat it as that single student's plan for display purposes.
-        if (
-            $this->children->count() === 1
-            && $this->unassignedSubscriptions->isNotEmpty()
-            && ! $this->studentSubscriptions->has($this->children->first()->id)
-        ) {
-            $this->studentSubscriptions->put($this->children->first()->id, $this->unassignedSubscriptions->first());
-        }
+        // Strict per-student subscription: do not map global subscriptions to any student.
 
         $this->paidStudentIds = $this->studentSubscriptions->keys()->filter()->values();
 
@@ -412,7 +404,7 @@ class ParentIndex extends Component
     private function canViewProgressMetrics($user): bool
     {
         return $user->hasAnyRole(['super-admin', 'admin'])
-            || $user->hasActiveSubscription();
+            || (! $user->isParent() && $user->hasActiveSubscription());
     }
 
     /**
