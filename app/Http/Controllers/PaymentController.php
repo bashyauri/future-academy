@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Subscription;
+use App\Services\PaymentService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\PaymentService;
-use App\Models\Subscription;
-use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -34,25 +35,25 @@ class PaymentController extends Controller
             ->latest()
             ->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return back()->withErrors(['subscription' => 'No inactive subscription found to enable.']);
         }
 
         $planCode = $subscription->plan_code;
         $authCode = $subscription->authorization_code;
 
-        if (!$planCode || !$authCode) {
+        if (! $planCode || ! $authCode) {
             return back()->withErrors(['subscription' => 'Plan code or authorization token missing.']);
         }
 
         // Get customer code from Paystack
         $customerCode = null;
         $result = $this->paymentService->fetchActiveSubscriptionByEmail($user->email);
-        if ($result['success'] && !empty($result['data']['customer']['customer_code'])) {
+        if ($result['success'] && ! empty($result['data']['customer']['customer_code'])) {
             $customerCode = $result['data']['customer']['customer_code'];
         }
 
-        if (!$customerCode) {
+        if (! $customerCode) {
             return back()->withErrors(['subscription' => 'Customer information not found. Please contact support.']);
         }
 
@@ -65,7 +66,7 @@ class PaymentController extends Controller
 
             $subscription->update([
                 'subscription_code' => $newSubCode,
-                'status'    => 'active',
+                'status' => 'active',
                 'is_active' => true,
                 'cancelled_at' => null,
                 'starts_at' => now(),
@@ -77,9 +78,9 @@ class PaymentController extends Controller
         }
 
         Log::warning('Subscription creation failed', [
-            'user_id'   => $user->id,
-            'plan_code'  => $planCode,
-            'error'     => $result['message'],
+            'user_id' => $user->id,
+            'plan_code' => $planCode,
+            'error' => $result['message'],
         ]);
 
         return back()->withErrors(['subscription' => $result['message'] ?? 'Failed to activate subscription. Please try again or contact support.']);
@@ -116,20 +117,40 @@ class PaymentController extends Controller
         }
 
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('login');
         }
 
-        $planKey     = $validated['plan'];
+        $selectedStudentId = $validated['student_id'] ?? null;
+
+        if ($user->isParent()) {
+            if (! $selectedStudentId) {
+                throw ValidationException::withMessages([
+                    'student_id' => __('Guardians can only pay for a linked student. Select a student before continuing.'),
+                ]);
+            }
+
+            $isLinkedStudent = $user->children()
+                ->where('users.id', $selectedStudentId)
+                ->exists();
+
+            if (! $isLinkedStudent) {
+                throw ValidationException::withMessages([
+                    'student_id' => __('You can only pay for students linked to your account.'),
+                ]);
+            }
+        }
+
+        $planKey = $validated['plan'];
         $isRecurring = $validated['type'] === 'recurring';
-        $amount      = config("pricing.plans.{$planKey}.amount");
+        $amount = config("pricing.plans.{$planKey}.amount");
 
         // Get plan code for recurring payments (prefer submitted value, fallback to config)
         $planCode = $isRecurring
             ? ($validated['plan_code'] ?? config("services.paystack.plans.{$planKey}"))
             : null;
 
-        if ($isRecurring && !$planCode) {
+        if ($isRecurring && ! $planCode) {
             return back()->withErrors(['payment' => 'Subscription plan not configured in config/services.php']);
         }
 
@@ -137,9 +158,9 @@ class PaymentController extends Controller
             $planDebug = $this->paymentService->fetchPlanDetails($planCode);
             Log::info('Paystack plan debug', [
                 'plan_code' => $planCode,
-                'success'   => $planDebug['success'],
-                'data'      => $planDebug['data'],
-                'message'   => $planDebug['message'],
+                'success' => $planDebug['success'],
+                'data' => $planDebug['data'],
+                'message' => $planDebug['message'],
             ]);
         }
 
@@ -152,26 +173,26 @@ class PaymentController extends Controller
             planCode: $planCode,
             metadata: [
                 'user_id' => $user->id,
-                'plan'    => $planKey,
-                'type'    => $validated['type'],
+                'plan' => $planKey,
+                'type' => $validated['type'],
             ]
         );
 
-        if (!$init['success']) {
+        if (! $init['success']) {
             if ($isRecurring && $planCode) {
                 $planDebug = $this->paymentService->fetchPlanDetails($planCode);
                 Log::error('Paystack plan debug (initialize failed)', [
                     'plan_code' => $planCode,
-                    'success'   => $planDebug['success'],
-                    'data'      => $planDebug['data'],
-                    'message'   => $planDebug['message'],
+                    'success' => $planDebug['success'],
+                    'data' => $planDebug['data'],
+                    'message' => $planDebug['message'],
                 ]);
             }
             Log::warning('Payment initialization failed', [
-                'user_id'   => $user->id,
+                'user_id' => $user->id,
                 'reference' => $reference,
-                'error'     => $init['message'],
-                'response'  => $init['full_response'] ?? null,
+                'error' => $init['message'],
+                'response' => $init['full_response'] ?? null,
             ]);
 
             return back()->withErrors(['payment' => $init['message'] ?? 'Unable to start payment process.']);
@@ -180,10 +201,10 @@ class PaymentController extends Controller
         // Store minimal session data for callback
         session([
             'paystack_reference' => $reference,
-            'selected_plan'      => $planKey,
-            'selected_type'      => $validated['type'],
+            'selected_plan' => $planKey,
+            'selected_type' => $validated['type'],
             'selected_plan_code' => $planCode,
-            'selected_student_id' => $validated['student_id'] ?? null,
+            'selected_student_id' => $selectedStudentId,
         ]);
 
         return redirect($init['authorization_url']);
@@ -196,29 +217,30 @@ class PaymentController extends Controller
     {
         $reference = $request->query('reference') ?? session('paystack_reference');
 
-        if (!$reference) {
+        if (! $reference) {
             Log::warning('Callback received without reference');
+
             return redirect('/payment/pricing')->withErrors(['payment' => 'Invalid or missing payment reference.']);
         }
 
         $verify = $this->paymentService->verifyPaystack($reference);
 
-        if (!$verify['success'] || $verify['data']['status'] !== 'success') {
+        if (! $verify['success'] || $verify['data']['status'] !== 'success') {
             Log::warning('Payment verification failed', [
                 'reference' => $reference,
-                'status'    => $verify['data']['status'] ?? 'unknown',
-                'message'   => $verify['message'],
+                'status' => $verify['data']['status'] ?? 'unknown',
+                'message' => $verify['message'],
             ]);
 
             return redirect('/payment/pricing')->withErrors(['payment' => $verify['message'] ?? 'Payment was not successful.']);
         }
 
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return redirect('/payment/pricing')->withErrors(['payment' => 'Session expired. Please log in again.']);
         }
 
-        $data   = $verify['data'];
+        $data = $verify['data'];
         $amount = $data['amount'] / 100;
 
         $planFromSession = session('selected_plan');
@@ -240,7 +262,7 @@ class PaymentController extends Controller
         // Extract subscription code only for recurring payments
         $subscriptionCode = null;
         if ($type === 'recurring') {
-            if (!empty($data['subscription']['subscription_code'])) {
+            if (! empty($data['subscription']['subscription_code'])) {
                 $subscriptionCode = $data['subscription']['subscription_code'];
             } else {
                 // Fallback: Query Paystack API for subscription_code using customer code
@@ -252,7 +274,7 @@ class PaymentController extends Controller
                     ]);
 
                     $subResult = $this->paymentService->fetchSubscriptionByCustomer($customerCode);
-                    if ($subResult['success'] && !empty($subResult['data']['subscription_code'])) {
+                    if ($subResult['success'] && ! empty($subResult['data']['subscription_code'])) {
                         $subscriptionCode = $subResult['data']['subscription_code'];
                         Log::info('Successfully fetched subscription_code from API', [
                             'subscription_code' => $subscriptionCode,
@@ -267,7 +289,7 @@ class PaymentController extends Controller
             }
         }
         // For one-time payments or if no subscription_code found, use reference as identifier
-        if (!$subscriptionCode) {
+        if (! $subscriptionCode) {
             $subscriptionCode = $reference;
         }
 
@@ -286,10 +308,9 @@ class PaymentController extends Controller
             Subscription::where('user_id', $user->id)
                 ->where('status', 'active')
                 ->update([
-                    'status'    => 'inactive',
+                    'status' => 'inactive',
                     'is_active' => false,
                 ]);
-
 
             // Unify ends_at logic for recurring plans
             $nextPaymentDate = $data['subscription']['next_payment_date'] ?? null;
@@ -307,18 +328,18 @@ class PaymentController extends Controller
             // Prepare subscription data (save both plan name and Paystack plan code)
             $planCode = $data['plan']['plan_code'] ?? $planCodeFromSession;
             $subscriptionData = [
-                'user_id'           => $user->id,
-                'student_id'        => $studentIdFromSession, // Link to specific student for guardians
-                'plan'              => $plan, // human-readable (monthly/yearly)
-                'plan_code'         => $planCode, // Paystack code (PLN_xxx)
+                'user_id' => $user->id,
+                'student_id' => $studentIdFromSession, // Link to specific student for guardians
+                'plan' => $plan, // human-readable (monthly/yearly)
+                'plan_code' => $planCode, // Paystack code (PLN_xxx)
                 'subscription_code' => $subscriptionCode, // Include subscription_code here
-                'reference'         => $reference,
-                'type'              => $type,
-                'status'            => 'active',
-                'is_active'         => true,
-                'amount'            => $amount,
-                'starts_at'         => now(),
-                'ends_at'           => $endsAt,
+                'reference' => $reference,
+                'type' => $type,
+                'status' => 'active',
+                'is_active' => true,
+                'amount' => $amount,
+                'starts_at' => now(),
+                'ends_at' => $endsAt,
             ];
 
             // Store authorization code if present
@@ -334,15 +355,15 @@ class PaymentController extends Controller
 
             // For recurring subscriptions, dispatch job to fetch real subscription_code from Paystack
             // Paystack creates subscriptions a few seconds after payment, not immediately
-            if ($type === 'recurring' && !str_starts_with($subscriptionCode, 'SUB_') && $customerCode) {
+            if ($type === 'recurring' && ! str_starts_with($subscriptionCode, 'SUB_') && $customerCode) {
                 dispatch(function () use ($subscription, $customerCode) {
                     // Wait for Paystack to create subscription (typically 5-10 seconds)
                     sleep(10);
 
-                    $paymentService = app(\App\Services\PaymentService::class);
+                    $paymentService = app(PaymentService::class);
                     $result = $paymentService->fetchSubscriptionByCustomer($customerCode);
 
-                    if ($result['success'] && !empty($result['data']['subscription_code'])) {
+                    if ($result['success'] && ! empty($result['data']['subscription_code'])) {
                         $oldCode = $subscription->subscription_code;
                         $subscription->update([
                             'subscription_code' => $result['data']['subscription_code'],
@@ -365,11 +386,11 @@ class PaymentController extends Controller
         });
 
         Log::info('Payment callback processed successfully', [
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'reference' => $reference,
-            'plan'      => $plan,
-            'type'      => $type,
-            'amount'    => $amount,
+            'plan' => $plan,
+            'type' => $type,
+            'amount' => $amount,
         ]);
 
         // Clean up session
@@ -391,9 +412,9 @@ class PaymentController extends Controller
         $query = $user->subscriptions()
             ->where('is_active', true)
             ->where('type', 'recurring') // Only recurring can be cancelled
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNotNull('subscription_code')
-                  ->orWhereNotNull('plan_code');
+                    ->orWhereNotNull('plan_code');
             });
 
         if ($subscriptionId) {
@@ -402,7 +423,7 @@ class PaymentController extends Controller
 
         $subscription = $query->latest()->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return back()->withErrors(['subscription' => 'No active recurring subscription found. One-time payments cannot be cancelled and will expire naturally.']);
         }
 
@@ -415,7 +436,7 @@ class PaymentController extends Controller
             'subscription_code' => $subscription->subscription_code,
             'plan_code' => $subscription->plan_code,
             'sub_code_used' => $subCode,
-            'has_auth_code' => !empty($authCode),
+            'has_auth_code' => ! empty($authCode),
             'subscription_type' => $subscription->type,
             'subscription_status' => $subscription->status,
             'is_active' => $subscription->is_active,
@@ -423,11 +444,12 @@ class PaymentController extends Controller
         ]);
 
         // For recurring/upgrade/cancel, always require and use authorization_code if available
-        if (!$authCode && $subscription->type === 'recurring') {
+        if (! $authCode && $subscription->type === 'recurring') {
             Log::warning('Cancel subscription - missing auth code', [
                 'user_id' => $user->id,
                 'subscription_id' => $subscription->id,
             ]);
+
             return back()->withErrors(['subscription' => 'Card authorization token is required for this action. Please re-subscribe or contact support.']);
         }
 
@@ -435,8 +457,8 @@ class PaymentController extends Controller
 
         if ($result['success']) {
             $subscription->update([
-                'status'       => 'cancelled',
-                'is_active'    => false,
+                'status' => 'cancelled',
+                'is_active' => false,
                 'cancelled_at' => now(),
             ]);
 
@@ -450,11 +472,11 @@ class PaymentController extends Controller
         }
 
         Log::warning('Subscription cancellation failed', [
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'subscription_id' => $subscription->id,
-            'sub_code'  => $subCode,
-            'has_auth_code' => !empty($authCode),
-            'error'     => $result['message'],
+            'sub_code' => $subCode,
+            'has_auth_code' => ! empty($authCode),
+            'error' => $result['message'],
             'full_response' => $result,
         ]);
 
@@ -473,12 +495,14 @@ class PaymentController extends Controller
                 if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 28 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 32) {
                     return Carbon::parse($nextPaymentDate)->utc();
                 }
+
                 return now()->addMonth();
             } elseif ($plan === 'yearly' || $interval === 'yearly') {
                 // Use Paystack's date only if it's about a year ahead
                 if ($nextPaymentDate && Carbon::parse($nextPaymentDate)->diffInDays(now()) >= 360 && Carbon::parse($nextPaymentDate)->diffInDays(now()) <= 370) {
                     return Carbon::parse($nextPaymentDate)->utc();
                 }
+
                 return now()->addYear();
             }
         } else {

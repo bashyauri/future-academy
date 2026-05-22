@@ -45,53 +45,24 @@ class EnsureSubscriptionOrTrial
                 return $next($request);
             }
 
-            $activeSubscriptions = Subscription::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->where('is_active', true);
-
             $requestedStudentId = $request->integer('student');
 
-            if ($requestedStudentId > 0) {
-                if (! $linkedStudents->contains($requestedStudentId)) {
-                    return redirect()->route('parent.dashboard')->with('error', __('You can only track students linked to your account.'));
-                }
-
-                if ($this->studentHasEntitlement($requestedStudentId, $user->id)) {
-                    return $next($request);
-                }
-
-                $hasSubscriptionForRequestedStudent = (clone $activeSubscriptions)
-                    ->where('student_id', $requestedStudentId)
-                    ->exists();
-
-                if ($hasSubscriptionForRequestedStudent) {
-                    return $next($request);
-                }
-
-                return redirect()->route('payment.pricing')
-                    ->with('trial_upgrade_prompt', __('This linked student does not currently have trial or paid access. Upgrade to unlock premium features.'))
-                    ->with('blocked_feature', $this->blockedFeatureLabel($request));
+            // Guardian access to protected learning routes is always scoped to a specific linked student.
+            if ($requestedStudentId <= 0) {
+                return redirect()->route('parent.dashboard')
+                    ->with('error', __('Select a linked student first to access premium learning features.'));
             }
 
-            if ($linkedStudents->contains(fn ($studentId) => $this->studentHasEntitlement((int) $studentId, $user->id))) {
+            if (! $linkedStudents->contains($requestedStudentId)) {
+                return redirect()->route('parent.dashboard')->with('error', __('You can only track students linked to your account.'));
+            }
+
+            if ($this->studentHasEntitlement($requestedStudentId, $user->id)) {
                 return $next($request);
             }
 
-            $hasSubscriptionForAnyLinkedStudent = (clone $activeSubscriptions)
-                ->whereIn('student_id', $linkedStudents)
-                ->exists();
-
-            if ($hasSubscriptionForAnyLinkedStudent) {
-                return $next($request);
-            }
-
-            // Backward compatibility for old subscriptions without student mapping.
-            if ($linkedStudents->count() === 1 && (clone $activeSubscriptions)->whereNull('student_id')->exists()) {
-                return $next($request);
-            }
-
-            return redirect()->route('payment.pricing')
-                ->with('trial_upgrade_prompt', __('None of your linked students currently has trial or paid access. Upgrade to unlock premium features.'))
+            return redirect()->route('payment.pricing', ['student_id' => $requestedStudentId])
+                ->with('trial_upgrade_prompt', __('This linked student does not currently have trial or paid access. Upgrade to unlock premium features.'))
                 ->with('blocked_feature', $this->blockedFeatureLabel($request));
         }
 
@@ -195,10 +166,7 @@ class EnsureSubscriptionOrTrial
             ->where('user_id', $guardianId)
             ->where('status', 'active')
             ->where('is_active', true)
-            ->where(function ($query) use ($studentId) {
-                $query->where('student_id', $studentId)
-                    ->orWhereNull('student_id');
-            })
+            ->where('student_id', $studentId)
             ->exists();
     }
 

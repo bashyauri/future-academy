@@ -59,3 +59,18 @@ it('does not treat guardians as trial users', function () {
 
     expect($guardian->onTrial())->toBeFalse();
 });
+
+it('does not treat a student-linked guardian subscription as the guardian\'s own access', function () {
+    $guardian = User::factory()->make([
+        'account_type' => 'guardian',
+        'trial_ends_at' => null,
+    ]);
+
+    $guardian->setRelation('currentSubscription', new Subscription([
+        'status' => 'active',
+        'student_id' => 99,
+        'ends_at' => CarbonImmutable::now()->addDays(7),
+    ]));
+
+    expect($guardian->hasActiveSubscription())->toBeFalse();
+});

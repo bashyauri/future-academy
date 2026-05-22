@@ -177,7 +177,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
      */
     public function currentSubscription()
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active')->latest('ends_at');
+        return $this->hasOne(Subscription::class)
+            ->where('status', 'active')
+            ->whereNull('student_id')
+            ->latest('ends_at');
     }
 
     public function userAnswers()
@@ -262,7 +265,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         $subscription = $this->currentSubscription;
 
-        return $subscription && $subscription->ends_at && now()->lt($subscription->ends_at);
+        return $subscription
+            && $subscription->student_id === null
+            && $subscription->ends_at
+            && now()->lt($subscription->ends_at);
     }
 
     /**

@@ -53,27 +53,56 @@
     <form action="{{ route('payment.initialize') }}" method="POST" target="_blank" rel="noopener noreferrer" class="w-full flex flex-col gap-4 mt-1">
         @csrf
 
-        @if($student_id)
+        @if($isGuardian)
+            <div class="flex flex-col gap-2">
+                <label for="student_id" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Choose Linked Student') }}</label>
+                @if(empty($linkedStudents))
+                    <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+                        <div class="font-semibold">{{ __('No linked student available for payment yet.') }}</div>
+                        <div class="mt-1">{{ __('Link a student from your guardian dashboard before purchasing premium access.') }}</div>
+                        <a href="{{ route('parent.dashboard') }}" wire:navigate class="mt-2 inline-flex text-sm font-medium text-blue-700 hover:underline dark:text-blue-300">
+                            {{ __('Go to Guardian Dashboard') }}
+                        </a>
+                    </div>
+                @else
+                    <select wire:model.live="student_id" name="student_id" id="student_id" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
+                        <option value="">{{ __('Select a linked student') }}</option>
+                        @foreach($linkedStudents as $student)
+                            <option value="{{ $student['id'] }}">{{ $student['name'] }}</option>
+                        @endforeach
+                    </select>
+                    <flux:text class="text-xs text-green-800 dark:text-green-200">
+                        {{ __('Guardians can only purchase premium access for students linked to their account.') }}
+                    </flux:text>
+                @endif
+            </div>
+        @elseif($student_id)
             <input type="hidden" name="student_id" value="{{ $student_id }}">
         @endif
 
-        <div class="flex flex-col gap-2">
-            <label for="plan" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Choose Plan') }}</label>
-            <select name="plan" id="plan" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
-                <option value="monthly">{{ __('Monthly - ₦' . number_format(config('pricing.plans.monthly.amount'))) }}</option>
-                <option value="yearly">{{ __('Yearly - ₦' . number_format(config('pricing.plans.yearly.amount'))) }}</option>
-            </select>
-        </div>
-        <div class="flex flex-col gap-2">
-            <label for="type" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Payment Type') }}</label>
-            <select name="type" id="type" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
-                <option value="one_time">{{ __('One-Time') }}</option>
-                <option value="recurring">{{ __('Recurring') }}</option>
-            </select>
-        </div>
-        <flux:button type="submit" class="w-full mt-2 py-3 text-base font-bold" variant="primary" icon="credit-card">
-            {{ __('Pay Now') }}
-        </flux:button>
+        @if(! $isGuardian || ! empty($student_id))
+            <div class="flex flex-col gap-2">
+                <label for="plan" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Choose Plan') }}</label>
+                <select name="plan" id="plan" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
+                    <option value="monthly">{{ __('Monthly - ₦' . number_format(config('pricing.plans.monthly.amount'))) }}</option>
+                    <option value="yearly">{{ __('Yearly - ₦' . number_format(config('pricing.plans.yearly.amount'))) }}</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="type" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Payment Type') }}</label>
+                <select name="type" id="type" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
+                    <option value="one_time">{{ __('One-Time') }}</option>
+                    <option value="recurring">{{ __('Recurring') }}</option>
+                </select>
+            </div>
+            <flux:button type="submit" class="w-full mt-2 py-3 text-base font-bold" variant="primary" icon="credit-card">
+                {{ __('Pay Now') }}
+            </flux:button>
+        @elseif(! empty($linkedStudents))
+            <div class="rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-700 dark:bg-green-900/30 dark:text-green-100">
+                {{ __('Select a linked student to continue with payment.') }}
+            </div>
+        @endif
     </form>
     <div class="mt-6 w-full flex flex-col items-center gap-2">
         <flux:heading size="md" class="text-green-900 dark:text-green-200 font-bold mb-1">{{ __('Why Go Premium?') }}</flux:heading>
