@@ -121,22 +121,27 @@ class ParentIndex extends Component
         ]);
 
         $parent = auth()->user();
-        $temporaryPassword = Str::password(12);
 
+        // Create student with unusable password and unverified email
         $student = User::create([
             'name' => $this->newStudentName,
             'email' => $this->newStudentEmail,
-            'password' => Hash::make($temporaryPassword),
+            'password' => Hash::make(Str::random(32)), // unusable random password
             'account_type' => 'student',
-            'email_verified_at' => now(),
+            'email_verified_at' => null,
             'has_completed_onboarding' => false,
         ]);
 
         $this->attachStudentToParent($parent, $student);
 
+        // Send password reset (invitation) link only
+        $student->sendPasswordResetNotification(
+            app('auth.password.broker')->createToken($student)
+        );
+
         $this->newStudentName = '';
         $this->newStudentEmail = '';
-        $this->createStudentSuccessMessage = __('Student account created and linked. Temporary password: :password', ['password' => $temporaryPassword]);
+        $this->createStudentSuccessMessage = __('Student account created and invitation sent to :email', ['email' => $student->email]);
 
         $this->refreshDashboardData();
     }
