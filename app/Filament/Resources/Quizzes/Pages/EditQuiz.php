@@ -83,7 +83,7 @@ class EditQuiz extends EditRecord
     protected function afterSave(): void
     {
         $quiz = $this->record;
-        $manualQuestions = collect($this->data['questions'] ?? [])
+        $manualQuestions = collect(array_values($this->data['questions'] ?? []))
             ->filter(fn($q) => !empty($q['question_id']))
             ->mapWithKeys(fn($q, $i) => [
                 $q['question_id'] => ['order' => $i + 1],
