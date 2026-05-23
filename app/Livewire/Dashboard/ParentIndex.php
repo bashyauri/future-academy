@@ -10,13 +10,35 @@ use App\Models\VideoAnalytics;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-#[Layout('components.layouts.app')]
 class ParentIndex extends Component
 {
+    public $resendInvitationMessage = '';
+
+    /**
+     * Allow guardian to resend invitation (reset password) to a student
+     */
+    public function resendInvitation($studentId): void
+    {
+        $this->resendInvitationMessage = '';
+        $parent = auth()->user();
+        $student = $parent->children()->where('users.id', $studentId)->first();
+        if (! $student) {
+            $this->resendInvitationMessage = __('Student not found or not linked.');
+            return;
+        }
+        // Only allow if onboarding not completed
+        if ($student->has_completed_onboarding) {
+            $this->resendInvitationMessage = __('Student has already completed setup.');
+            return;
+        }
+        $student->sendPasswordResetNotification(
+            app('auth.password.broker')->createToken($student)
+        );
+        $this->resendInvitationMessage = __('Invitation email resent to :email', ['email' => $student->email]);
+    }
     public $stats = [];
 
     public Collection $children;

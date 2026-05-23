@@ -292,7 +292,17 @@
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
                                     ⚠ Setup Needed
                                 </span>
+                                <div class="mt-2">
+                                    <flux:button wire:click="resendInvitation({{ $child->id }})" size="xs" variant="outline">
+                                        {{ __('Resend Invitation') }}
+                                    </flux:button>
+                                </div>
                                 @endif
+                                        @if($resendInvitationMessage)
+                                            <div class="mb-4 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 text-sm font-semibold">
+                                                {{ $resendInvitationMessage }}
+                                            </div>
+                                        @endif
                             </div>
                             <div>
                                 @if($childrenStats[$child->id]['can_view_metrics'])
