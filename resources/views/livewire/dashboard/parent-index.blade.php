@@ -298,9 +298,9 @@
                                     </flux:button>
                                 </div>
                                 @endif
-                                        @if($resendInvitationMessage)
+                                        @if(!empty($resendInvitationMessage[$child->id]))
                                             <div class="mb-4 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 text-sm font-semibold">
-                                                {{ $resendInvitationMessage }}
+                                                {{ $resendInvitationMessage[$child->id] }}
                                             </div>
                                         @endif
                             </div>

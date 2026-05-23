@@ -13,31 +13,37 @@ use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
+
 class ParentIndex extends Component
 {
-    public $resendInvitationMessage = '';
+    /**
+     * Holds resend invitation messages per student.
+     * @var array<int, string>
+     */
+    public $resendInvitationMessage = [];
 
     /**
      * Allow guardian to resend invitation (reset password) to a student
      */
     public function resendInvitation($studentId): void
     {
-        $this->resendInvitationMessage = '';
+        // Clear only this student's message
+        $this->resendInvitationMessage[$studentId] = '';
         $parent = auth()->user();
         $student = $parent->children()->where('users.id', $studentId)->first();
         if (! $student) {
-            $this->resendInvitationMessage = __('Student not found or not linked.');
+            $this->resendInvitationMessage[$studentId] = __('Student not found or not linked.');
             return;
         }
         // Only allow if onboarding not completed
         if ($student->has_completed_onboarding) {
-            $this->resendInvitationMessage = __('Student has already completed setup.');
+            $this->resendInvitationMessage[$studentId] = __('Student has already completed setup.');
             return;
         }
         $student->sendPasswordResetNotification(
             app('auth.password.broker')->createToken($student)
         );
-        $this->resendInvitationMessage = __('Invitation email resent to :email', ['email' => $student->email]);
+        $this->resendInvitationMessage[$studentId] = __('Invitation email resent to :email', ['email' => $student->email]);
     }
     public $stats = [];
 
