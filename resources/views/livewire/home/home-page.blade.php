@@ -72,7 +72,7 @@
                 <div class="mt-6 flex flex-wrap items-center justify-center gap-2.5 px-4">
                     <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Real CBT-style practice</span>
                     <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">Detailed explanations</span>
-                    <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Parent progress tracking</span>
+                    <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Parent/School/Community progress tracking</span>
                 </div>
             </div>
 
@@ -141,7 +141,7 @@
 
                 {{-- Teacher Access removed --}}
 
-                {{-- Parent Access --}}
+                {{-- Parent / School / Community Access --}}
                 <div class="group flex flex-col h-full">
                     <div class="relative flex flex-col flex-1 rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-8 transition-all hover:border-green-500 dark:hover:border-green-500 hover:shadow-2xl hover:-translate-y-2 duration-200 ease-in-out min-h-[480px]">
                         {{-- Decorative Element --}}
@@ -155,9 +155,9 @@
                                 </svg>
                             </div>
 
-                            <flux:heading size="lg" class="text-xl md:text-2xl mb-3 font-bold">Parents</flux:heading>
+                            <flux:heading size="lg" class="text-xl md:text-2xl mb-3 font-bold">Parent / School / Community</flux:heading>
                             <flux:text class="text-sm md:text-base text-neutral-600 dark:text-neutral-400 mb-5 leading-relaxed">
-                                Monitor your children's learning progress and manage their educational journey.
+                                Register as a parent, school, or community to manage and track multiple students' progress, enroll children, and oversee educational outcomes.
                             </flux:text>
 
                             {{-- Features List --}}
@@ -166,13 +166,13 @@
                                     <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                     </svg>
-                                    <flux:text class="text-sm md:text-base">Enroll Children</flux:text>
+                                    <flux:text class="text-sm md:text-base">Enroll Students</flux:text>
                                 </div>
                                 <div class="flex items-center gap-2.5">
                                     <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                     </svg>
-                                    <flux:text class="text-sm md:text-base">Track Progress</flux:text>
+                                    <flux:text class="text-sm md:text-base">Track Group Progress</flux:text>
                                 </div>
                                 <div class="flex items-center gap-2.5">
                                     <svg class="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -194,7 +194,7 @@
                                 variant="primary"
                                 class="w-full text-base min-h-[52px] font-semibold bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white"
                             >
-                                Parent Login
+                                Parent / School / Community Login
                             </flux:button>
                         </div>
                     </div>
