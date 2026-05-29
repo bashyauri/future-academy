@@ -145,12 +145,12 @@ Route::post('/impersonate/stop', function () {
 
 // Student dashboard (default)
 Route::get('/student-dashboard', Index::class)
-    ->middleware(['auth', 'verified', 'role:student|teacher|uploader|admin|super-admin'])
+    ->middleware(['auth', 'verified', 'role:student|teacher|uploader|admin|super-admin|school|community'])
     ->name('student.dashboard');
 
 // Guardian dashboard
 Route::get('/parent-dashboard', ParentIndex::class)
-    ->middleware(['auth', 'verified', 'role:guardian|admin|super-admin'])
+    ->middleware(['auth', 'verified', 'role:guardian|admin|super-admin|school|community'])
     ->name('parent.dashboard');
 
 // Subscription management (Livewire)
@@ -163,14 +163,12 @@ Route::post('/subscription/cancel', [PaymentController::class, 'cancelSubscripti
     ->middleware('auth')
     ->name('subscription.cancel');
 
-// Protected routes
-Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
+// Settings routes - accessible to all authenticated users
+Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
-
     Route::get('settings/profile', Profile::class)->name('profile.edit');
     Route::get('settings/password', Password::class)->name('user-password.edit');
     Route::get('settings/appearance', Appearance::class)->name('appearance.edit');
-
     Route::get('settings/two-factor', TwoFactor::class)
         ->middleware(
             when(
@@ -181,7 +179,10 @@ Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
             )
         )
         ->name('two-factor.show');
+});
 
+// Protected routes
+Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
     // Quiz routes
     Route::get('quizzes', SubjectsList::class)->name('quizzes.index');
     Route::get('quizzes/all', QuizList::class)->name('quizzes.all');

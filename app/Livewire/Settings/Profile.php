@@ -8,19 +8,26 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
+
 class Profile extends Component
 {
     public string $name = '';
-
     public string $email = '';
+    public string $phone = '';
+    public string $address = '';
+    public string $organization_name = '';
 
     /**
      * Mount the component.
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->email = Auth::user()->email;
+        $user = Auth::user();
+        $this->name = $user->name;
+        $this->email = $user->email;
+        $this->phone = $user->phone ?? '';
+        $this->address = $user->address ?? '';
+        $this->organization_name = $user->organization_name ?? '';
     }
 
     /**
@@ -29,10 +36,10 @@ class Profile extends Component
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
+        $isSchool = $user->account_type === 'school';
 
-        $validated = $this->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
-
             'email' => [
                 'required',
                 'string',
@@ -41,7 +48,14 @@ class Profile extends Component
                 'max:255',
                 Rule::unique(User::class)->ignore($user->id),
             ],
-        ]);
+            'phone' => ['nullable', 'string', 'max:20'],
+        ];
+        if ($isSchool) {
+            $rules['address'] = ['required', 'string', 'max:255'];
+            $rules['organization_name'] = ['required', 'string', 'max:255'];
+        }
+
+        $validated = $this->validate($rules);
 
         $user->fill($validated);
 

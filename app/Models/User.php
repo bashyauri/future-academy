@@ -197,7 +197,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     // Check if user is a parent
     public function isParent(): bool
     {
-        return $this->account_type === 'guardian';
+        // Treat 'guardian', 'school', and 'community' as parent/guardian types
+        return in_array($this->account_type, ['guardian', 'school', 'community']);
     }
 
     // Check if user is a teacher

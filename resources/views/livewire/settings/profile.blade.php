@@ -2,13 +2,22 @@
     @include('partials.settings-heading')
 
     <x-settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
+
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+            @php $user = auth()->user(); $isSchool = $user->account_type === 'school'; @endphp
+
+            @if($isSchool)
+                <flux:input wire:model="organization_name" :label="__('School Name')" type="text" required autocomplete="organization" />
+            @else
+                <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+            @endif
+
+            <flux:input wire:model="phone" :label="__('Phone Number')" type="text" autocomplete="tel" />
 
             <div>
                 <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
 
-                @if (auth()->user() instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && !auth()->user()->hasVerifiedEmail())
+                @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && !$user->hasVerifiedEmail())
                     <div>
                         <flux:text class="mt-4">
                             {{ __('Your email address is unverified.') }}
@@ -26,6 +35,10 @@
                     </div>
                 @endif
             </div>
+
+            @if($isSchool)
+                <flux:input wire:model="address" :label="__('School Address')" type="text" required autocomplete="address" />
+            @endif
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">

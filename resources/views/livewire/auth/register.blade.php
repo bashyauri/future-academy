@@ -59,6 +59,8 @@
             >
                 <option value="student">{{ __('Student - Learning and taking exams') }}</option>
                 <option value="guardian">{{ __('Parent/Guardian - Managing student(s)') }}</option>
+                <option value="school">{{ __('School - Registering as an institution') }}</option>
+                <option value="community">{{ __('Community - Registering as a group/association') }}</option>
                 <option value="teacher">{{ __('Teacher - Creating and managing content') }}</option>
             </flux:select>
 

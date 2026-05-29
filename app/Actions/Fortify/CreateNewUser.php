@@ -35,7 +35,7 @@ class CreateNewUser implements CreatesNewUsers
                 Rule::unique(User::class),
             ],
             'password' => $this->passwordRules(),
-            'account_type' => ['required', 'string', 'in:student,guardian,teacher,uploader'],
+            'account_type' => ['required', 'string', 'in:student,guardian,school,community,teacher,uploader'],
         ])->validate();
 
         $accountType = $input['account_type'] ?? 'student';

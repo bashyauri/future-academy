@@ -55,24 +55,25 @@ Route::get('/onboarding', StudentOnboarding::class)
 Route::get('dashboard', Index::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
-
-Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
+// Settings routes - accessible to all authenticated users
+Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
-
     Route::get('settings/profile', Profile::class)->name('profile.edit');
     Route::get('settings/password', Password::class)->name('user-password.edit');
     Route::get('settings/appearance', Appearance::class)->name('appearance.edit');
-
     Route::get('settings/two-factor', TwoFactor::class)
         ->middleware(
             when(
                 Features::canManageTwoFactorAuthentication()
                     && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
                 ['password.confirm'],
-                [],
-            ),
+                []
+            )
         )
         ->name('two-factor.show');
+});
+Route::middleware(['auth', 'ensure.subscription.or.trial'])->group(function () {
+
 
     // Quiz routes
     Route::get('quizzes', \App\Livewire\Quizzes\SubjectsList::class)->name('quizzes.index');

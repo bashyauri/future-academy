@@ -12,6 +12,37 @@ test('new users can register', function () {
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'account_type' => 'student',
+    ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticated();
+});
+
+test('school users can register', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'School User',
+        'email' => 'school@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'school',
+    ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticated();
+});
+
+test('community users can register', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'Community User',
+        'email' => 'community@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'community',
     ]);
 
     $response->assertSessionHasNoErrors()
