@@ -61,7 +61,7 @@
                 <option value="guardian">{{ __('Parent/Guardian - Managing student(s)') }}</option>
                 <option value="school">{{ __('School - Registering as an institution') }}</option>
                 <option value="community">{{ __('Community - Registering as a group/association') }}</option>
-                <option value="teacher">{{ __('Teacher - Creating and managing content') }}</option>
+                {{-- <option value="teacher">{{ __('Teacher - Creating and managing content') }}</option> --}}
             </flux:select>
 
             <div class="flex items-center justify-end">
