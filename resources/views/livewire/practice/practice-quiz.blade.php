@@ -185,7 +185,7 @@
                         </template>
 
                             {{-- Options --}}
-                            <div class="space-y-3 mb-8">
+                            <div class="space-y-3 mb-8" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                                 <template x-for="(option, index) in getCurrentQuestion().options" :key="option.id">
                                     <button
                                         @click="selectAnswer(option.id)"
@@ -214,7 +214,7 @@
                                                 'text-green-600 dark:text-green-300': userAnswers[currentQuestionIndex] !== null && userAnswers[currentQuestionIndex] !== option.id && option.is_correct,
                                                 'text-gray-800 dark:text-gray-200': userAnswers[currentQuestionIndex] === null,
                                                 'text-gray-600 dark:text-gray-400': userAnswers[currentQuestionIndex] !== null && userAnswers[currentQuestionIndex] !== option.id && !option.is_correct,
-                                            }" class="flex-1" x-text="option.option_text"></span>
+                                            }" class="flex-1" x-html="option.option_text_html || option.option_text"></span>
                                             <template x-if="userAnswers[currentQuestionIndex] === option.id && option.is_correct">
                                                 <svg class="h-5 w-5 text-green-500 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                                             </template>
@@ -230,8 +230,8 @@
                             </div>
 
                             {{-- Explanation --}}
-                            <template x-if="userAnswers[currentQuestionIndex] !== null && getCurrentQuestion().explanation">
-                                <div class="mb-8 p-5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20">
+                            <template x-if="userAnswers[currentQuestionIndex] !== null && getCurrentQuestion().explanation_html">
+                                <div class="mb-8 p-5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20" x-effect="$nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                                     <div class="flex gap-3">
                                         <div class="flex-shrink-0">
                                             <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -240,7 +240,7 @@
                                         </div>
                                         <div class="flex-1">
                                             <flux:heading size="sm" class="text-blue-900 dark:text-blue-300 mb-1 font-semibold">Explanation</flux:heading>
-                                            <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed" x-text="getCurrentQuestion().explanation"></flux:text>
+                                            <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed" x-html="getCurrentQuestion().explanation_html || getCurrentQuestion().explanation"></flux:text>
                                         </div>
                                     </div>
                                 </div>

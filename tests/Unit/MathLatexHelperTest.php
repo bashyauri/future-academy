@@ -54,3 +54,17 @@ it('renders common trig names as KaTeX commands in exponent expressions', functi
     expect(to_latex_exponents($text))
         ->toBe('Evaluate $\\sin^{2}$ x + $\\cos^{2}$ x.');
 });
+
+it('renders differential fractions in inline KaTeX', function (): void {
+    $text = 'The solution of dy/dx = 2y is required.';
+
+    expect(to_latex_exponents($text))
+        ->toBe('The solution of $\\frac{dy}{dx}$ = 2y is required.');
+});
+
+it('renders mixed differential and exponential explanation text', function (): void {
+    $text = 'Step 1: dy/dx = 2y. Step 4: y=3e^(2x).';
+
+    expect(to_latex_exponents($text))
+        ->toBe('Step 1: $\\frac{dy}{dx}$ = 2y. Step 4: y=3$e^{(2x)}$.');
+});

@@ -12,6 +12,7 @@ class Question extends Model
 {
     protected $appends = [
         'question_text_html',
+        'explanation_html',
     ];
 
     protected $fillable = [
@@ -205,5 +206,10 @@ class Question extends Model
     public function getQuestionTextHtmlAttribute(): string
     {
         return (string) $this->question_text;
+    }
+
+    public function getExplanationHtmlAttribute(): string
+    {
+        return to_latex_exponents((string) $this->explanation);
     }
 }

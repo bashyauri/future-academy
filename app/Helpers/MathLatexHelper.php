@@ -2,6 +2,19 @@
 
 if (! function_exists('to_latex_exponents')) {
     /**
+     * Convert simple differential fractions to inline KaTeX fragments.
+     * Example: "dy/dx = 2y" => "$\\frac{dy}{dx}$ = 2y"
+     */
+    function convert_differential_fractions(string $text): string
+    {
+        $pattern = '/(?<![A-Za-z0-9])d([A-Za-z])\/d([A-Za-z])(?![A-Za-z0-9])/';
+
+        return preg_replace_callback($pattern, static function (array $matches): string {
+            return '$\\frac{d'.$matches[1].'}{d'.$matches[2].'}$';
+        }, $text) ?? $text;
+    }
+
+    /**
      * Normalize unicode superscript exponent sequences to caret notation.
      * Example: "2⁽ˣ⁺¹⁾" => "2^(x+1)"
      */
@@ -88,10 +101,11 @@ if (! function_exists('to_latex_exponents')) {
     function to_latex_exponents(string $text): string
     {
         $text = normalize_unicode_exponents($text);
+        $text = convert_differential_fractions($text);
 
         // Wrap base^exponent tokens in inline math while keeping surrounding sentence spacing intact.
         // Supports simple exponents (x^2, 7^43), signed exponents (tan^-1), and parenthesized exponents (2^(x+1)).
-        $pattern = '/(?<!\\\\)(\([^()]+\)|[A-Za-z0-9]+)\^(\([^()]+\)|[+-]?[A-Za-z0-9]+)/';
+        $pattern = '/(?<!\\\\)(\([^()]+\)|[A-Za-z]+|[0-9]+)\^(\([^()]+\)|[+-]?[A-Za-z0-9]+)/';
 
         return preg_replace_callback($pattern, static function (array $matches): string {
             $mathFragment = $matches[1].'^{'.$matches[2].'}';

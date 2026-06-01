@@ -112,7 +112,9 @@ class TakeQuiz extends Component
                 ->map(fn ($question) => $this->prepareQuestionForDisplay($question))
                 ->values()
                 ->all();
-            $this->shuffledOptions = $cached['options'];
+            $this->shuffledOptions = collect($cached['options'])
+                ->map(fn ($options) => $this->prepareOptionsForDisplay($options))
+                ->all();
             $this->answers = $cached['answers'];
             $this->currentQuestionIndex = $cached['position'] ?? 0;
 
@@ -136,7 +138,9 @@ class TakeQuiz extends Component
 
         // Shuffle options for each question if enabled
         foreach ($this->questions as $question) {
-            $this->shuffledOptions[$question->id] = $service->getShuffledOptions($this->quiz, $question);
+            $this->shuffledOptions[$question->id] = $this->prepareOptionsForDisplay(
+                $service->getShuffledOptions($this->quiz, $question)
+            );
         }
 
         // Load user's saved answers (only query if not in cache)
@@ -155,9 +159,35 @@ class TakeQuiz extends Component
 
     private function prepareQuestionForDisplay($question)
     {
+        if (is_array($question)) {
+            $question['question_text_html'] = (string) ($question['question_text_html'] ?? to_latex_exponents((string) ($question['question_text'] ?? '')));
+            $question['explanation_html'] = (string) ($question['explanation_html'] ?? to_latex_exponents((string) ($question['explanation'] ?? '')));
+
+            return $question;
+        }
+
         $question->question_text_html = (string) $question->question_text;
+        $question->explanation_html = to_latex_exponents((string) $question->explanation);
 
         return $question;
+    }
+
+    private function prepareOptionsForDisplay($options)
+    {
+        return collect($options)
+            ->map(function ($option) {
+                if (is_array($option)) {
+                    $option['option_text_html'] = (string) ($option['option_text_html'] ?? to_latex_exponents((string) ($option['option_text'] ?? '')));
+
+                    return $option;
+                }
+
+                $option->option_text_html = (string) $option->option_text_html;
+
+                return $option;
+            })
+            ->values()
+            ->all();
     }
 
     private function calculateRemainingSeconds()

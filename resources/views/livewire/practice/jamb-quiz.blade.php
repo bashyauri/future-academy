@@ -305,7 +305,7 @@
                 </div>
 
                 <!-- Answer Options with Instant Feedback -->
-                <div class="space-y-3">
+                <div class="space-y-3" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                     <template x-for="option in getCurrentQuestion()?.options || []" :key="option.id">
                         <button
                             @click="selectAnswer(option.id)"
@@ -354,7 +354,7 @@
                                             'text-blue-700 dark:text-blue-300 font-medium': userAnswers[getCurrentSubjectId()][currentQuestionIndex] === option.id && userAnswers[getCurrentSubjectId()][currentQuestionIndex] === null,
                                             'text-neutral-700 dark:text-neutral-300': userAnswers[getCurrentSubjectId()][currentQuestionIndex] === null || (userAnswers[getCurrentSubjectId()][currentQuestionIndex] !== option.id && !option.is_correct)
                                         }"
-                                        x-text="option.option_text">
+                                        x-html="option.option_text_html || option.option_text">
                                     </span>
                                 </div>
                             </div>
@@ -363,8 +363,8 @@
                 </div>
 
                 <!-- Instant Explanation -->
-                <template x-if="userAnswers[getCurrentSubjectId()][currentQuestionIndex] !== null && getCurrentQuestion()?.explanation">
-                    <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 animate-fade-in">
+                <template x-if="userAnswers[getCurrentSubjectId()][currentQuestionIndex] !== null && getCurrentQuestion()?.explanation_html">
+                    <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4 animate-fade-in" x-effect="$nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                         <div class="flex gap-3">
                             <div class="flex-shrink-0">
                                 <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -373,7 +373,7 @@
                             </div>
                             <div class="flex-1">
                                 <flux:heading size="sm" class="text-blue-900 dark:text-blue-300 mb-1 font-semibold">Explanation</flux:heading>
-                                <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed" x-text="getCurrentQuestion()?.explanation || ''"></flux:text>
+                                <flux:text class="text-sm text-blue-800 dark:text-blue-400 leading-relaxed" x-html="getCurrentQuestion()?.explanation_html || getCurrentQuestion()?.explanation || ''"></flux:text>
                             </div>
                         </div>
                     </div>

@@ -217,6 +217,7 @@ class PracticeQuizApiController extends Controller
                 return [
                     'id' => $option->id,
                     'option_text' => $option->option_text,
+                    'option_text_html' => (string) $option->option_text_html,
                     'option_image' => $option->option_image,
                     'is_correct' => $option->is_correct,
                 ];
@@ -232,6 +233,7 @@ class PracticeQuizApiController extends Controller
                 'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
+                'explanation_html' => (string) $question->explanation_html,
                 'options' => $options,
             ];
         })->values()->toArray();
@@ -244,6 +246,20 @@ class PracticeQuizApiController extends Controller
     {
         if (! isset($question['question_text_html'])) {
             $question['question_text_html'] = (string) ($question['question_text'] ?? '');
+        }
+
+        if (! isset($question['explanation_html'])) {
+            $question['explanation_html'] = to_latex_exponents((string) ($question['explanation'] ?? ''));
+        }
+
+        if (isset($question['options']) && is_array($question['options'])) {
+            $question['options'] = array_map(function (array $option): array {
+                if (! isset($option['option_text_html'])) {
+                    $option['option_text_html'] = to_latex_exponents((string) ($option['option_text'] ?? ''));
+                }
+
+                return $option;
+            }, $question['options']);
         }
 
         return $question;

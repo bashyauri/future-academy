@@ -280,10 +280,12 @@ class PracticeQuiz extends Component
                 'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
+                'explanation_html' => (string) $question->explanation_html,
                 'options' => $question->options->map(function ($option) {
                     return [
                         'id' => $option->id,
                         'option_text' => $option->option_text,
+                        'option_text_html' => (string) $option->option_text_html,
                         'option_image' => $option->option_image,
                         'is_correct' => $option->is_correct,
                     ];
@@ -340,6 +342,7 @@ class PracticeQuiz extends Component
                 'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
+                'explanation_html' => (string) $question->explanation_html,
                 'options' => $question->options->map(function ($option) {
                     if ($this->shuffle == 1) {
                         // Already shuffled via relationship
@@ -348,6 +351,7 @@ class PracticeQuiz extends Component
                     return [
                         'id' => $option->id,
                         'option_text' => $option->option_text,
+                        'option_text_html' => (string) $option->option_text_html,
                         'option_image' => $option->option_image,
                         'is_correct' => $option->is_correct,
                     ];
@@ -386,7 +390,27 @@ class PracticeQuiz extends Component
 
         if ($cached && isset($cached['questions'])) {
             // Full cache available (old format with questions)
-            $this->questions = $cached['questions'];
+            $this->questions = array_map(function (array $question): array {
+                if (! isset($question['question_text_html'])) {
+                    $question['question_text_html'] = to_latex_exponents((string) ($question['question_text'] ?? ''));
+                }
+
+                if (! isset($question['explanation_html'])) {
+                    $question['explanation_html'] = to_latex_exponents((string) ($question['explanation'] ?? ''));
+                }
+
+                if (isset($question['options']) && is_array($question['options'])) {
+                    $question['options'] = array_map(function (array $option): array {
+                        if (! isset($option['option_text_html'])) {
+                            $option['option_text_html'] = to_latex_exponents((string) ($option['option_text'] ?? ''));
+                        }
+
+                        return $option;
+                    }, $question['options']);
+                }
+
+                return $question;
+            }, $cached['questions']);
             $this->userAnswers = $cached['answers'];
             $this->currentQuestionIndex = $cached['position'];
             $this->allQuestionIds = $cached['all_question_ids'] ?? array_column($this->questions, 'id');
@@ -614,10 +638,12 @@ class PracticeQuiz extends Component
                         'question_text_html' => (string) $question->question_text,
                         'question_image' => $question->question_image,
                         'explanation' => $question->explanation,
+                        'explanation_html' => (string) $question->explanation_html,
                         'options' => $question->options->map(function ($option) {
                             return [
                                 'id' => $option->id,
                                 'option_text' => $option->option_text,
+                                'option_text_html' => (string) $option->option_text_html,
                                 'option_image' => $option->option_image,
                                 'is_correct' => $option->is_correct,
                             ];

@@ -475,7 +475,7 @@
                         </div>
 
                         {{-- Answer Options --}}
-                        <div class="space-y-3">
+                        <div class="space-y-3" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                             <template x-for="option in shuffledOptions[getCurrentQuestion().id]" :key="option.id">
                                 <button @click="!isAnswered(getCurrentQuestion().id) && selectAnswer(getCurrentQuestion().id, option.id)"
                                     :disabled="isAnswered(getCurrentQuestion().id)"
@@ -507,7 +507,7 @@
                                     </template>
 
                                     <div class="flex-1">
-                                        <flux:text class="font-medium" x-text="option.option_text"></flux:text>
+                                        <flux:text class="font-medium" x-html="option.option_text_html || option.option_text"></flux:text>
                                         <template x-if="option.option_image">
                                             <img loading="lazy" :src="'{{ url('storage') }}/' + option.option_image" alt="{{ __('Option image') }}"
                                                 class="mt-2 rounded max-w-xs border border-neutral-200 dark:border-neutral-700">
@@ -518,8 +518,8 @@
                         </div>
 
                         {{-- Explanation (shown after answering) --}}
-                        <template x-if="isAnswered(getCurrentQuestion().id) && getCurrentQuestion().explanation">
-                            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                        <template x-if="isAnswered(getCurrentQuestion().id) && getCurrentQuestion().explanation_html">
+                            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg" x-effect="$nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                                 <div class="flex items-start gap-3">
                                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
@@ -533,7 +533,7 @@
                                         <flux:heading size="sm" class="text-blue-900 dark:text-blue-200 mb-2">
                                             {{ __('Explanation') }}
                                         </flux:heading>
-                                        <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed" x-text="getCurrentQuestion().explanation">
+                                        <flux:text class="text-blue-800 dark:text-blue-300 leading-relaxed" x-html="getCurrentQuestion().explanation_html || getCurrentQuestion().explanation">
                                         </flux:text>
                                     </div>
                                 </div>

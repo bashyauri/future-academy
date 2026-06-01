@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Option extends Model
 {
+    protected $appends = [
+        'option_text_html',
+    ];
+
     protected $fillable = [
         'question_id',
         'label',
@@ -36,5 +40,10 @@ class Option extends Model
     public function markAsIncorrect(): void
     {
         $this->update(['is_correct' => false]);
+    }
+
+    public function getOptionTextHtmlAttribute(): string
+    {
+        return to_latex_exponents((string) $this->option_text);
     }
 }
