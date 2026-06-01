@@ -40,3 +40,10 @@ it('renders uppercase superscript letters as KaTeX exponents', function (): void
 
     expect(to_latex_exponents($text))->toBe('Evaluate $P^{A}$ + $Q^{B}$.');
 });
+
+it('renders inverse tangent notation with signed exponents', function (): void {
+    $text = 'Find the value of tan^-1(1) + tan^-1(2) + tan^-1(3).';
+
+    expect(to_latex_exponents($text))
+        ->toBe('Find the value of $tan^{-1}$(1) + $tan^{-1}$(2) + $tan^{-1}$(3).');
+});
