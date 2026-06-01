@@ -45,5 +45,12 @@ it('renders inverse tangent notation with signed exponents', function (): void {
     $text = 'Find the value of tan^-1(1) + tan^-1(2) + tan^-1(3).';
 
     expect(to_latex_exponents($text))
-        ->toBe('Find the value of $tan^{-1}$(1) + $tan^{-1}$(2) + $tan^{-1}$(3).');
+        ->toBe('Find the value of $\\tan^{-1}$(1) + $\\tan^{-1}$(2) + $\\tan^{-1}$(3).');
+});
+
+it('renders common trig names as KaTeX commands in exponent expressions', function (): void {
+    $text = 'Evaluate sin^2 x + cos^2 x.';
+
+    expect(to_latex_exponents($text))
+        ->toBe('Evaluate $\\sin^{2}$ x + $\\cos^{2}$ x.');
 });

@@ -94,7 +94,14 @@ if (! function_exists('to_latex_exponents')) {
         $pattern = '/(?<!\\\\)(\([^()]+\)|[A-Za-z0-9]+)\^(\([^()]+\)|[+-]?[A-Za-z0-9]+)/';
 
         return preg_replace_callback($pattern, static function (array $matches): string {
-            return '$'.$matches[1].'^{'.$matches[2].'}$';
+            $mathFragment = $matches[1].'^{'.$matches[2].'}';
+            $mathFragment = preg_replace_callback(
+                '/(?<!\\\\)\b(sin|cos|tan|cot|sec|csc|log|ln)\b/i',
+                static fn (array $functionMatch): string => '\\'.strtolower($functionMatch[1]),
+                $mathFragment
+            ) ?? $mathFragment;
+
+            return '$'.$mathFragment.'$';
         }, $text) ?? $text;
     }
 }
