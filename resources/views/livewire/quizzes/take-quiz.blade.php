@@ -162,7 +162,7 @@
                                                 </flux:badge>
                                             </div>
                                             <flux:text class="text-base font-medium">
-                                                {{ $answer->question->question_text }}
+                                                <span class="math">{!! $answer->question->question_text_html !!}</span>
                                             </flux:text>
                                         </div>
                                         <div class="flex-shrink-0">
@@ -455,7 +455,7 @@
             {{-- Question Content --}}
             <div class="lg:col-span-3 space-y-6">
                 <template x-if="getCurrentQuestion()">
-                    <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-6">
+                    <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-6" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                         {{-- Question Header --}}
                         <div class="flex items-start justify-between">
                             <flux:heading size="lg">
@@ -466,7 +466,7 @@
 
                         {{-- Question Text --}}
                         <div class="prose dark:prose-invert max-w-none">
-                            <flux:text class="text-lg" x-text="getCurrentQuestion().question_text"></flux:text>
+                            <flux:text class="text-lg" x-html="getCurrentQuestion().question_text_html"></flux:text>
 
                             <template x-if="getCurrentQuestion().question_image">
                                 <img loading="lazy" :src="'{{ url('storage') }}/' + getCurrentQuestion().question_image" alt="{{ __('Question image') }}"

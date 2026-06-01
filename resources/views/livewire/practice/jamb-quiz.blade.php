@@ -297,8 +297,8 @@
                 </div>
 
                 <!-- Question Text -->
-                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 md:p-8 bg-white dark:bg-neutral-800">
-                    <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed mb-4" x-text="getCurrentQuestion()?.question_text || ''"></flux:heading>
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 md:p-8 bg-white dark:bg-neutral-800" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                    <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed mb-4" x-html="getCurrentQuestion()?.question_text_html || ''"></flux:heading>
                     <template x-if="getCurrentQuestion()?.question_image">
                         <img :src="getCurrentQuestion().question_image" alt="Question" class="mt-4 max-w-full h-auto rounded-lg" loading="lazy">
                     </template>
@@ -570,7 +570,7 @@
                                             <flux:badge :color="$isCorrect ? 'green' : ($userAnswer ? 'red' : 'gray')">
                                                 Q{{ $qIndex + 1 }}
                                             </flux:badge>
-                                            <flux:text class="flex-1 font-medium text-sm">{{ $question->question_text }}</flux:text>
+                                            <flux:text class="flex-1 font-medium text-sm"><span class="math">{!! $question->question_text_html !!}</span></flux:text>
                                         </div>
 
                                         @if($userAnswer)

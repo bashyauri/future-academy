@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\UserAnswer;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -77,8 +78,8 @@ class PracticeQuiz extends Component
     public function exitQuiz()
     {
         // Save current position and answers to cache before exiting
-        if (auth()->check() && $this->quizAttempt) {
-            if ($this->quizAttempt->user_id !== auth()->id()) {
+        if (Auth::check() && $this->quizAttempt) {
+            if ($this->quizAttempt->user_id !== Auth::id()) {
                 abort(403, 'Unauthorized');
             }
 
@@ -126,11 +127,11 @@ class PracticeQuiz extends Component
         }
 
         // For authenticated users
-        if (auth()->check()) {
+        if (Auth::check()) {
             $attemptFromQuery = $this->attempt ? QuizAttempt::find($this->attempt) : null;
 
             // Verify ownership
-            if ($attemptFromQuery && $attemptFromQuery->user_id !== auth()->id()) {
+            if ($attemptFromQuery && $attemptFromQuery->user_id !== Auth::id()) {
                 abort(403, 'Unauthorized attempt access');
             }
 
@@ -152,7 +153,7 @@ class PracticeQuiz extends Component
             }
 
             // Find active in-progress attempt
-            $activeAttempt = QuizAttempt::where('user_id', auth()->id())
+            $activeAttempt = QuizAttempt::where('user_id', Auth::id())
                 ->where('exam_type_id', $this->exam_type)
                 ->where('subject_id', $this->subject)
                 ->where('exam_year', $this->year)
@@ -276,6 +277,7 @@ class PracticeQuiz extends Component
             return [
                 'id' => $question->id,
                 'question_text' => $question->question_text,
+                'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
                 'options' => $question->options->map(function ($option) {
@@ -335,6 +337,7 @@ class PracticeQuiz extends Component
             return [
                 'id' => $question->id,
                 'question_text' => $question->question_text,
+                'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
                 'options' => $question->options->map(function ($option) {
@@ -460,7 +463,7 @@ class PracticeQuiz extends Component
 
         $questionIds = $this->allQuestionIds; // Use lazy-loaded IDs
         $this->quizAttempt = QuizAttempt::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'exam_type_id' => $this->exam_type,
             'subject_id' => $this->subject,
             'exam_year' => $this->year,
@@ -557,7 +560,7 @@ class PracticeQuiz extends Component
      */
     private function updatePositionCache(): void
     {
-        if (auth()->check() && $this->quizAttempt) {
+        if (Auth::check() && $this->quizAttempt) {
             $cacheKey = "practice_attempt_{$this->quizAttempt->id}";
             cache()->put($cacheKey, [
                 'questions' => $this->questions,
@@ -608,6 +611,7 @@ class PracticeQuiz extends Component
                     return [
                         'id' => $question->id,
                         'question_text' => $question->question_text,
+                        'question_text_html' => (string) $question->question_text,
                         'question_image' => $question->question_image,
                         'explanation' => $question->explanation,
                         'options' => $question->options->map(function ($option) {
@@ -638,7 +642,7 @@ class PracticeQuiz extends Component
                         'question_id' => $question['id'],
                     ],
                     [
-                        'user_id' => auth()->id(),
+                        'user_id' => Auth::id(),
                         'option_id' => $userAnswer,
                         'is_correct' => $isCorrect,
                     ]
@@ -652,8 +656,8 @@ class PracticeQuiz extends Component
      */
     public function submitQuiz()
     {
-        if (auth()->check() && $this->quizAttempt) {
-            if ($this->quizAttempt->user_id !== auth()->id()) {
+        if (Auth::check() && $this->quizAttempt) {
+            if ($this->quizAttempt->user_id !== Auth::id()) {
                 abort(403, 'Unauthorized');
             }
 

@@ -205,8 +205,8 @@
                             <flux:text class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="subjectsData[currentSubjectIndex]?.name || ''"></flux:text>
                             <flux:badge color="blue" x-text="`Question ${currentQuestionIndex + 1} of ${getTotalInSubject()}`"></flux:badge>
                         </div>
-                        <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm">
-                            <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-text="getCurrentQuestion()?.question_text || ''"></flux:text>
+                        <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm" x-effect="if (getCurrentQuestion() && getCurrentQuestion().question_text_html) { if (window.renderMathInElement) { $nextTick(() => window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] })); } else { setTimeout(() => { if (window.renderMathInElement) { window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] }); } }, 300); } }">
+                            <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-html="getCurrentQuestion()?.question_text_html || ''"></flux:text>
                         </div>
                     </div>
 
@@ -433,7 +433,7 @@
                                                 {{ $qData['questionNumber'] }}
                                             </div>
                                             <div class="flex-1">
-                                                <flux:text class="font-medium text-gray-900 dark:text-gray-100">{!! $qData['question']->question_text !!}</flux:text>
+                                                <flux:text class="font-medium text-gray-900 dark:text-gray-100">{!! $qData['question']->question_text_html !!}</flux:text>
                                             </div>
                                             @if($qData['isCorrect'])
                                                 <svg class="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

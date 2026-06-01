@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Console\Scheduling\Schedule;
 use App\Services\McpServer\McpServer;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register MCP Server as singleton
         $this->app->singleton(McpServer::class, function ($app) {
-            return new McpServer();
+            return new McpServer;
         });
     }
 
@@ -24,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        require_once app_path('Helpers/MathLatexHelper.php');
+
         // Register scheduled tasks (for Laravel 11+)
         $this->configureSchedule();
     }
@@ -41,10 +44,10 @@ class AppServiceProvider extends ServiceProvider
             $schedule->command('bunny:sync-analytics')->dailyAt('02:00')
                 ->description('Sync video analytics from Bunny Stream API')
                 ->onFailure(function () {
-                    \Log::error('Failed to sync Bunny video analytics');
+                    Log::error('Failed to sync Bunny video analytics');
                 })
                 ->onSuccess(function () {
-                    \Log::info('Successfully synced Bunny video analytics');
+                    Log::info('Successfully synced Bunny video analytics');
                 });
         }
     }

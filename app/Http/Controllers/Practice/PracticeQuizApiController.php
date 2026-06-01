@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Practice;
 
 use App\Http\Controllers\Controller;
-use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\QuizAttempt;
-use App\Models\Subject;
 use App\Models\UserAnswer;
 use Illuminate\Http\Request;
 
@@ -53,9 +51,9 @@ class PracticeQuizApiController extends Controller
         if ($validated['year'] ?? null) {
             $query->where(function ($q) use ($validated) {
                 $q->where('exam_year', $validated['year'])
-                  ->orWhere(function ($sub) use ($validated) {
-                      $sub->whereNull('exam_year')->where('year', $validated['year']);
-                  });
+                    ->orWhere(function ($sub) use ($validated) {
+                        $sub->whereNull('exam_year')->where('year', $validated['year']);
+                    });
             });
         }
 
@@ -66,7 +64,7 @@ class PracticeQuizApiController extends Controller
         }
 
         $questionIds = $query
-            ->when($validated['limit'] ?? null, fn($q) => $q->limit($validated['limit']))
+            ->when($validated['limit'] ?? null, fn ($q) => $q->limit($validated['limit']))
             ->pluck('id')
             ->toArray();
 
@@ -126,12 +124,14 @@ class PracticeQuizApiController extends Controller
         $cached = cache()->get($cacheKey);
 
         if ($cached) {
+            $questions = array_map(fn (array $question) => $this->decorateQuestionPayload($question), $cached['questions']);
+
             return response()->json([
                 'success' => true,
                 'attempt_id' => $attempt->id,
                 'total_questions' => $cached['total_questions'],
                 'all_question_ids' => $cached['all_question_ids'],
-                'questions' => $cached['questions'],
+                'questions' => $questions,
                 'loaded_up_to_index' => $cached['loaded_up_to_index'],
                 'user_answers' => $cached['answers'],
                 'current_question_index' => $cached['position'],
@@ -229,11 +229,24 @@ class PracticeQuizApiController extends Controller
             return [
                 'id' => $question->id,
                 'question_text' => $question->question_text,
+                'question_text_html' => (string) $question->question_text,
                 'question_image' => $question->question_image,
                 'explanation' => $question->explanation,
                 'options' => $options,
             ];
         })->values()->toArray();
+    }
+
+    /**
+     * Ensure cached question payloads still expose rendered math.
+     */
+    private function decorateQuestionPayload(array $question): array
+    {
+        if (! isset($question['question_text_html'])) {
+            $question['question_text_html'] = (string) ($question['question_text'] ?? '');
+        }
+
+        return $question;
     }
 
     /**

@@ -435,8 +435,8 @@ function practiceQuiz() {
                                 </div>
 
                                 {{-- Question Card --}}
-                                <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm mb-8">
-                                    <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-text="currentQuestion.question_text"></flux:text>
+                                <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm mb-8" x-effect="currentQuestion && currentQuestion.question_text_html && window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] })">
+                                    <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-html="currentQuestion.question_text_html"></flux:text>
                                     <template x-if="currentQuestion.question_image">
                                         <img :src="currentQuestion.question_image" alt="Question" class="mt-4 max-w-full h-auto rounded-lg" loading="lazy">
                                     </template>

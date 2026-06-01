@@ -6,6 +6,8 @@ use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Services\QuizGeneratorService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -58,13 +60,13 @@ class TakeQuiz extends Component
             abort(403, 'This quiz is not currently available.');
         }
 
-        if (! $this->quiz->canUserAccess(auth()->user())) {
+        if (! $this->quiz->canUserAccess(Auth::user())) {
             abort(403, 'This quiz is not available on your current plan. Please subscribe to access all quizzes.');
         }
 
         // Check for active quiz attempt (in_progress status)
         $activeAttempt = $this->quiz->attempts()
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->where('status', 'in_progress')
             ->latest('created_at')
             ->first();
@@ -88,7 +90,7 @@ class TakeQuiz extends Component
         }
 
         // No active attempt exists, user can start a new one
-        if (! $this->quiz->canUserAttempt(auth()->user())) {
+        if (! $this->quiz->canUserAttempt(Auth::user())) {
             abort(403, 'You have reached the maximum number of attempts for this quiz.');
         }
     }
@@ -106,7 +108,10 @@ class TakeQuiz extends Component
         // Try to load everything from unified cache first (single Redis hit)
         $cached = cache()->get($cacheKey);
         if ($cached) {
-            $this->questions = $cached['questions'];
+            $this->questions = collect($cached['questions'])
+                ->map(fn ($question) => $this->prepareQuestionForDisplay($question))
+                ->values()
+                ->all();
             $this->shuffledOptions = $cached['options'];
             $this->answers = $cached['answers'];
             $this->currentQuestionIndex = $cached['position'] ?? 0;
@@ -125,7 +130,9 @@ class TakeQuiz extends Component
             ->sortBy(function ($question) use ($questionIds) {
                 return array_search($question->id, $questionIds);
             })
-            ->values();
+            ->values()
+            ->map(fn ($question) => $this->prepareQuestionForDisplay($question))
+            ->all();
 
         // Shuffle options for each question if enabled
         foreach ($this->questions as $question) {
@@ -146,6 +153,13 @@ class TakeQuiz extends Component
         ], now()->addHours(3));
     }
 
+    private function prepareQuestionForDisplay($question)
+    {
+        $question->question_text_html = (string) $question->question_text;
+
+        return $question;
+    }
+
     private function calculateRemainingSeconds()
     {
         if (! $this->attempt || ! $this->quiz->isTimed()) {
@@ -154,7 +168,7 @@ class TakeQuiz extends Component
 
         // Ensure started_at and duration_minutes are set
         if (! $this->attempt->started_at || ! $this->quiz->duration_minutes) {
-            \Log::warning('Quiz timer issue', [
+            Log::warning('Quiz timer issue', [
                 'attempt_id' => $this->attempt->id,
                 'started_at' => $this->attempt->started_at,
                 'duration_minutes' => $this->quiz->duration_minutes,
@@ -204,7 +218,7 @@ class TakeQuiz extends Component
     {
         $service = app(QuizGeneratorService::class);
 
-        $this->attempt = $service->generateAttempt($this->quiz, auth()->user());
+        $this->attempt = $service->generateAttempt($this->quiz, Auth::user());
 
         $this->loadAttemptQuestions();
 
@@ -257,7 +271,7 @@ class TakeQuiz extends Component
             // Reset saved status after 2 seconds
             $this->dispatch('resetAutoSaveStatus');
         } catch (\Throwable $e) {
-            \Log::error('Quiz auto-save failed: '.$e->getMessage());
+            Log::error('Quiz auto-save failed: '.$e->getMessage());
             $this->autoSaveStatus = 'idle';
         }
     }

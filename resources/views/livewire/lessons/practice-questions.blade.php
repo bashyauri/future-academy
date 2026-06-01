@@ -61,7 +61,7 @@
                         @endif
                     </div>
                     <div class="flex-1">
-                        <flux:text class="font-medium">{{ $question->question_text }}</flux:text>
+                        <flux:text class="font-medium">{!! $question->question_text_html !!}</flux:text>
                         @if($question->subject || $question->topic)
                             <div class="flex gap-2 mt-2">
                                 @if($question->subject)
@@ -90,18 +90,18 @@
                             wire:loading.attr="disabled"
                             wire:target="selectAnswer({{ $index }}, {{ $option->id }})"
                             @if($showResults[$index]) disabled @endif
-                            class="w-full text-left flex items-start gap-2 p-3 rounded transition-all relative {{ 
-                                $showResults[$index] 
-                                    ? ($option->is_correct 
-                                        ? 'bg-green-100 dark:bg-green-950/50 border-2 border-green-500 cursor-not-allowed' 
-                                        : ($selectedAnswers[$index] == $option->id 
-                                            ? 'bg-red-100 dark:bg-red-950/50 border-2 border-red-500 cursor-not-allowed' 
+                            class="w-full text-left flex items-start gap-2 p-3 rounded transition-all relative {{
+                                $showResults[$index]
+                                    ? ($option->is_correct
+                                        ? 'bg-green-100 dark:bg-green-950/50 border-2 border-green-500 cursor-not-allowed'
+                                        : ($selectedAnswers[$index] == $option->id
+                                            ? 'bg-red-100 dark:bg-red-950/50 border-2 border-red-500 cursor-not-allowed'
                                             : 'bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 cursor-not-allowed opacity-50'))
-                                    : ($selectedAnswers[$index] == $option->id 
-                                        ? 'bg-blue-100 dark:bg-blue-950/50 border-2 border-blue-500' 
+                                    : ($selectedAnswers[$index] == $option->id
+                                        ? 'bg-blue-100 dark:bg-blue-950/50 border-2 border-blue-500'
                                         : 'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-blue-300 dark:hover:border-blue-700')
                             }}">
-                            
+
                             {{-- Loading Spinner --}}
                             <div wire:loading wire:target="selectAnswer({{ $index }}, {{ $option->id }})" class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-neutral-900/80 rounded">
                                 <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -148,9 +148,9 @@
 
                 <div class="ml-11 mt-4 flex gap-2">
                     @if(!$showResults[$index])
-                        <flux:button 
-                            wire:click="submitAnswer({{ $index }})" 
-                            variant="primary" 
+                        <flux:button
+                            wire:click="submitAnswer({{ $index }})"
+                            variant="primary"
                             size="sm"
                             wire:loading.attr="disabled"
                             wire:target="submitAnswer({{ $index }})"
@@ -165,9 +165,9 @@
                             </span>
                         </flux:button>
                     @else
-                        <flux:button 
-                            wire:click="resetQuestion({{ $index }})" 
-                            variant="ghost" 
+                        <flux:button
+                            wire:click="resetQuestion({{ $index }})"
+                            variant="ghost"
                             size="sm"
                             wire:loading.attr="disabled"
                             wire:target="resetQuestion({{ $index }})">

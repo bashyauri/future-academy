@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class Question extends Model
 {
+    protected $appends = [
+        'question_text_html',
+    ];
+
     protected $fillable = [
         'question_text',
         'question_image',
@@ -41,6 +45,14 @@ class Question extends Model
         'year' => 'integer',
         'approved_at' => 'datetime',
     ];
+
+    protected function questionText(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): string => to_latex_exponents((string) $value),
+            set: fn (?string $value): string => (string) $value,
+        );
+    }
 
     // Relationships
     public function subject(): BelongsTo
@@ -152,7 +164,7 @@ class Question extends Model
 
     public function incrementUsage(): void
     {
-        $this->increment('times_used');
+        $this->increment('times_used', 1);
     }
 
     public function approve(User $user): void
@@ -188,5 +200,10 @@ class Question extends Model
     public function isRejected(): bool
     {
         return $this->status === 'rejected';
+    }
+
+    public function getQuestionTextHtmlAttribute(): string
+    {
+        return (string) $this->question_text;
     }
 }
