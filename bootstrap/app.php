@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ApplyImpersonation;
+use App\Http\Middleware\EnforceSingleSession;
 use App\Http\Middleware\EnsureStudentRole;
 use App\Http\Middleware\EnsureSubscriptionOrTrial;
 use App\Http\Middleware\McpAuth;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', [
+            EnforceSingleSession::class,
             ApplyImpersonation::class,
         ]);
 

@@ -6,6 +6,17 @@
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
+    @php
+        $authUser = auth()->user();
+        $canSwitchRoleContext = false;
+        $activeRoleContext = null;
+
+        if ($authUser) {
+            $canSwitchRoleContext = $authUser->canUseGuardianContext() && $authUser->canUseStudentContext();
+            $activeRoleContext = $authUser->resolveActiveRoleContext();
+        }
+    @endphp
+
     <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
@@ -31,7 +42,7 @@
             </flux:navlist.group>
         </flux:navlist>
 
-        @if(auth()->check() && (auth()->user()->isStudent() || auth()->user()->isTeacher()))
+        @if($authUser && ($authUser->isStudent() || $authUser->isTeacher()))
             <div class="my-4 w-full flex flex-col items-center gap-4">
                 <livewire:payment.status />
                 {{-- <livewire:payment.history /> --}}
@@ -43,29 +54,33 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            @if(auth()->check())
-                <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
+            @if($authUser)
+                <flux:profile :name="$authUser->name" :initials="$authUser->initials()"
                     icon:trailing="chevrons-up-down" />
+            @else
+                <flux:profile :name="__('Guest')" :initials="'G'" icon:trailing="chevrons-up-down" />
             @endif
 
             <flux:menu class="w-[220px]">
-                <flux:menu.radio.group>
-                    <div class="p-0 text-sm font-normal">
-                        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                <span
-                                    class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                @if($authUser)
+                    <flux:menu.radio.group>
+                        <div class="p-0 text-sm font-normal">
+                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+                                    <span
+                                        class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
+                                        {{ $authUser->initials() }}
+                                    </span>
                                 </span>
-                            </span>
 
-                            <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <span class="truncate font-semibold">{{ $authUser->name }}</span>
+                                    <span class="truncate text-xs">{{ $authUser->email }}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </flux:menu.radio.group>
+                    </flux:menu.radio.group>
+                @endif
 
                 <flux:menu.separator />
 
@@ -76,13 +91,7 @@
 
                 <flux:menu.separator />
 
-                @php
-                    $canGuardianContext = auth()->user()->canUseGuardianContext();
-                    $canStudentContext = auth()->user()->canUseStudentContext();
-                    $activeRoleContext = auth()->user()->resolveActiveRoleContext();
-                @endphp
-
-                @if($canGuardianContext && $canStudentContext)
+                @if($canSwitchRoleContext)
                     <div class="px-2 py-1 space-y-2">
                         <p class="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{{ __('Active Context') }}</p>
 
@@ -90,7 +99,7 @@
                             <form method="POST" action="{{ route('role-context.switch') }}" class="w-full">
                                 @csrf
                                 <input type="hidden" name="context" value="guardian">
-                                <flux:button type="submit" size="sm" variant="{{ $activeRoleContext === 'guardian' ? 'primary' : 'outline' }}" class="w-full">
+                                <flux:button type="submit" size="sm" :variant="$activeRoleContext === 'guardian' ? 'primary' : 'outline'" class="w-full">
                                     {{ __('Guardian') }}
                                 </flux:button>
                             </form>
@@ -98,7 +107,7 @@
                             <form method="POST" action="{{ route('role-context.switch') }}" class="w-full">
                                 @csrf
                                 <input type="hidden" name="context" value="student">
-                                <flux:button type="submit" size="sm" variant="{{ $activeRoleContext === 'student' ? 'primary' : 'outline' }}" class="w-full">
+                                <flux:button type="submit" size="sm" :variant="$activeRoleContext === 'student' ? 'primary' : 'outline'" class="w-full">
                                     {{ __('Student') }}
                                 </flux:button>
                             </form>
@@ -146,28 +155,32 @@
         <flux:spacer />
 
         <flux:dropdown position="top" align="end">
-            @if(auth()->check())
-                <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            @if($authUser)
+                <flux:profile :initials="$authUser->initials()" icon-trailing="chevron-down" />
+            @else
+                <flux:profile :initials="'G'" icon-trailing="chevron-down" />
             @endif
 
             <flux:menu>
-                <flux:menu.radio.group>
-                    <div class="p-0 text-sm font-normal">
-                        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                <span
-                                    class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                @if($authUser)
+                    <flux:menu.radio.group>
+                        <div class="p-0 text-sm font-normal">
+                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+                                    <span
+                                        class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
+                                        {{ $authUser->initials() }}
+                                    </span>
                                 </span>
-                            </span>
 
-                            <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <span class="truncate font-semibold">{{ $authUser->name }}</span>
+                                    <span class="truncate text-xs">{{ $authUser->email }}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </flux:menu.radio.group>
+                    </flux:menu.radio.group>
+                @endif
 
                 <flux:menu.separator />
 
@@ -178,13 +191,7 @@
 
                 <flux:menu.separator />
 
-                @php
-                    $canGuardianContext = auth()->user()->canUseGuardianContext();
-                    $canStudentContext = auth()->user()->canUseStudentContext();
-                    $activeRoleContext = auth()->user()->resolveActiveRoleContext();
-                @endphp
-
-                @if($canGuardianContext && $canStudentContext)
+                @if($canSwitchRoleContext)
                     <div class="px-2 py-1 space-y-2">
                         <p class="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{{ __('Active Context') }}</p>
 
@@ -192,7 +199,7 @@
                             <form method="POST" action="{{ route('role-context.switch') }}" class="w-full">
                                 @csrf
                                 <input type="hidden" name="context" value="guardian">
-                                <flux:button type="submit" size="sm" variant="{{ $activeRoleContext === 'guardian' ? 'primary' : 'outline' }}" class="w-full">
+                                <flux:button type="submit" size="sm" :variant="$activeRoleContext === 'guardian' ? 'primary' : 'outline'" class="w-full">
                                     {{ __('Guardian') }}
                                 </flux:button>
                             </form>
@@ -200,7 +207,7 @@
                             <form method="POST" action="{{ route('role-context.switch') }}" class="w-full">
                                 @csrf
                                 <input type="hidden" name="context" value="student">
-                                <flux:button type="submit" size="sm" variant="{{ $activeRoleContext === 'student' ? 'primary' : 'outline' }}" class="w-full">
+                                <flux:button type="submit" size="sm" :variant="$activeRoleContext === 'student' ? 'primary' : 'outline'" class="w-full">
                                     {{ __('Student') }}
                                 </flux:button>
                             </form>
