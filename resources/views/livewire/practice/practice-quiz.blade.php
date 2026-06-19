@@ -176,7 +176,7 @@
 
                         {{-- Question Card --}}
                         <template x-if="getCurrentQuestion()">
-                            <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm mb-8" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                            <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm mb-8" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && userAnswers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                                 <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-html="getCurrentQuestion().question_text_html"></flux:text>
                                 <template x-if="getCurrentQuestion().question_image">
                                     <img :src="getCurrentQuestion().question_image" alt="Question" class="mt-4 max-w-full h-auto rounded-lg" loading="lazy">
@@ -185,7 +185,7 @@
                         </template>
 
                             {{-- Options --}}
-                            <div class="space-y-3 mb-8" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                            <div class="space-y-3 mb-8" x-effect="getCurrentQuestion() && userAnswers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                                 <template x-for="(option, index) in getCurrentQuestion().options" :key="option.id">
                                     <button
                                         @click="selectAnswer(option.id)"

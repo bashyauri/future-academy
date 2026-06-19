@@ -297,7 +297,7 @@
                 </div>
 
                 <!-- Question Text -->
-                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 md:p-8 bg-white dark:bg-neutral-800" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 md:p-8 bg-white dark:bg-neutral-800" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && userAnswers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                     <flux:heading size="lg" class="text-lg md:text-xl leading-relaxed mb-4" x-html="getCurrentQuestion()?.question_text_html || ''"></flux:heading>
                     <template x-if="getCurrentQuestion()?.question_image">
                         <img :src="getCurrentQuestion().question_image" alt="Question" class="mt-4 max-w-full h-auto rounded-lg" loading="lazy">
@@ -305,7 +305,7 @@
                 </div>
 
                 <!-- Answer Options with Instant Feedback -->
-                <div class="space-y-3" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                <div class="space-y-3" x-effect="getCurrentQuestion() && userAnswers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                     <template x-for="option in getCurrentQuestion()?.options || []" :key="option.id">
                         <button
                             @click="selectAnswer(option.id)"

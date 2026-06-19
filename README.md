@@ -1,6 +1,6 @@
 # Future Academy - Learning Management System
 
-A comprehensive Learning Management System (LMS) built with Laravel 11, Livewire 3, and FilamentPHP 3 for JAMB, WAEC, and NECO exam preparation.
+A comprehensive Learning Management System (LMS) built with Laravel 12, Livewire 3, and FilamentPHP 4 for JAMB, WAEC, and NECO exam preparation.
 
 ## Features
 
@@ -44,18 +44,26 @@ A comprehensive Learning Management System (LMS) built with Laravel 11, Livewire
 
 ## Tech Stack
 
-- **Laravel 11**: Backend framework
+- **Laravel 12**: Backend framework
 - **Livewire 3**: Frontend reactivity
-- **FilamentPHP 3**: Admin panels and resources
-- **TailwindCSS 3**: Styling
+- **FilamentPHP 4**: Admin panels and resources
+- **TailwindCSS 4**: Styling
 - **Alpine.js 3**: Minimal JavaScript interactions
 - **Spatie Laravel Permission**: Role-based access control
 - **Maatwebsite Excel**: CSV/Excel import/export
 
+## Mobile App Integration
+
+The mobile app uses the same Laravel backend through Sanctum-protected `/api/v1` routes.
+
+- [Mobile integration guide](MOBILE_GUIDE.md)
+- [Milestone roadmap](MILESTONES.md)
+- API docs are generated with Scribe from real database content and controller annotations.
+
 ## Installation
 
 ### Prerequisites
-- PHP 8.3+
+- PHP 8.4+
 - Composer
 - Node.js & NPM
 - MySQL 5.7+ or PostgreSQL

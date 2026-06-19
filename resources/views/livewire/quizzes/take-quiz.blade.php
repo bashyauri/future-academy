@@ -453,9 +453,9 @@
             </div>
 
             {{-- Question Content --}}
-            <div class="lg:col-span-3 space-y-6">
+            <div class="lg:col-span-3 space-y-6" wire:ignore>
                 <template x-if="getCurrentQuestion()">
-                    <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-6" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                    <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-6" x-effect="getCurrentQuestion() && getCurrentQuestion().question_text_html && answers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                         {{-- Question Header --}}
                         <div class="flex items-start justify-between">
                             <flux:heading size="lg">
@@ -475,7 +475,7 @@
                         </div>
 
                         {{-- Answer Options --}}
-                        <div class="space-y-3" x-effect="getCurrentQuestion() && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
+                        <div class="space-y-3" x-effect="getCurrentQuestion() && answers && $nextTick(() => window.renderMathInElement?.($el, { delimiters: [{ left: '$', right: '$', display: false }] }))">
                             <template x-for="option in shuffledOptions[getCurrentQuestion().id]" :key="option.id">
                                 <button @click="!isAnswered(getCurrentQuestion().id) && selectAnswer(getCurrentQuestion().id, option.id)"
                                     :disabled="isAnswered(getCurrentQuestion().id)"

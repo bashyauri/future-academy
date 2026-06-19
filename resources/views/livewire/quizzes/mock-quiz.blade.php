@@ -205,7 +205,7 @@
                             <flux:text class="text-sm font-medium text-gray-600 dark:text-gray-400" x-text="subjectsData[currentSubjectIndex]?.name || ''"></flux:text>
                             <flux:badge color="blue" x-text="`Question ${currentQuestionIndex + 1} of ${getTotalInSubject()}`"></flux:badge>
                         </div>
-                        <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm" x-effect="if (getCurrentQuestion() && getCurrentQuestion().question_text_html) { if (window.renderMathInElement) { $nextTick(() => window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] })); } else { setTimeout(() => { if (window.renderMathInElement) { window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] }); } }, 300); } }">
+                        <div class="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm" x-effect="if (getCurrentQuestion() && getCurrentQuestion().question_text_html && userAnswers) { if (window.renderMathInElement) { $nextTick(() => window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] })); } else { setTimeout(() => { if (window.renderMathInElement) { window.renderMathInElement($el, { delimiters: [{ left: '$', right: '$', display: false }] }); } }, 300); } }">
                             <flux:text class="text-lg font-medium leading-relaxed text-gray-900 dark:text-gray-100" x-html="getCurrentQuestion()?.question_text_html || ''"></flux:text>
                         </div>
                     </div>
