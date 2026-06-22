@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\DownloadJambRequest;
 use App\Http\Requests\Api\DownloadSubjectRequest;
 use App\Http\Resources\Api\QuestionResource;
+use App\Http\Resources\Api\SubjectDownloadResponse;
 use App\Models\Question;
 use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @group Question Pack Downloads
@@ -45,38 +47,58 @@ class SubjectDownloadController extends Controller
      */
     public function downloadSubject(DownloadSubjectRequest $request, int $id): JsonResponse
     {
+        try {
+            $subject = Subject::with('examTypes')
+                ->where('is_active', true)
+                ->findOrFail($id);
 
-        $subject = Subject::with('examTypes')
-            ->where('is_active', true)
-            ->findOrFail($id);
+            $query = Question::with('options')
+                ->where('subject_id', $id)
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->where('is_mock', false);
 
-        $query = Question::with('options')
-            ->where('subject_id', $id)
-            ->where('is_active', true)
-            ->where('status', 'approved')
-            ->where('is_mock', false);
+            if ($request->has('year')) {
+                $query->where('year', $request->year);
+            }
 
-        if ($request->has('year')) {
-            $query->where('year', $request->year);
+            // Chunked loading for mobile (default 50 questions per page)
+            $perPage = $request->input('per_page', 50);
+            $page = $request->input('page', 1);
+
+            $questions = $query->orderBy('year')
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'subject' => [
+                    'id' => $subject->id,
+                    'name' => $subject->name,
+                    'code' => $subject->code,
+                    'slug' => $subject->slug,
+                    'icon' => $subject->icon,
+                    'color' => $subject->color,
+                ],
+                'questions' => QuestionResource::collection($questions),
+                'pagination' => [
+                    'total_questions' => $questions->total(),
+                    'per_page' => $questions->perPage(),
+                    'current_page' => $questions->currentPage(),
+                    'last_page' => $questions->lastPage(),
+                ],
+                'year_filter' => $request->year,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Subject download failed', [
+                'subject_id' => $id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to download subject questions',
+            ], 500);
         }
-
-        $questions = $query->orderBy('year')
-            ->orderBy('id')
-            ->get();
-
-        return response()->json([
-            'subject' => [
-                'id' => $subject->id,
-                'name' => $subject->name,
-                'code' => $subject->code,
-                'slug' => $subject->slug,
-                'icon' => $subject->icon,
-                'color' => $subject->color,
-            ],
-            'questions' => QuestionResource::collection($questions),
-            'total_questions' => $questions->count(),
-            'year_filter' => $request->year,
-        ], 200);
     }
 
     /**
@@ -102,62 +124,82 @@ class SubjectDownloadController extends Controller
      */
     public function downloadJambPractice(DownloadJambRequest $request): JsonResponse
     {
+        try {
+            $subjectIds = explode(',', $request->subjects);
+            $subjectIds = array_map('intval', $subjectIds);
 
-        $subjectIds = explode(',', $request->subjects);
-        $subjectIds = array_map('intval', $subjectIds);
-
-        if (count($subjectIds) < 1 || count($subjectIds) > 4) {
-            return response()->json([
-                'message' => 'Please provide between 1 and 4 subject IDs.',
-            ], 422);
-        }
-
-        $subjects = Subject::whereIn('id', $subjectIds)
-            ->where('is_active', true)
-            ->get()
-            ->keyBy('id');
-
-        $subjectData = [];
-
-        foreach ($subjectIds as $subjectId) {
-            if (!isset($subjects[$subjectId])) {
-                continue;
+            if (count($subjectIds) < 1 || count($subjectIds) > 4) {
+                return response()->json([
+                    'message' => 'Please provide between 1 and 4 subject IDs.',
+                ], 422);
             }
 
-            $subject = $subjects[$subjectId];
-
-            $query = Question::with('options')
-                ->where('subject_id', $subjectId)
+            $subjects = Subject::whereIn('id', $subjectIds)
                 ->where('is_active', true)
-                ->where('status', 'approved')
-                ->where('is_mock', false);
+                ->get()
+                ->keyBy('id');
 
-            if ($request->has('year')) {
-                $query->where('year', $request->year);
+            $subjectData = [];
+
+            foreach ($subjectIds as $subjectId) {
+                if (!isset($subjects[$subjectId])) {
+                    continue;
+                }
+
+                $subject = $subjects[$subjectId];
+
+                $query = Question::with('options')
+                    ->where('subject_id', $subjectId)
+                    ->where('is_active', true)
+                    ->where('status', 'approved')
+                    ->where('is_mock', false);
+
+                if ($request->has('year')) {
+                    $query->where('year', $request->year);
+                }
+
+                // Chunked loading for mobile (default 50 questions per page)
+                $perPage = $request->input('per_page', 50);
+                $page = $request->input('page', 1);
+
+                $questions = $query->orderBy('year')
+                    ->orderBy('id')
+                    ->paginate($perPage, ['*'], 'page', $page);
+
+                $subjectData[] = [
+                    'id' => $subject->id,
+                    'name' => $subject->name,
+                    'code' => $subject->code,
+                    'slug' => $subject->slug,
+                    'icon' => $subject->icon,
+                    'color' => $subject->color,
+                    'questions' => QuestionResource::collection($questions),
+                    'pagination' => [
+                        'total_questions' => $questions->total(),
+                        'per_page' => $questions->perPage(),
+                        'current_page' => $questions->currentPage(),
+                        'last_page' => $questions->lastPage(),
+                    ],
+                ];
             }
 
-            $questions = $query->orderBy('year')
-                ->orderBy('id')
-                ->get();
+            $totalQuestions = array_sum(array_column($subjectData, 'total_questions'));
 
-            $subjectData[] = [
-                'id' => $subject->id,
-                'name' => $subject->name,
-                'code' => $subject->code,
-                'slug' => $subject->slug,
-                'icon' => $subject->icon,
-                'color' => $subject->color,
-                'questions' => QuestionResource::collection($questions),
-                'total_questions' => $questions->count(),
-            ];
+            return response()->json([
+                'subjects' => $subjectData,
+                'total_questions' => $totalQuestions,
+                'year_filter' => $request->year,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('JAMB download failed', [
+                'subjects' => $request->subjects,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to download JAMB questions',
+            ], 500);
         }
-
-        $totalQuestions = array_sum(array_column($subjectData, 'total_questions'));
-
-        return response()->json([
-            'subjects' => $subjectData,
-            'total_questions' => $totalQuestions,
-            'year_filter' => $request->year,
-        ], 200);
     }
 }

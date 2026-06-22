@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -47,6 +48,11 @@ class AuthController extends Controller
             $data['password'],
             $user->password
         )) {
+                        Log::warning('Failed login attempt', [
+                'email' => $data['email'],
+                'ip' => $request->ip(),
+                'device_name' => $data['device_name'] ?? 'unknown',
+            ]);
 
 
             throw ValidationException::withMessages([
@@ -59,10 +65,12 @@ class AuthController extends Controller
 
         }
 
-
-
         if (!$user->is_active) {
-
+            Log::warning('Login attempt on disabled account', [
+                'email' => $data['email'],
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
 
             throw ValidationException::withMessages([
 

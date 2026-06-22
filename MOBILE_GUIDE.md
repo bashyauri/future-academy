@@ -540,26 +540,112 @@ CREATE TABLE IF NOT EXISTS offline_answers (
 
 ## 🌐 Phase 4: APIs to Create (Aligned with Web Logic)
 
+### ✅ Phase 4.1: Question Download APIs (Milestone 2 — COMPLETE)
+
 ### 1. `GET /api/v1/subjects/{id}/download`
 Downloads single subject question packages for practice.
 *   **Query Parameters**: `year` (optional).
 
-### 2. `POST /api/v1/jamb/download`
+### 2. `GET /api/v1/jamb/download`
 Downloads questions for 4 selected subjects at once for JAMB practice.
 *   **Query Parameters**: `subjects` (comma-separated), `year` (optional).
 
-### 3. `GET /api/v1/mock/groups`
+### 🟡 Phase 4.2: Configuration APIs (Milestone 5 — PENDING)
+
+### 3. `GET /api/v1/subjects`
+Lists all active subjects with metadata (id, name, code, slug, icon, color).
+*   **Response**: Array of subject objects.
+
+### 4. `GET /api/v1/exam-types`
+Lists all exam types (JAMB, WAEC, NECO) with IDs.
+*   **Response**: Array of exam type objects.
+
+### 5. `GET /api/v1/years`
+Lists available years for filtering questions.
+*   **Response**: Array of year integers (e.g., [2020, 2021, 2022, 2023, 2024]).
+
+### 6. `GET /api/v1/config/mock-formats`
+Returns mock exam configuration from `config/mock.php` (question counts, time limits per exam type).
+*   **Response**: Mock format configuration object.
+
+### 🟡 Phase 4.3: Quiz & Lesson APIs (Milestone 5 — PENDING)
+
+### 7. `GET /api/v1/quizzes`
+Lists available quizzes with metadata (title, type, duration, question_count).
+*   **Query Parameters**: `subject_id` (optional), `type` (optional).
+
+### 8. `GET /api/v1/quizzes/{id}`
+Gets quiz details including questions (for lesson quizzes).
+*   **Response**: Quiz object with questions and options.
+
+### 9. `POST /api/v1/quizzes/{id}/start`
+Creates a new quiz attempt and returns attempt ID.
+*   **Body**: `{ "question_count": 40, "shuffle": true }`
+
+### 10. `POST /api/v1/quiz-attempts/{id}/answers`
+Batch submits answers for a quiz attempt (for offline sync).
+*   **Body**: `{ "answers": [{ "question_id": 1, "option_id": 3 }, ...] }`
+
+### 11. `POST /api/v1/quiz-attempts/{id}/submit`
+Finalizes a quiz attempt and calculates score.
+*   **Response**: Attempt object with score and results.
+
+### 12. `GET /api/v1/quiz-attempts/{id}/results`
+Gets attempt results with detailed answer review and explanations.
+*   **Response**: Results object with correct/incorrect breakdown.
+
+### 13. `GET /api/v1/subjects/{id}/lessons`
+Lists lessons for a subject with progress tracking.
+*   **Response**: Array of lesson objects with completion status.
+
+### 14. `GET /api/v1/lessons/{id}`
+Gets lesson details including video URL, duration, and content.
+*   **Response**: Lesson object with video metadata.
+
+### 15. `POST /api/v1/lessons/{id}/progress`
+Updates video watch progress (for offline sync).
+*   **Body**: `{ "watched_seconds": 120, "completed": false }`
+
+### 16. `POST /api/v1/lessons/{id}/complete`
+Marks a lesson as completed.
+*   **Response**: Success confirmation.
+
+### 🟡 Phase 4.4: Analytics APIs (Milestone 5 — PENDING)
+
+### 17. `GET /api/v1/analytics/overview`
+Returns user dashboard stats (total quizzes, avg score, streak, time spent).
+*   **Response**: Overview stats object.
+
+### 18. `GET /api/v1/analytics/subject-performance`
+Returns performance breakdown by subject.
+*   **Response**: Array of subject performance objects.
+
+### 19. `GET /api/v1/analytics/quiz-history`
+Returns recent quiz attempts with scores.
+*   **Query Parameters**: `limit` (optional, default 10).
+*   **Response**: Array of quiz attempt objects.
+
+### 20. `GET /api/v1/analytics/study-streak`
+Returns study streak data (last 30 days).
+*   **Response**: Streak data object.
+
+### 🟡 Phase 4.5: Mock Exam APIs (Milestone 4 — PENDING)
+
+### 21. `GET /api/v1/mock/groups`
 Fetches mock groups (batches) for a single subject and exam type.
 *   **Query Parameters**: `subject_id` (required), `exam_type_id` (required).
 
-### 4. `GET /api/v1/mock/groups/{id}/download`
+### 22. `GET /api/v1/mock/groups/{id}/download`
 Downloads questions assigned to a specific mock group (is_mock = 1).
 
-### 5. `POST /api/v1/mock/sessions`
+### 23. `POST /api/v1/mock/sessions`
 Validates and initializes a multi-subject Mock Session on the backend, generating custom configuration.
 
-### 6. `POST /api/v1/sync`
+### 🟡 Phase 4.6: Sync APIs (Milestone 3 — PENDING)
+
+### 24. `POST /api/v1/sync`
 Processes sync queues. The attempts payload supports `mock_group_id` for mock exam grading on the server.
+*   **Body**: `{ "attempts": [...], "answers": [...], "lesson_progress": [...] }`
 
 ---
 
@@ -633,7 +719,7 @@ In `config/scribe.php`, keep the database-first example order so generated sampl
 To ensure that downloading questions takes **less than 2 seconds** on slow 3G/4G connections in Nigeria:
 
 1. **Text JSON payloads are extremely small**:
-   A single question with 4 options is around **350 bytes** of text. 
+   A single question with 4 options is around **350 bytes** of text.
    * A single subject mock exam (50 questions) = **17.5 KB**.
    * A full 5-year single subject bank (200 questions) = **70 KB**.
    * Even downloading all 4 JAMB subjects (e.g. 160 questions) is less than **60 KB**.
@@ -646,6 +732,25 @@ To ensure that downloading questions takes **less than 2 seconds** on slow 3G/4G
    * Download the text JSON structure first (instant).
    * Caches image URIs (`question_image`) in SQLite.
    * Let the mobile app download and cache individual images in the background or load them only when the student navigates to a question that actually has a diagram. This prevents downloading megabytes of unused images.
+
+4. **Delta Sync for Updates**:
+   Instead of re-downloading entire question banks, implement a delta sync mechanism:
+   * Send `last_synced_at` timestamp to download endpoint
+   * Server returns only questions added/modified since that timestamp
+   * Mobile app merges delta into local SQLite database
+
+5. **Batch API Calls**:
+   Group multiple API calls into single requests where possible:
+   * Use `GET /api/v1/jamb/download` instead of 4 separate subject downloads
+   * Batch answer submissions in single `POST /api/v1/sync` call
+   * Combine configuration data (subjects, exam types, years) into single endpoint
+
+6. **Request Queuing with Retry Logic**:
+   Implement a robust request queue for poor network conditions:
+   * Queue failed requests automatically
+   * Exponential backoff retry (1s, 2s, 4s, 8s, 16s)
+   * Max retry limit (e.g., 5 attempts)
+   * Persist queue to SQLite so requests survive app restarts
 
 ---
 

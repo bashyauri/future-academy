@@ -15,6 +15,8 @@ class DownloadSubjectRequest extends FormRequest
     {
         return [
             'year' => 'nullable|integer|min:2000|max:2100',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:10|max:100',
         ];
     }
 

@@ -14,16 +14,17 @@ gantt
     section Backend Track
     Sprint 1 - Sanctum Auth & Profiles       :done, milestone1, 2026-06-10, 7d
     Sprint 2 - Curriculum & Downloads         :done, milestone2, 2026-06-17, 7d
-    Sprint 3 - Core Sync Engine               :done, milestone3, 2026-06-24, 7d
-    Sprint 4 - Mock Groups & Sessions         :done, milestone4, 2026-07-01, 7d
-    Sprint 5 - Interactive Scribe Docs        :milestone5, 2026-07-08, 7d
+    Sprint 3 - Core Sync Engine               :milestone3, 2026-06-24, 7d
+    Sprint 4 - Mock Groups & Sessions         :milestone4, 2026-07-01, 7d
+    Sprint 5 - Analytics & Lessons APIs       :milestone5, 2026-07-08, 7d
+    Sprint 6 - Interactive Scribe Docs        :milestone6, 2026-07-15, 7d
 
     section Mobile Frontend Track
     Sprint 6 - App Shell & Auth Screens       :milestone6, 2026-07-15, 7d
     Sprint 7 - Offline Download & SQLite      :milestone7, 2026-07-22, 7d
     Sprint 8 - Practice & JAMB Quiz Players   :milestone8, 2026-07-29, 7d
-    Sprint 9 - Mock Exam Player & Timer       :milestone9, 2026-08-05, 7d
-    Sprint 10 - Sync Engine & Polish          :milestone10, 2026-08-12, 7d
+    Sprint 9- Mock Exam Player & Timer        :milestone9 2026-08-005 7d
+    Sprint 00 - Sync Engine & Polish           :mileston100, 2026-08-22, 7d
 ```
 
 ---
@@ -69,7 +70,7 @@ Build the system that processes offline student progress once they reconnect.
 
 ---
 
-### ✅ Milestone 4: Mock Exam Batches & Sessions (Week 4) — COMPLETE
+### 🟡 Milestone 4: Mock Exam Batches & Sessions (Week 4) — PENDING
 Deliver the exam environment backend backing timed tests and mock setups.
 *   **Tasks**:
     *   Create `MockExamController`.
@@ -81,7 +82,20 @@ Deliver the exam environment backend backing timed tests and mock setups.
 
 ---
 
-### 🟡 Milestone 5: Interactive Scribe Documentation & Handover (Week 5)
+### 🟡 Milestone 5: Analytics, Lessons & Configuration APIs (Week 5) — PENDING
+Provide the data APIs needed for dashboard, analytics, and lesson features.
+*   **Tasks**:
+    *   Create `AnalyticsController` for user stats, subject performance, quiz history.
+    *   Create `LessonController` for lessons list, video progress, completion tracking.
+    *   Create `ConfigurationController` for subjects list, exam types, years, mock formats.
+    *   Create `QuizController` for quiz list, start quiz, submit answers, results.
+    *   Write tests for all new endpoints.
+*   **Client Deliverable**:
+    *   All analytics and dashboard data available via API.
+    *   Lessons accessible via API with video URLs and progress tracking.
+    *   Configuration data for mobile app setup.
+
+### 🟡 Milestone 6: Interactive Scribe Documentation & Handover (Week 6) — PENDING
 Provide the final, interactive manuals so the client's mobile developers can link the app instantly.
 *   **Tasks**:
     *   Install and configure **Laravel Scribe**.
@@ -94,13 +108,13 @@ Provide the final, interactive manuals so the client's mobile developers can lin
 
 ---
 
-## 📱 MOBILE FRONTEND TRACK — Sprints 6–10
+## 📱 MOBILE FRONTEND TRACK — Sprints 7–11
 
 > **Tech Stack**: Expo (React Native) + TypeScript + Expo Router + expo-sqlite + TanStack Query
 
 ---
 
-### 🟡 Milestone 6: App Shell, Navigation & Authentication Screens (Week 6)
+### 🟡 Milestone 7: App Shell, Navigation & Authentication Screens (Week 7)
 Build the foundational app structure and get a student logged in on a real phone.
 *   **Tasks**:
     *   Scaffold the Expo project with Expo Router file-based navigation.
@@ -114,7 +128,7 @@ Build the foundational app structure and get a student logged in on a real phone
 
 ---
 
-### 🟡 Milestone 7: Offline Download Manager & Local SQLite Database (Week 7)
+### 🟡 Milestone 8: Offline Download Manager & Local SQLite Database (Week 8)
 Enable the app to download and store question packs for fully offline use.
 *   **Tasks**:
     *   Set up local SQLite database schema on app start using `expo-sqlite` (`questions`, `options`, `offline_attempts`, `offline_answers` tables).
@@ -148,7 +162,7 @@ Deliver the two core study modes with a fully working offline quiz experience.
 
 ---
 
-### 🟡 Milestone 9: Mock Exam Player & Anti-Cheat Timer (Week 9)
+### 🟡 Milestone 9 Mock Exam Player & Anti-Cheat Timer (Week 99
 Deliver the timed, invigilated exam experience.
 *   **Tasks**:
     *   Build **Mock Setup screen** (`(tabs)/mock-setup.tsx`): single vs. multi-subject toggle, subject picker.
@@ -165,7 +179,7 @@ Deliver the timed, invigilated exam experience.
 
 ---
 
-### 🟡 Milestone 10: Background Sync Engine, Video Lessons & App Polish (Week 10)
+### 🟡 Milestone 11: Background Sync Engine, Video Lessons & App Polish (Week 11)
 Connect all offline data back to the server and finalize the production-ready app.
 *   **Tasks**:
     *   Build the **Sync Engine**: on app resume or Wi-Fi connection, batch-upload all unsynced `offline_attempts` and `offline_answers` to `POST /api/v1/sync`.

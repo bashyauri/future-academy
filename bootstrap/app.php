@@ -5,7 +5,6 @@ use App\Http\Middleware\EnforceSingleSession;
 use App\Http\Middleware\EnsureStudentRole;
 use App\Http\Middleware\EnsureSubscriptionOrTrial;
 use App\Http\Middleware\McpAuth;
-use App\Services\PerformanceBoost\BoostServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withProviders([
-        BoostServiceProvider::class,
+       //
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', [
@@ -44,6 +43,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'mcp/*',
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })->create();;

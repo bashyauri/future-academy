@@ -141,6 +141,87 @@ Add the following header to all authenticated requests:
 }
 ```
 
+### Sync Engine (Offline Data Synchronization)
+
+#### Sync Offline Data
+
+- **Method**: `POST`
+- **URL**: `https://future-academy.test/api/v1/sync`
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Body**:
+```json
+{
+  "attempts": [
+    {
+      "uuid": "unique-uuid-for-attempt",
+      "user_id": 1,
+      "quiz_id": 1,
+      "subject_id": 1,
+      "exam_year": 2024,
+      "status": "completed",
+      "started_at": "2024-01-01T10:00:00Z",
+      "completed_at": "2024-01-01T10:30:00Z",
+      "time_taken_seconds": 1800,
+      "total_questions": 40,
+      "correct_answers": 32,
+      "score_percentage": 80,
+      "passed": true,
+      "question_order": [1, 2, 3, 4]
+    }
+  ],
+  "answers": [
+    {
+      "attempt_uuid": "unique-uuid-for-attempt",
+      "question_id": 1,
+      "option_id": 3,
+      "is_correct": true,
+      "time_spent_seconds": 30
+    }
+  ],
+  "lesson_progress": [
+    {
+      "user_id": 1,
+      "lesson_id": 1,
+      "current_time_seconds": 120,
+      "progress_percentage": 30,
+      "is_completed": false,
+      "time_spent_seconds": 120
+    }
+  ]
+}
+```
+- **Response**:
+```json
+{
+  "message": "Sync completed successfully",
+  "synced_attempts": 1,
+  "synced_answers": 1,
+  "synced_lesson_progress": 1,
+  "failed_attempts": 0,
+  "failed_answers": 0
+}
+```
+- **Notes**:
+  - All arrays are optional - send only what you need to sync
+  - UUID is used to prevent duplicate submissions (double-grading protection)
+  - Uses database transactions for data integrity
+  - Designed for poor network conditions with retry support
+
+#### Get Sync Status
+
+- **Method**: `GET`
+- **URL**: `https://future-academy.test/api/v1/sync/status`
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Response**:
+```json
+{
+  "unsynced_attempts": 0,
+  "unsynced_answers": 0,
+  "unsynced_lesson_progress": 0
+}
+```
+- **Notes**: Returns count of unsynced data (mobile app tracks this locally)
+
 ## Error Responses
 
 ### 401 Unauthorized
