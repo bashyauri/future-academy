@@ -222,6 +222,173 @@ Add the following header to all authenticated requests:
 ```
 - **Notes**: Returns count of unsynced data (mobile app tracks this locally)
 
+### Mock Exam Batches & Sessions
+
+#### Get Mock Groups for Subject and Exam Type
+
+- **Method**: `GET`
+- **URL**: `https://future-academy.test/api/v1/mock/groups`
+- **Query Parameters**:
+  - `subject_id` - Subject ID (required)
+  - `exam_type_id` - Exam type ID (required)
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Example**: `https://future-academy.test/api/v1/mock/groups?subject_id=1&exam_type_id=1`
+- **Response**:
+```json
+{
+  "message": "Mock groups retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "subject_id": 1,
+      "exam_type_id": 1,
+      "batch_number": 1,
+      "total_questions": 40,
+      "subject": {
+        "id": 1,
+        "name": "Mathematics",
+        "code": "MATH",
+        "slug": "mathematics",
+        "icon": "icon-name",
+        "color": "#hex-color"
+      },
+      "exam_type": {
+        "id": 1,
+        "name": "JAMB",
+        "slug": "jamb"
+      }
+    }
+  ]
+}
+```
+
+#### Get Specific Mock Group by Batch Number
+
+- **Method**: `GET`
+- **URL**: `https://future-academy.test/api/v1/mock/groups/{batchNumber}`
+- **URL Parameters**:
+  - `{batchNumber}` - Batch number (required)
+- **Query Parameters**:
+  - `subject_id` - Subject ID (required)
+  - `exam_type_id` - Exam type ID (required)
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Example**: `https://future-academy.test/api/v1/mock/groups/1?subject_id=1&exam_type_id=1`
+- **Response**:
+```json
+{
+  "message": "Mock group retrieved successfully",
+  "data": {
+    "id": 1,
+    "subject_id": 1,
+    "exam_type_id": 1,
+    "batch_number": 1,
+    "total_questions": 40,
+    "subject": {...},
+    "exam_type": {...}
+  }
+}
+```
+
+#### Download Mock Group Questions
+
+- **Method**: `GET`
+- **URL**: `https://future-academy.test/api/v1/mock/groups/{batchNumber}/download`
+- **URL Parameters**:
+  - `{batchNumber}` - Batch number (required)
+- **Query Parameters**:
+  - `subject_id` - Subject ID (required)
+  - `exam_type_id` - Exam type ID (required)
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Example**: `https://future-academy.test/api/v1/mock/groups/1/download?subject_id=1&exam_type_id=1`
+- **Response**:
+```json
+{
+  "message": "Mock group questions downloaded successfully",
+  "data": {
+    "mock_group": {
+      "id": 1,
+      "subject_id": 1,
+      "exam_type_id": 1,
+      "batch_number": 1,
+      "total_questions": 40,
+      "subject": {...},
+      "exam_type": {...}
+    },
+    "questions": [
+      {
+        "id": 1,
+        "question_text": "Question text here",
+        "question_text_html": "HTML formatted question",
+        "question_image": "image-url",
+        "explanation": "Explanation text",
+        "explanation_html": "HTML formatted explanation",
+        "explanation_image": "image-url",
+        "subject_id": 1,
+        "topic_id": 1,
+        "exam_type_id": 1,
+        "exam_year": 2024,
+        "year": 2024,
+        "difficulty": "medium",
+        "is_mock": true,
+        "mock_group_id": 1,
+        "options": [...]
+      }
+    ]
+  }
+}
+```
+
+#### Initialize Multi-Subject Mock Session
+
+- **Method**: `POST`
+- **URL**: `https://future-academy.test/api/v1/mock/sessions`
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Body**:
+```json
+{
+  "subject_ids": [1, 2, 3, 4],
+  "exam_type_id": 1,
+  "duration_minutes": 120
+}
+```
+- **Response**:
+```json
+{
+  "message": "Mock session initialized successfully",
+  "data": {
+    "session_id": "uuid-v4-string",
+    "exam_type": {
+      "id": 1,
+      "name": "JAMB",
+      "slug": "jamb"
+    },
+    "subjects": [
+      {
+        "id": 1,
+        "name": "Mathematics",
+        "code": "MATH",
+        "slug": "mathematics",
+        "icon": "icon-name",
+        "color": "#hex-color",
+        "total_groups": 5,
+        "first_group": {...},
+        "time_limit_minutes": 30
+      }
+    ],
+    "duration_minutes": 120,
+    "total_questions": 160,
+    "time_limit_per_subject": 30,
+    "created_at": "2024-01-01T10:00:00Z"
+  }
+}
+```
+- **Notes**:
+  - `subject_ids` must be an array of 1-4 subject IDs
+  - `duration_minutes` is optional (defaults to 120 minutes)
+  - Time is divided equally among subjects
+  - Returns unique session_id for tracking the mock attempt
+  - Includes first mock group for each subject to start the exam
+
 ## Error Responses
 
 ### 401 Unauthorized

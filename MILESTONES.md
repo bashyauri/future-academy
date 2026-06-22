@@ -70,15 +70,15 @@ Build the system that processes offline student progress once they reconnect.
 
 ---
 
-### 🟡 Milestone 4: Mock Exam Batches & Sessions (Week 4) — PENDING
+### ✅ Milestone 4: Mock Exam Batches & Sessions (Week 4) — COMPLETE
 Deliver the exam environment backend backing timed tests and mock setups.
 *   **Tasks**:
-    *   Create `MockExamController`.
-    *   Implement single-subject **Mock Group (batch)** selection and download endpoints.
-    *   Implement multi-subject **Mock Session** initialization, returning dynamic subject configurations and time limits.
-    *   Integrate mock attempt sync validation inside database transaction layers.
+    *   Create `MockExamController`. ✅
+    *   Implement single-subject **Mock Group (batch)** selection and download endpoints. ✅
+    *   Implement multi-subject **Mock Session** initialization, returning dynamic subject configurations and time limits. ✅
+    *   Integrate mock attempt sync validation inside database transaction layers. ✅
 *   **Client Deliverable**:
-    *   Working API workflows showing students starting a multi-subject Mock Session and submitting scores securely.
+    *   Working API workflows showing students starting a multi-subject Mock Session and submitting scores securely. ✅
 
 ---
 

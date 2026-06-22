@@ -1,0 +1,366 @@
+{
+  "info": {
+    "name": "Future Academy API",
+    "description": "Complete API collection for Future Academy mobile app testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "future-academy-api-collection"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://future-academy.test/api/v1",
+      "type": "string",
+      "description": "API base URL - switch between local and production environments"
+    },
+    {
+      "key": "localUrl",
+      "value": "https://future-academy.test/api/v1",
+      "type": "string",
+      "description": "Local development URL"
+    },
+    {
+      "key": "productionUrl",
+      "value": "https://futureacademy-rm.com/api/v1",
+      "type": "string",
+      "description": "Production URL"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Authentication token - set automatically after login"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"your-email@example.com\",\n  \"password\": \"your-password\",\n  \"device_name\": \"Postman Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Authenticate user and get Bearer token"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"token\", jsonData.token);",
+                  "pm.collectionVariables.set(\"user\", JSON.stringify(jsonData.user));",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has token\", function () {",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user",
+              "host": ["{{baseUrl}}"],
+              "path": ["user"]
+            },
+            "description": "Get current authenticated user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            },
+            "description": "Logout current user and revoke token"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set(\"token\", \"\");",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Question Downloads",
+      "item": [
+        {
+          "name": "Download Single Subject",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subjects/:id/download?page=1&per_page=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["subjects", ":id", "download"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination"
+                },
+                {
+                  "key": "per_page",
+                  "value": "50",
+                  "description": "Items per page (max 100)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Subject ID"
+                }
+              ]
+            },
+            "description": "Download questions for a single subject with optional pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Download JAMB Practice (Multi-Subject)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jamb/download?subjects=1,2,3,4&page=1&per_page=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["jamb", "download"],
+              "query": [
+                {
+                  "key": "subjects",
+                  "value": "1,2,3,4",
+                  "description": "Comma-separated subject IDs (1-4 subjects)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination"
+                },
+                {
+                  "key": "per_page",
+                  "value": "50",
+                  "description": "Items per page (max 100)"
+                }
+              ]
+            },
+            "description": "Download questions for multiple subjects (JAMB practice)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sync Engine",
+      "item": [
+        {
+          "name": "Sync Offline Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attempts\": [\n    {\n      \"uuid\": \"unique-uuid-for-attempt\",\n      \"user_id\": 1,\n      \"quiz_id\": 1,\n      \"subject_id\": 1,\n      \"exam_year\": 2024,\n      \"status\": \"completed\",\n      \"started_at\": \"2024-01-01T10:00:00Z\",\n      \"completed_at\": \"2024-01-01T10:30:00Z\",\n      \"time_taken_seconds\": 1800,\n      \"total_questions\": 40,\n      \"correct_answers\": 32,\n      \"score_percentage\": 80,\n      \"passed\": true,\n      \"question_order\": [1, 2, 3, 4]\n    }\n  ],\n  \"answers\": [\n    {\n      \"attempt_uuid\": \"unique-uuid-for-attempt\",\n      \"question_id\": 1,\n      \"option_id\": 3,\n      \"is_correct\": true,\n      \"time_spent_seconds\": 30\n    }\n  ],\n  \"lesson_progress\": [\n    {\n      \"user_id\": 1,\n      \"lesson_id\": 1,\n      \"current_time_seconds\": 120,\n      \"progress_percentage\": 30,\n      \"is_completed\": false,\n      \"time_spent_seconds\": 120\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sync",
+              "host": ["{{baseUrl}}"],
+              "path": ["sync"]
+            },
+            "description": "Sync offline quiz attempts, answers, and lesson progress"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sync Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sync/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["sync", "status"]
+            },
+            "description": "Get status of unsynced offline data"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mock Exams",
+      "item": [
+        {
+          "name": "Get Mock Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mock/groups?subject_id=1&exam_type_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mock", "groups"],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "description": "Subject ID (required)"
+                },
+                {
+                  "key": "exam_type_id",
+                  "value": "1",
+                  "description": "Exam type ID (required)"
+                }
+              ]
+            },
+            "description": "Get all mock groups for a subject and exam type"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Specific Mock Group",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mock/groups/:batchNumber?subject_id=1&exam_type_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mock", "groups", ":batchNumber"],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "description": "Subject ID (required)"
+                },
+                {
+                  "key": "exam_type_id",
+                  "value": "1",
+                  "description": "Exam type ID (required)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "batchNumber",
+                  "value": "1",
+                  "description": "Batch number"
+                }
+              ]
+            },
+            "description": "Get a specific mock group by batch number"
+          },
+          "response": []
+        },
+        {
+          "name": "Download Mock Group Questions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mock/groups/:batchNumber/download?subject_id=1&exam_type_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mock", "groups", ":batchNumber", "download"],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "description": "Subject ID (required)"
+                },
+                {
+                  "key": "exam_type_id",
+                  "value": "1",
+                  "description": "Exam type ID (required)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "batchNumber",
+                  "value": "1",
+                  "description": "Batch number"
+                }
+              ]
+            },
+            "description": "Download questions for a specific mock group"
+          },
+          "response": []
+        },
+        {
+          "name": "Initialize Mock Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject_ids\": [1, 2, 3, 4],\n  \"exam_type_id\": 1,\n  \"duration_minutes\": 120\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mock/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["mock", "sessions"]
+            },
+            "description": "Initialize a multi-subject mock session"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
