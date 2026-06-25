@@ -4,10 +4,12 @@ use App\Http\Middleware\ApplyImpersonation;
 use App\Http\Middleware\EnforceSingleSession;
 use App\Http\Middleware\EnsureStudentRole;
 use App\Http\Middleware\EnsureSubscriptionOrTrial;
+use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\McpAuth;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -20,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withProviders([
-       //
+        //
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', [
@@ -35,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'mcp.auth' => McpAuth::class,
+            'force.json' => ForceJsonResponse::class,
         ]);
 
         // Exclude webhook routes from CSRF verification
@@ -43,6 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'mcp/*',
         ]);
     })
-     ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();;
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'exception' => get_class($e),
+                ], 500);
+            }
+        });
+    })->create();

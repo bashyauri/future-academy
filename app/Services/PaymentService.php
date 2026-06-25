@@ -2,19 +2,23 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
+use App\Models\Subscription;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PaymentService
 {
     protected string $baseUrl;
+
     protected string $secretKey;
 
     public function __construct()
     {
-        $this->baseUrl   = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
-        $this->secretKey = Config::get('services.paystack.secret_key');
+        $this->baseUrl = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
+        $this->secretKey = Config::get('services.paystack.secret_key') ?? '';
     }
 
     /**
@@ -88,16 +92,16 @@ class PaymentService
         ]);
 
         // Try to get email_token from local database first (stored from webhook)
-        $subscription = \App\Models\Subscription::where('subscription_code', $subscriptionCode)->first();
+        $subscription = Subscription::where('subscription_code', $subscriptionCode)->first();
         $emailToken = $subscription?->email_token;
 
         Log::info('Checking for stored email_token', [
             'subscription_code' => $subscriptionCode,
-            'has_stored_token' => !empty($emailToken),
+            'has_stored_token' => ! empty($emailToken),
         ]);
 
         // If not in database, fetch from Paystack API
-        if (!$emailToken) {
+        if (! $emailToken) {
             Log::info('Email token not found in DB, fetching from Paystack');
 
             $fetchUrl = "{$this->baseUrl}/subscription/{$subscriptionCode}";
@@ -109,12 +113,13 @@ class PaymentService
                 'fetch_status' => $fetchResponse->status(),
             ]);
 
-            if (!$fetchResponse->successful() || !($fetchData['status'] ?? false)) {
+            if (! $fetchResponse->successful() || ! ($fetchData['status'] ?? false)) {
                 Log::error('Failed to fetch subscription for cancellation', [
                     'subscription_code' => $subscriptionCode,
                     'fetch_status' => $fetchResponse->status(),
                     'fetch_data' => $fetchData,
                 ]);
+
                 return [
                     'success' => false,
                     'message' => 'Unable to fetch subscription details from Paystack.',
@@ -123,11 +128,12 @@ class PaymentService
 
             // Extract the email_token from the subscription details
             $emailToken = $fetchData['data']['email_token'] ?? null;
-            if (!$emailToken) {
+            if (! $emailToken) {
                 Log::error('No email_token found in subscription', [
                     'subscription_code' => $subscriptionCode,
                     'subscription_data' => $fetchData['data'] ?? null,
                 ]);
+
                 return [
                     'success' => false,
                     'message' => 'Subscription does not have a valid email token for cancellation.',
@@ -137,7 +143,7 @@ class PaymentService
 
         Log::info('Email token ready for cancellation', [
             'subscription_code' => $subscriptionCode,
-            'email_token_preview' => substr($emailToken, 0, 10) . '...',
+            'email_token_preview' => substr($emailToken, 0, 10).'...',
             'source' => $subscription?->email_token ? 'database' : 'paystack_api',
         ]);
 
@@ -152,7 +158,7 @@ class PaymentService
         Log::info('Paystack cancelSubscription - sending disable request', [
             'url' => $url,
             'payload_code' => $payload['code'],
-            'payload_token_preview' => substr($payload['token'], 0, 10) . '...',
+            'payload_token_preview' => substr($payload['token'], 0, 10).'...',
         ]);
 
         // Send as form data to match Paystack API expectations
@@ -173,6 +179,7 @@ class PaymentService
             Log::info('Paystack subscription cancelled successfully', [
                 'subscription_code' => $subscriptionCode,
             ]);
+
             return [
                 'success' => true,
                 'message' => $responseData['message'] ?? 'Subscription cancelled.',
@@ -189,7 +196,7 @@ class PaymentService
         ]);
 
         $message = 'Unable to cancel subscription.';
-        if (is_array($responseData) && !empty($responseData['message'])) {
+        if (is_array($responseData) && ! empty($responseData['message'])) {
             $message = $responseData['message'];
         }
 
@@ -202,113 +209,113 @@ class PaymentService
     public function generateReference(): string
     {
         // Generate unique reference with timestamp for easy tracking
-        return 'FA-' . strtoupper(\Illuminate\Support\Str::random(12)) . '-' . time();
+        return 'FA-'.strtoupper(Str::random(12)).'-'.time();
     }
 
     /**
      * Initialize Paystack transaction (supports one-time + subscription)
      */
     public function initializePaystack(
-    string $email,
-    ?float $amount = null,
-    string $reference,
-    ?string $planCode = null,
-    array $metadata = [],
-    ?string $callbackUrl = null
-): array {
-    $payload = [
-        'email'     => $email,
-        'reference' => $reference,
-    ];
+        string $email,
+        ?float $amount,
+        string $reference,
+        ?string $planCode = null,
+        array $metadata = [],
+        ?string $callbackUrl = null
+    ): array {
+        $payload = [
+            'email' => $email,
+            'reference' => $reference,
+        ];
 
-    // Use array for metadata (not object)
-    if (!empty($metadata)) {
-        $payload['metadata'] = $metadata;
-    }
-
-    if ($planCode) {
-        $payload['plan'] = $planCode;
-        if ($amount !== null && $amount > 0) {
-            $payload['amount'] = (int) ($amount * 100);
+        // Use array for metadata (not object)
+        if (! empty($metadata)) {
+            $payload['metadata'] = $metadata;
         }
-    } elseif ($amount !== null && $amount > 0) {
-        $payload['amount'] = (int) ($amount * 100);
-    } else {
+
+        if ($planCode) {
+            $payload['plan'] = $planCode;
+            if ($amount !== null && $amount > 0) {
+                $payload['amount'] = (int) ($amount * 100);
+            }
+        } elseif ($amount !== null && $amount > 0) {
+            $payload['amount'] = (int) ($amount * 100);
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Amount required for one-time payments',
+            ];
+        }
+
+        if ($callbackUrl) {
+            $payload['callback_url'] = $callbackUrl;
+        }
+
+        // Debug: log exact payload before send
+        Log::debug('Paystack initialize payload', [
+            'is_recurring' => ! empty($planCode),
+            'plan_code' => $planCode,
+            'payload' => $payload,
+        ]);
+
+        // Retry logic for timeouts: 3 attempts with increasing timeout
+        $maxAttempts = 3;
+        $attempt = 0;
+        $response = null;
+
+        while ($attempt < $maxAttempts) {
+            $attempt++;
+            $timeout = 15 + ($attempt * 5); // 20s, 25s, 30s
+
+            try {
+                $response = Http::withToken($this->secretKey)
+                    ->timeout($timeout)
+                    ->post("{$this->baseUrl}/transaction/initialize", $payload);
+
+                if ($response->successful() && isset($response['data']['authorization_url'])) {
+                    return [
+                        'success' => true,
+                        'authorization_url' => $response['data']['authorization_url'],
+                        'message' => null,
+                    ];
+                }
+
+                // If we get a response but it's not successful, break (don't retry)
+                break;
+            } catch (ConnectionException $e) {
+                Log::warning("Paystack initialize timeout (attempt {$attempt}/{$maxAttempts})", [
+                    'timeout' => $timeout,
+                    'error' => $e->getMessage(),
+                ]);
+
+                if ($attempt >= $maxAttempts) {
+                    return [
+                        'success' => false,
+                        'message' => 'Connection to payment gateway timed out. Please try again.',
+                    ];
+                }
+
+                // Wait before retry (exponential backoff)
+                sleep($attempt);
+            }
+        }
+
+        // Improved error return — capture full Paystack response
+        $errorData = $response->json();
+        Log::error('Paystack initialize failed', [
+            'status' => $response->status(),
+            'response' => $errorData,
+            'payload' => $payload,
+        ]);
+
         return [
             'success' => false,
-            'message' => 'Amount required for one-time payments',
+            'authorization_url' => null,
+            'message' => $errorData['message'] ?? 'Unable to initialize payment.',
+            'error_code' => $errorData['status'] ?? null,
+            'full_response' => $errorData,
         ];
     }
-
-    if ($callbackUrl) {
-        $payload['callback_url'] = $callbackUrl;
-    }
-
-    // Debug: log exact payload before send
-    Log::debug('Paystack initialize payload', [
-        'is_recurring' => !empty($planCode),
-        'plan_code'    => $planCode,
-        'payload'      => $payload,
-    ]);
-
-    // Retry logic for timeouts: 3 attempts with increasing timeout
-    $maxAttempts = 3;
-    $attempt = 0;
-    $response = null;
-
-    while ($attempt < $maxAttempts) {
-        $attempt++;
-        $timeout = 15 + ($attempt * 5); // 20s, 25s, 30s
-
-        try {
-            $response = Http::withToken($this->secretKey)
-                ->timeout($timeout)
-                ->post("{$this->baseUrl}/transaction/initialize", $payload);
-
-            if ($response->successful() && isset($response['data']['authorization_url'])) {
-                return [
-                    'success'           => true,
-                    'authorization_url' => $response['data']['authorization_url'],
-                    'message'           => null,
-                ];
-            }
-
-            // If we get a response but it's not successful, break (don't retry)
-            break;
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::warning("Paystack initialize timeout (attempt {$attempt}/{$maxAttempts})", [
-                'timeout' => $timeout,
-                'error' => $e->getMessage(),
-            ]);
-
-            if ($attempt >= $maxAttempts) {
-                return [
-                    'success' => false,
-                    'message' => 'Connection to payment gateway timed out. Please try again.',
-                ];
-            }
-
-            // Wait before retry (exponential backoff)
-            sleep($attempt);
-        }
-    }
-
-    // Improved error return — capture full Paystack response
-    $errorData = $response->json();
-    Log::error('Paystack initialize failed', [
-        'status'   => $response->status(),
-        'response' => $errorData,
-        'payload'  => $payload,
-    ]);
-
-    return [
-        'success'           => false,
-        'authorization_url' => null,
-        'message'           => $errorData['message'] ?? 'Unable to initialize payment.',
-        'error_code'        => $errorData['status'] ?? null,
-        'full_response'     => $errorData,
-    ];
-}
 
     public function verifyPaystack(string $reference): array
     {
@@ -318,14 +325,14 @@ class PaymentService
         if ($response->successful() && isset($response['data']['status']) && $response['data']['status'] === 'success') {
             return [
                 'success' => true,
-                'data'    => $response['data'],
+                'data' => $response['data'],
                 'message' => null,
             ];
         }
 
         return [
             'success' => false,
-            'data'    => $response['data'] ?? null,
+            'data' => $response['data'] ?? null,
             'message' => $response['message'] ?? 'Verification failed.',
         ];
     }
@@ -338,14 +345,14 @@ class PaymentService
         if ($response->successful() && ($response['status'] ?? false)) {
             return [
                 'success' => true,
-                'data'    => $response['data'] ?? null,
+                'data' => $response['data'] ?? null,
                 'message' => null,
             ];
         }
 
         return [
             'success' => false,
-            'data'    => $response['data'] ?? null,
+            'data' => $response['data'] ?? null,
             'message' => $response['message'] ?? 'Plan lookup failed.',
         ];
     }
@@ -363,14 +370,14 @@ class PaymentService
 
             return [
                 'success' => true,
-                'data'    => $active ?? null,
+                'data' => $active ?? null,
                 'message' => null,
             ];
         }
 
         return [
             'success' => false,
-            'data'    => $response['data'] ?? null,
+            'data' => $response['data'] ?? null,
             'message' => $response['message'] ?? 'Subscription lookup failed.',
         ];
     }
@@ -397,7 +404,7 @@ class PaymentService
 
             return [
                 'success' => true,
-                'data'    => $active ?? null,
+                'data' => $active ?? null,
                 'all_subscriptions' => $subscriptions,
                 'message' => null,
             ];
@@ -405,7 +412,7 @@ class PaymentService
 
         return [
             'success' => false,
-            'data'    => null,
+            'data' => null,
             'message' => $response['message'] ?? 'Customer subscription lookup failed.',
         ];
     }

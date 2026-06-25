@@ -52,6 +52,11 @@ class QuizAttempt extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
     public function answers(): HasMany
     {
         return $this->hasMany(UserAnswer::class);
@@ -91,17 +96,18 @@ class QuizAttempt extends Model
 
     public function hasTimedOut(): bool
     {
-        if (!$this->quiz->isTimed() || !$this->isInProgress()) {
+        if (! $this->quiz->isTimed() || ! $this->isInProgress()) {
             return false;
         }
 
         $elapsedMinutes = now()->diffInMinutes($this->started_at);
+
         return $elapsedMinutes >= $this->quiz->duration_minutes;
     }
 
     public function getRemainingSeconds(): ?int
     {
-        if (!$this->quiz->isTimed() || !$this->isInProgress()) {
+        if (! $this->quiz->isTimed() || ! $this->isInProgress()) {
             return null;
         }
 

@@ -82,18 +82,18 @@ Deliver the exam environment backend backing timed tests and mock setups.
 
 ---
 
-### 🟡 Milestone 5: Analytics, Lessons & Configuration APIs (Week 5) — PENDING
+### ✅ Milestone 5: Analytics, Lessons & Configuration APIs (Week 5) — COMPLETE
 Provide the data APIs needed for dashboard, analytics, and lesson features.
 *   **Tasks**:
-    *   Create `AnalyticsController` for user stats, subject performance, quiz history.
-    *   Create `LessonController` for lessons list, video progress, completion tracking.
-    *   Create `ConfigurationController` for subjects list, exam types, years, mock formats.
-    *   Create `QuizController` for quiz list, start quiz, submit answers, results.
-    *   Write tests for all new endpoints.
+    *   Create `AnalyticsController` for user stats, subject performance, quiz history. ✅
+    *   Create `LessonController` for lessons list, video progress, completion tracking. ✅
+    *   Create `ConfigurationController` for subjects list, exam types, years, mock formats. ✅
+    *   Create `QuizController` for quiz list, start quiz, submit answers, results. ✅
+    *   Write tests for all new endpoints. ✅
 *   **Client Deliverable**:
-    *   All analytics and dashboard data available via API.
-    *   Lessons accessible via API with video URLs and progress tracking.
-    *   Configuration data for mobile app setup.
+    *   All analytics and dashboard data available via API. ✅
+    *   Lessons accessible via API with video URLs and progress tracking. ✅
+    *   Configuration data for mobile app setup. ✅
 
 ### 🟡 Milestone 6: Interactive Scribe Documentation & Handover (Week 6) — PENDING
 Provide the final, interactive manuals so the client's mobile developers can link the app instantly.

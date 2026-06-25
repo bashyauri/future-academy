@@ -23,7 +23,7 @@ class EnsureSubscriptionOrTrial
         $user = Auth::user();
 
         if (! $user) {
-            return redirect()->route('login');
+            return $this->respondForApi($request, 'Unauthenticated', 401);
         }
 
         if ($user->hasAnyRole(['super-admin', 'admin'])) {
@@ -49,21 +49,35 @@ class EnsureSubscriptionOrTrial
 
             // Guardian access to protected learning routes is always scoped to a specific linked student.
             if ($requestedStudentId <= 0) {
-                return redirect()->route('parent.dashboard')
-                    ->with('error', __('Select a linked student first to access premium learning features.'));
+                return $this->respondForApi(
+                    $request,
+                    'Select a linked student first to access premium learning features.',
+                    403,
+                    redirect()->route('parent.dashboard')->with('error', __('Select a linked student first to access premium learning features.'))
+                );
             }
 
             if (! $linkedStudents->contains($requestedStudentId)) {
-                return redirect()->route('parent.dashboard')->with('error', __('You can only track students linked to your account.'));
+                return $this->respondForApi(
+                    $request,
+                    'You can only track students linked to your account.',
+                    403,
+                    redirect()->route('parent.dashboard')->with('error', __('You can only track students linked to your account.'))
+                );
             }
 
             if ($this->studentHasEntitlement($requestedStudentId, $user->id)) {
                 return $next($request);
             }
 
-            return redirect()->route('payment.pricing', ['student_id' => $requestedStudentId])
-                ->with('trial_upgrade_prompt', __('This linked student does not currently have trial or paid access. Upgrade to unlock premium features.'))
-                ->with('blocked_feature', $this->blockedFeatureLabel($request));
+            return $this->respondForApi(
+                $request,
+                'This linked student does not currently have trial or paid access. Upgrade to unlock premium features.',
+                403,
+                redirect()->route('payment.pricing', ['student_id' => $requestedStudentId])
+                    ->with('trial_upgrade_prompt', __('This linked student does not currently have trial or paid access. Upgrade to unlock premium features.'))
+                    ->with('blocked_feature', $this->blockedFeatureLabel($request))
+            );
         }
 
         $isOnTrial = method_exists($user, 'onTrial')
@@ -76,9 +90,14 @@ class EnsureSubscriptionOrTrial
                 return $next($request);
             }
 
-            return redirect()->route('payment.pricing')
-                ->with('trial_upgrade_prompt', __('Your 48-hour trial includes only free lessons and quizzes. Upgrade to unlock premium features.'))
-                ->with('blocked_feature', $this->blockedFeatureLabel($request));
+            return $this->respondForApi(
+                $request,
+                'Your 48-hour trial includes only free lessons and quizzes. Upgrade to unlock premium features.',
+                403,
+                redirect()->route('payment.pricing')
+                    ->with('trial_upgrade_prompt', __('Your 48-hour trial includes only free lessons and quizzes. Upgrade to unlock premium features.'))
+                    ->with('blocked_feature', $this->blockedFeatureLabel($request))
+            );
         }
 
         if ($user->hasActiveSubscription()) {
@@ -97,7 +116,21 @@ class EnsureSubscriptionOrTrial
             }
         }
 
-        return redirect()->route('payment.pricing')->with('error', __('Please subscribe to access all features.'));
+        return $this->respondForApi($request, 'Please subscribe to access all features.', 403);
+    }
+
+    /**
+     * Return appropriate response based on request type (API vs Web)
+     */
+    private function respondForApi(Request $request, string $message, int $status = 403, $webFallback = null)
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+            ], $status);
+        }
+
+        return $webFallback ?: redirect()->route('payment.pricing')->with('error', __($message));
     }
 
     private function routeAllowsTrialAccess(Request $request): bool

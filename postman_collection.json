@@ -361,6 +361,366 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Configuration",
+      "item": [
+        {
+          "name": "Get Subjects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config/subjects",
+              "host": ["{{baseUrl}}"],
+              "path": ["config", "subjects"]
+            },
+            "description": "Get all active subjects with metadata"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Exam Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config/exam-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["config", "exam-types"]
+            },
+            "description": "Get all exam types (JAMB, WAEC, NECO)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Years",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config/years",
+              "host": ["{{baseUrl}}"],
+              "path": ["config", "years"]
+            },
+            "description": "Get available years for filtering questions"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Mock Formats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config/mock-formats",
+              "host": ["{{baseUrl}}"],
+              "path": ["config", "mock-formats"]
+            },
+            "description": "Get mock exam configuration"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "overview"]
+            },
+            "description": "Get user overview statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Subject Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/subject-performance",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "subject-performance"]
+            },
+            "description": "Get performance breakdown by subject"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Quiz History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/quiz-history?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "quiz-history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of recent attempts (default: 10)"
+                }
+              ]
+            },
+            "description": "Get recent quiz attempts"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Study Streak",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/study-streak",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "study-streak"]
+            },
+            "description": "Get study streak data"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Lessons",
+      "item": [
+        {
+          "name": "Get Lessons for Subject",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/lessons?subject_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["lessons"],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "description": "Subject ID (required)"
+                }
+              ]
+            },
+            "description": "Get lessons for a subject with user progress"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Lesson Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/lessons/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["lessons", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Lesson ID"
+                }
+              ]
+            },
+            "description": "Get lesson details with video URL"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Lesson Progress",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_time_seconds\": 120,\n  \"progress_percentage\": 30,\n  \"time_spent_seconds\": 120,\n  \"is_completed\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/lessons/:id/progress",
+              "host": ["{{baseUrl}}"],
+              "path": ["lessons", ":id", "progress"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Lesson ID"
+                }
+              ]
+            },
+            "description": "Update lesson progress"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Lesson as Completed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/lessons/:id/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["lessons", ":id", "complete"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Lesson ID"
+                }
+              ]
+            },
+            "description": "Mark lesson as completed"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Quizzes",
+      "item": [
+        {
+          "name": "Get Quizzes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes?subject_id=1&type=practice",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes"],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "description": "Subject ID (optional)"
+                },
+                {
+                  "key": "type",
+                  "value": "practice",
+                  "description": "Quiz type (optional)"
+                }
+              ]
+            },
+            "description": "Get available quizzes with optional filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Quiz Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Quiz ID"
+                }
+              ]
+            },
+            "description": "Get quiz details with questions"
+          },
+          "response": []
+        },
+        {
+          "name": "Start Quiz Attempt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_count\": 20,\n  \"shuffle\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/quizzes/:id/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["quizzes", ":id", "start"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Quiz ID"
+                }
+              ]
+            },
+            "description": "Start a new quiz attempt"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Quiz Answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    {\n      \"question_id\": 1,\n      \"option_id\": 2,\n      \"time_spent_seconds\": 30\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/quiz-attempts/:id/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["quiz-attempts", ":id", "submit"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Attempt ID"
+                }
+              ]
+            },
+            "description": "Submit quiz answers and calculate score"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Quiz Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/quiz-attempts/:id/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["quiz-attempts", ":id", "results"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Attempt ID"
+                }
+              ]
+            },
+            "description": "Get attempt results with detailed breakdown"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }
