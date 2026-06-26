@@ -4,12 +4,53 @@ This guide is a practical, MVP-first plan for building the mobile app against th
 
 ## Recommended Build Order
 
-1. Auth and profile
+1. Auth, Profile, and Onboarding
 2. Subject download and offline caching
 3. Single-subject practice player
 4. JAMB and mock flows
-5. Background sync and polish
+5. Background sync, analytics/streaks dashboard, and polish
 6. Scribe documentation driven by real database content
+
+---
+
+## 🎨 Web UI Parity & Design Guidelines
+
+To match the look and feel of the web version (built with TailwindCSS v4 and Livewire Flux UI), the mobile app should adhere to the following design system tokens:
+
+### 1. Color Palette (Neutral Zinc & Indigo Accents)
+- **Primary / Ambient Background**: Clean `#ffffff` (light mode) or `#0a0a0a` (dark mode).
+- **Secondary Card/List background**: Neutral Zinc-50 (`#fafafa`) or Zinc-900 (`#171717`).
+- **Borders & Dividers**: Slate/Zinc-200 (`#e5e5e5`) or Zinc-800 (`#262626`).
+- **Text Color**: Zinc-900 (`#171717`) or Zinc-50 (`#fafafa`).
+- **Primary Buttons & Active State Accents**: Indigo-600 (`#4f46e5`) or custom dark accents like `#171717` (light) and `#ffffff` (dark).
+- **Alert / Timer States**: 
+  - Green (Success/Safe): `#10b981` (Emerald-500)
+  - Amber (Warning): `#f59e0b` (Amber-500)
+  - Red (Danger/Expired): `#ef4444` (Red-500)
+
+### 2. Typography
+- The web app uses **Instrument Sans** (a modern geometric sans-serif).
+- On mobile, import and load `'InstrumentSans-Regular'` and `'InstrumentSans-Bold'` from Google Fonts using `expo-font` or fallback to system sans-serif (`System`, `ui-sans-serif`).
+- Avoid standard default Android/iOS font weights; use clean headings with tracking/letter-spacing adjusted slightly closer for large titles.
+
+### 3. Flux-Style Component Architecture
+- **Buttons**: Rounded-lg (8px border-radius), medium/semi-bold weight, solid background with subtle micro-elevation or flat layout.
+- **Inputs**: Flat, bordered inputs with subtle gray borders (`#ddd`) and high-contrast focus rings (indigo/dark).
+- **Badges**: Rounded-full, high-padding, low-opacity backgrounds with high-contrast text.
+- **Separators**: 1px thin dividers (`#e5e5e5` or `#262626`) for neat, flat modular design.
+
+### 4. Mobile UI/UX Adaptations (Viewport Adjustments)
+To preserve features while maintaining excellent mobile UX, the following layout adaptations are recommended:
+- **Practice Player (Single Subject)**:
+  * *Web layout*: Split-pane (left column question text, right column options/explanation).
+  * *Mobile adaptation*: Single vertical column scroll. The question text/image rests at the top (maximum 40% height, scrollable if long), followed by options. Navigation controls ("Previous", "Next", "Submit") should live on a sticky bottom bar for easy thumb access.
+- **JAMB Player (Multi-Subject Tabs)**:
+  * *Web layout*: Side-by-side or large tabs for switching subjects.
+  * *Mobile adaptation*: Horizontal-scrolling tab bar at the top (e.g., Mathematics | English | Biology | Chemistry). Active tab highlighted in Indigo, with swipe gestures allowed to switch subjects.
+- **Mock Exam Player**:
+  * *Web layout*: Large quiz grid showing status of all questions simultaneously.
+  * *Mobile adaptation*: Replace the permanent side-grid with a bottom sheet drawer. Clicking "View Questions Grid" opens a slide-up drawer showing the status (unanswered, answered, flagged) of all questions, keeping the main screen distraction-free.
+  * *Timer*: Keep a small, floating countdown timer centered at the top header that turns red on critical time limits.
 
 ---
 
@@ -262,6 +303,12 @@ Run these commands in your mobile project directory:
   ```bash
   npm install react-error-boundary @react-native-community/netinfo
   ```
+- [ ] **Tailwind Styling (NativeWind v4)**
+  ```bash
+  npm install nativewind@^4.0.0-beta.0 tailwindcss@^3.4.0 postcss@^8.0.0
+  ```
+
+---
 
 ### 💻 2. Laravel Backend
 Run these commands in your Laravel backend directory:
@@ -275,6 +322,49 @@ Run these commands in your Laravel backend directory:
 ---
 
 ## 🔧 Phase 1.5: Production-Ready Configuration
+
+### NativeWind (Tailwind CSS) Configuration
+
+1. **Configure Tailwind**: Run `npx tailwindcss init` and edit the resulting `tailwind.config.js` to scan the `app` folder:
+```javascript
+module.exports = {
+  content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        accent: '#171717',
+      },
+    },
+  },
+  plugins: [],
+}
+```
+
+2. **Configure Babel Plugin**: Update `babel.config.js` to include the NativeWind babel plugin:
+```javascript
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: [
+      ["babel-preset-expo", { jsxImportSource: "nativewind" }],
+      "nativewind/babel",
+    ],
+  };
+};
+```
+
+3. **Global Stylesheet**: Create `global.css` at root and add:
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+4. **Import Global Styles**: In `app/_layout.tsx` root layout, import the styles:
+```typescript
+import "../global.css";
+```
 
 ### EAS Build Configuration
 Create `eas.json` in your mobile project root:
@@ -456,9 +546,10 @@ routes/
 future-academy-mobile/
 ├── app/                              
 │   ├── (auth)/
-│   │   └── login.tsx                 
+│   │   ├── login.tsx                 
+│   │   └── onboarding.tsx            <-- (Stream & subject selection onboarding flow)
 │   ├── (tabs)/
-│   │   ├── index.tsx                 <-- (Syllabus/Subject index)
+│   │   ├── index.tsx                 <-- (Syllabus/Subject index & Streaks dashboard)
 │   │   ├── practice-setup.tsx        <-- (Practice: Subject + Optional Year Selection)
 │   │   ├── jamb-setup.tsx            <-- (JAMB Setup: 4 Subjects + Optional Year Selection)
 │   │   ├── mock-setup.tsx            <-- (Mock Setup: Single/Multi-subject setup)
@@ -760,7 +851,7 @@ To ensure that downloading questions takes **less than 2 seconds** on slow 3G/4G
 
 ### 7.1 Root Layout (app/_layout.tsx)
 
-This is the entry point for the whole app. It checks for a stored token and redirects accordingly:
+This is the entry point for the whole app. It checks for a stored token and onboarding status, then redirects accordingly:
 
 ```typescript
 import { Stack } from 'expo-router';
@@ -775,8 +866,15 @@ export default function RootLayout() {
   useEffect(() => {
     async function bootstrap() {
       const token = await SecureStore.getItemAsync('auth_token');
+      const userStr = await SecureStore.getItemAsync('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+
       if (token) {
-        router.replace('/(tabs)');
+        if (user && !user.has_completed_onboarding) {
+          router.replace('/(auth)/onboarding');
+        } else {
+          router.replace('/(tabs)');
+        }
       } else {
         router.replace('/(auth)/login');
       }
@@ -824,7 +922,12 @@ export default function LoginScreen() {
       });
       await SecureStore.setItemAsync('auth_token', response.data.token);
       await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
-      router.replace('/(tabs)');
+      
+      if (!response.data.user.has_completed_onboarding) {
+        router.replace('/(auth)/onboarding');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error: any) {
       const message = error.response?.data?.errors?.email?.[0]
         ?? error.response?.data?.message
@@ -850,23 +953,136 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#1a1a2e', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 16 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#171717', marginBottom: 8, fontFamily: 'System' },
+  subtitle: { fontSize: 16, color: '#666', marginBottom: 32, fontFamily: 'System' },
+  input: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 16, fontFamily: 'System' },
   button: { backgroundColor: '#4f46e5', borderRadius: 8, padding: 16, alignItems: 'center' },
+  buttonDisabled: { backgroundColor: '#a5a5a5' },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600', fontFamily: 'System' },
+});
+```
+
+---
+
+### 7.3 Onboarding Screen (app/(auth)/onboarding.tsx)
+
+```typescript
+import { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { useRouter } from 'expo-router';
+import api from '../../lib/api';
+
+export default function OnboardingScreen() {
+  const router = useRouter();
+  const [streams, setStreams] = useState<any[]>([]);
+  const [selectedStream, setSelectedStream] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch available configurations/subjects
+    async function loadConfig() {
+      try {
+        const response = await api.get('/config/subjects');
+        // Group subjects or streams from response...
+      } catch (error) {
+        console.error('Failed to load onboarding options', error);
+      }
+    }
+    loadConfig();
+  }, []);
+
+  async function handleOnboardingComplete() {
+    if (!selectedStream) {
+      Alert.alert('Selection Required', 'Please select a stream to continue.');
+      return;
+    }
+    setLoading(true);
+    try {
+      // POST onboarding data to the backend
+      const response = await api.post('/user/onboarding', {
+        stream: selectedStream,
+      });
+
+      // Update stored user details
+      const userStr = await SecureStore.getItemAsync('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        user.has_completed_onboarding = true;
+        await SecureStore.setItemAsync('user', JSON.stringify(user));
+      }
+
+      router.replace('/(tabs)');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save onboarding selections. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Welcome to Future Academy</Text>
+      <Text style={styles.subtitle}>Choose your learning stream to customize your question banks</Text>
+      
+      <TouchableOpacity 
+        style={[styles.card, selectedStream === 'science' && styles.cardSelected]} 
+        onPress={() => setSelectedStream('science')}
+      >
+        <Text style={styles.cardTitle}>Science</Text>
+        <Text style={styles.cardDesc}>Physics, Chemistry, Biology, Mathematics</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.card, selectedStream === 'arts' && styles.cardSelected]} 
+        onPress={() => setSelectedStream('arts')}
+      >
+        <Text style={styles.cardTitle}>Arts</Text>
+        <Text style={styles.cardDesc}>Literature, Government, CRK, History</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.card, selectedStream === 'social_science' && styles.cardSelected]} 
+        onPress={() => setSelectedStream('social_science')}
+      >
+        <Text style={styles.cardTitle}>Social Sciences</Text>
+        <Text style={styles.cardDesc}>Economics, Geography, Commerce, Government</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.button, !selectedStream && styles.buttonDisabled]} 
+        onPress={handleOnboardingComplete}
+        disabled={loading || !selectedStream}
+      >
+        <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Finish Setup'}</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#171717', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 15, color: '#666', marginBottom: 32, textAlign: 'center', lineHeight: 22 },
+  card: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 12, padding: 18, marginBottom: 16, backgroundColor: '#fafafa' },
+  cardSelected: { borderColor: '#4f46e5', backgroundColor: '#eef2ff', borderWidth: 2 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#171717', marginBottom: 4 },
+  cardDesc: { fontSize: 14, color: '#666' },
+  button: { backgroundColor: '#4f46e5', borderRadius: 8, padding: 16, alignItems: 'center', marginTop: 16 },
   buttonDisabled: { backgroundColor: '#a5a5a5' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 ```
 
-### 7.3 Checklist
+### 7.4 Checklist
 
-- [ ] Root layout reads stored token and redirects to correct screen
+- [ ] Root layout reads stored token and onboarding status, redirecting correctly
 - [ ] Login screen calls POST /api/v1/login with device_name
 - [ ] Token and user object stored in expo-secure-store
+- [ ] Onboarding screen displays stream selections and submits to backend
 - [ ] Logout button in Settings calls POST /api/v1/logout and clears secure store
-- [ ] Bottom tab navigator with 5 tabs: Home, Practice, JAMB, Mock, Settings
-- [ ] Protected routes — unauthenticated users always redirected to login
+- [ ] Bottom tab navigator with 5 tabs: Home/Dashboard, Practice, JAMB, Mock, Settings
+- [ ] Protected routes — unauthenticated users always redirected to login, non-onboarded to onboarding
 
 ---
 
@@ -1126,6 +1342,9 @@ AppState.addEventListener('change', async (state) => {
 - [ ] Empty state illustrations when no subjects are downloaded
 - [ ] Sentry crash reporting initialized and tested
 - [ ] Firebase Analytics: track login, quiz_start, quiz_complete, sync_success events
-- [ ] Profile screen: total questions answered, accuracy %, subjects downloaded
+- [ ] Profile / Dashboard screen:
+  - [ ] Show total questions answered, accuracy percentage, and subjects downloaded.
+  - [ ] Display **Study Streak** counter and flame/streak indicator (fetched from `GET /api/v1/analytics/study-streak`).
+  - [ ] Display **Subject Performance Analytics** breakdown charts/lists (fetched from `GET /api/v1/analytics/subject-performance`).
 - [ ] `eas build --platform android --profile production` - generate .aab for Play Store
 - [ ] Play Store listing prepared: screenshots, description, content rating

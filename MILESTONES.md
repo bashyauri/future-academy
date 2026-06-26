@@ -14,17 +14,17 @@ gantt
     section Backend Track
     Sprint 1 - Sanctum Auth & Profiles       :done, milestone1, 2026-06-10, 7d
     Sprint 2 - Curriculum & Downloads         :done, milestone2, 2026-06-17, 7d
-    Sprint 3 - Core Sync Engine               :milestone3, 2026-06-24, 7d
+    Sprint 3 - Core Sync Engine               :done, milestone3, 2026-06-24, 7d
     Sprint 4 - Mock Groups & Sessions         :milestone4, 2026-07-01, 7d
     Sprint 5 - Analytics & Lessons APIs       :milestone5, 2026-07-08, 7d
     Sprint 6 - Interactive Scribe Docs        :milestone6, 2026-07-15, 7d
 
     section Mobile Frontend Track
-    Sprint 6 - App Shell & Auth Screens       :milestone6, 2026-07-15, 7d
-    Sprint 7 - Offline Download & SQLite      :milestone7, 2026-07-22, 7d
-    Sprint 8 - Practice & JAMB Quiz Players   :milestone8, 2026-07-29, 7d
-    Sprint 9- Mock Exam Player & Timer        :milestone9 2026-08-005 7d
-    Sprint 00 - Sync Engine & Polish           :mileston100, 2026-08-22, 7d
+    Sprint 7 - App Shell, Auth & Onboarding   :milestone7, 2026-07-15, 7d
+    Sprint 8 - Offline Download & SQLite      :milestone8, 2026-07-22, 7d
+    Sprint 9 - Practice & JAMB Quiz Players   :milestone9, 2026-07-29, 7d
+    Sprint 10 - Mock Exam Player & Anti-Cheat  :milestone10, 2026-08-05, 7d
+    Sprint 11 - Sync Engine, Analytics & Polish:milestone11, 2026-08-12, 7d
 ```
 
 ---
@@ -110,21 +110,22 @@ Provide the final, interactive manuals so the client's mobile developers can lin
 
 ## 📱 MOBILE FRONTEND TRACK — Sprints 7–11
 
-> **Tech Stack**: Expo (React Native) + TypeScript + Expo Router + expo-sqlite + TanStack Query
+> **Tech Stack**: Expo (React Native) + TypeScript + Expo Router + NativeWind (Tailwind CSS) + expo-sqlite + TanStack Query
 
 ---
 
-### 🟡 Milestone 7: App Shell, Navigation & Authentication Screens (Week 7)
-Build the foundational app structure and get a student logged in on a real phone.
+### 🟡 Milestone 7: App Shell, Navigation, Authentication & Onboarding Screens (Week 7)
+Build the foundational app structure, user authentication, and onboarding setups.
 *   **Tasks**:
     *   Scaffold the Expo project with Expo Router file-based navigation.
     *   Build the `(auth)/login.tsx` screen with email/password form and device name capture.
     *   Integrate the `POST /api/v1/login` endpoint — store token securely with `expo-secure-store`.
-    *   Build the `(tabs)` shell: Home, Practice, JAMB, Mock, Settings tabs with placeholder screens.
-    *   Implement token-based route protection (redirect unauthenticated users to login).
+    *   Build the **Onboarding Flow screen** (`(auth)/onboarding.tsx`): select stream (Science, Arts, Social Sciences) or manually pick subjects, saving selection via configuration API.
+    *   Implement token-based route protection and onboarding checks (redirect unauthenticated users to login, and authenticated but non-onboarded users to onboarding).
+    *   Build the `(tabs)` shell: Home/Dashboard, Practice, JAMB, Mock, Settings tabs with placeholder screens.
     *   Build the Settings screen with Logout button (calls `POST /api/v1/logout`).
 *   **Client Deliverable**:
-    *   APK shared via WhatsApp that a student can install, log in with real credentials, and see the main tab navigation.
+    *   APK shared via WhatsApp that a student can install, log in with real credentials, complete the stream selection onboarding, and see the main tab navigation.
 
 ---
 
@@ -142,7 +143,7 @@ Enable the app to download and store question packs for fully offline use.
 
 ---
 
-### 🟡 Milestone 8: Practice Quiz & JAMB Quiz Players (Week 8)
+### 🟡 Milestone 9: Practice Quiz & JAMB Quiz Players (Week 9)
 Deliver the two core study modes with a fully working offline quiz experience.
 *   **Tasks**:
     *   Build **Practice Setup screen** (`(tabs)/practice-setup.tsx`): subject selector, optional year filter, question count slider.
@@ -162,7 +163,7 @@ Deliver the two core study modes with a fully working offline quiz experience.
 
 ---
 
-### 🟡 Milestone 9 Mock Exam Player & Anti-Cheat Timer (Week 99
+### 🟡 Milestone 10: Mock Exam Player & Anti-Cheat Timer (Week 10)
 Deliver the timed, invigilated exam experience.
 *   **Tasks**:
     *   Build **Mock Setup screen** (`(tabs)/mock-setup.tsx`): single vs. multi-subject toggle, subject picker.
@@ -179,15 +180,18 @@ Deliver the timed, invigilated exam experience.
 
 ---
 
-### 🟡 Milestone 11: Background Sync Engine, Video Lessons & App Polish (Week 11)
-Connect all offline data back to the server and finalize the production-ready app.
+### 🟡 Milestone 11: Background Sync Engine, Video Lessons, Analytics & App Polish (Week 11)
+Connect all offline data back to the server, display streaks/analytics, and finalize the production-ready app.
 *   **Tasks**:
     *   Build the **Sync Engine**: on app resume or Wi-Fi connection, batch-upload all unsynced `offline_attempts` and `offline_answers` to `POST /api/v1/sync`.
     *   Show sync status indicator ("3 attempts pending sync" / "All synced ✓").
     *   Build **Video Lessons screen** (`lessons/video.tsx`): fetch Bunny CDN token from `GET /api/v1/lessons/{id}/video-token` and play securely.
+    *   Implement **Dashboard Analytics & Study Streaks**:
+        *   Fetch and display the study streak from `GET /api/v1/analytics/study-streak`.
+        *   Fetch and display detailed subject performance analytics from `GET /api/v1/analytics/subject-performance`.
+        *   Integrate overall quiz statistics and progress tracking.
     *   Implement **crash reporting** with Sentry and **analytics** with Firebase.
     *   Performance pass: skeleton loading screens, image lazy-loading, pull-to-refresh.
-    *   Build **Profile & Progress screen**: show total questions answered, accuracy percentage, subjects downloaded.
     *   Final EAS production build and Play Store submission checklist.
 *   **Client Deliverable**:
     *   Full end-to-end flow: student completes offline mock, phone reconnects to data, scores appear in the admin Filament panel automatically. Production APK ready for Play Store submission.
