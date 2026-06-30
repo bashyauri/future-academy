@@ -106,7 +106,7 @@ export default function OnboardingScreen() {
         <View className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/30 items-center justify-center mb-4">
           <MaterialIcons name="auto-awesome" size={28} color="#4f46e5" />
         </View>
-        <Heading size="xl">Personalize Your Setup</Heading>
+        <Heading size="xl" className="text-neutral-900 dark:text-neutral-50">Personalize Your Setup</Heading>
         <BodyText variant="subtle" className="mt-2">Choose how you want to prepare. You can pick a curated stream or manually select your subjects.</BodyText>
         
         {/* Toggle Mode */}
@@ -201,7 +201,19 @@ export default function OnboardingScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+      <View className="px-6 py-4 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900">
+  <Button
+    variant="primary"
+    size="lg"
+    fullWidth
+    onPress={handleComplete}
+    disabled={loading || (mode === 'manual' && selectedSubjects.length === 0) || (mode === 'stream' && !selectedStream)}
+    loading={loading}
+  >
+    {mode === 'manual' ? `Continue with ${selectedSubjects.length} Subject${selectedSubjects.length !== 1 ? 's' : ''}` : 'Continue Setup'}
+  </Button>
+</View>
+</ScrollView>
 
       <View className="px-6 py-4 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900">
         <Button 

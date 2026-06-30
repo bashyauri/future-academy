@@ -94,13 +94,14 @@ class AuthController extends Controller
 
 
         return response()->json([
-
             'message' => 'Login successful',
-
             'token' => $token,
-
-            'user' => new UserResource($user)
-
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'has_completed_onboarding' => $user->has_completed_onboarding ?? false,
+            ],
         ], 200);
 
     }

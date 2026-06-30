@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConfigurationController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\MockExamController;
+use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\SubjectDownloadController;
 use App\Http\Controllers\Api\SyncController;
@@ -73,6 +74,7 @@ Route::prefix('v1')->middleware('force.json')->group(function () {
             Route::get('/mock/groups/{batchNumber}', [MockExamController::class, 'show']);
             Route::get('/mock/groups/{batchNumber}/download', [MockExamController::class, 'download']);
             Route::post('/mock/sessions', [MockExamController::class, 'initializeSession']);
+            Route::post('/onboarding', [OnboardingController::class, 'complete']);
         });
     });
 });
