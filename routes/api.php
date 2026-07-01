@@ -25,6 +25,7 @@ Route::prefix('v1')->middleware('force.json')->group(function () {
 
         // Configuration Routes (rate limited for production safety)
         Route::middleware('throttle:60,1')->group(function () {
+            Route::get('/subjects', [ConfigurationController::class, 'enrolledSubjects']);
             Route::get('/config/subjects', [ConfigurationController::class, 'subjects']);
             Route::get('/config/exam-types', [ConfigurationController::class, 'examTypes']);
             Route::get('/config/years', [ConfigurationController::class, 'years']);
@@ -57,8 +58,11 @@ Route::prefix('v1')->middleware('force.json')->group(function () {
         });
 
         // Question Pack Download Routes (rate limited for production safety)
-        Route::middleware(['throttle:60,1', 'ensure.subscription.or.trial'])->group(function () {
+        Route::middleware('throttle:60,1')->group(function () {
             Route::get('/subjects/{id}/download', [SubjectDownloadController::class, 'downloadSubject']);
+        });
+
+        Route::middleware(['throttle:60,1', 'ensure.subscription.or.trial'])->group(function () {
             Route::get('/jamb/download', [SubjectDownloadController::class, 'downloadJambPractice']);
         });
 

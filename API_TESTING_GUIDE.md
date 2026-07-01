@@ -56,6 +56,30 @@ Add the following header to all authenticated requests:
 
 ### Question Pack Downloads
 
+#### Get Enrolled Subjects (Mobile Home)
+
+- **Method**: `GET`
+- **URL**: `https://future-academy.test/api/v1/subjects`
+- **Headers**: `Authorization: Bearer YOUR_TOKEN`
+- **Description**: Returns active subjects enrolled by the authenticated user. If legacy users have no enrollment rows, the API falls back to `selected_subjects`.
+- **Response**:
+```json
+{
+  "message": "Subjects retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Mathematics",
+      "code": "MTH",
+      "slug": "mathematics",
+      "icon": null,
+      "color": null,
+      "is_active": true
+    }
+  ]
+}
+```
+
 #### Download Single Subject Questions
 
 - **Method**: `GET`

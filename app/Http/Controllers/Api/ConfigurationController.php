@@ -9,10 +9,38 @@ use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class ConfigurationController extends Controller
 {
+    /**
+     * Get authenticated user's enrolled active subjects.
+     */
+    public function enrolledSubjects(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $subjects = $user->enrolledSubjects()
+            ->select('subjects.*')
+            ->orderBy('subjects.name')
+            ->get();
+
+        // Backward-compatible fallback for users that only have selected_subjects populated.
+        if ($subjects->isEmpty() && is_array($user->selected_subjects) && ! empty($user->selected_subjects)) {
+            $subjects = Subject::query()
+                ->where('is_active', true)
+                ->whereIn('id', $user->selected_subjects)
+                ->orderBy('name')
+                ->get();
+        }
+
+        return response()->json([
+            'message' => 'Subjects retrieved successfully',
+            'data' => SubjectResource::collection($subjects),
+        ]);
+    }
+
     /**
      * Get all active subjects
      */
@@ -21,7 +49,7 @@ class ConfigurationController extends Controller
         return response()->json([
             'message' => 'Subjects retrieved successfully',
             'data' => SubjectResource::collection(
-                Subject::where('is_active', true)->get()
+                Subject::query()->where('is_active', true)->get()
             ),
         ]);
     }
@@ -43,7 +71,7 @@ class ConfigurationController extends Controller
     public function years(): JsonResponse
     {
         $years = Cache::remember('available_years', 3600, function () {
-            return Question::whereNotNull('exam_year')
+            return Question::query()->whereNotNull('exam_year')
                 ->distinct()
                 ->orderBy('exam_year', 'desc')
                 ->pluck('exam_year')

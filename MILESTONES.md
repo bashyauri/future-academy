@@ -6,6 +6,22 @@ This document outlines the professional milestone roadmap to share with your cli
 
 ## 📅 Milestone Breakdown
 
+### Industry-Standard Delivery Gates
+
+Apply these gates at the end of every sprint before sign-off:
+*   **Engineering Gate**: lint/type checks pass, critical tests pass, and no known blocker bugs.
+*   **QA Gate**: regression checklist completed on Android devices (low-end and mid-range) in both light and dark mode.
+*   **UAT Gate**: product owner/client validates the milestone demo against acceptance criteria.
+*   **Release Gate**: release notes updated, rollback plan prepared, and production/staging build artifacts stored.
+
+### Sprint 0 (Recommended): Foundation & Delivery Pipeline
+
+Before Sprint 7, add a short setup sprint to reduce downstream risk:
+*   Finalize API contract and response shape assumptions for mobile integration.
+*   Set up CI checks (typecheck/lint/test), environment configuration, and app versioning strategy.
+*   Define telemetry baseline (crash-free rate, API error rate, sync success rate).
+*   Prepare device test matrix (Android versions, screen sizes, memory classes).
+
 ```mermaid
 gantt
     title Future Academy Mobile Project Roadmap
@@ -195,3 +211,11 @@ Connect all offline data back to the server, display streaks/analytics, and fina
     *   Final EAS production build and Play Store submission checklist.
 *   **Client Deliverable**:
     *   Full end-to-end flow: student completes offline mock, phone reconnects to data, scores appear in the admin Filament panel automatically. Production APK ready for Play Store submission.
+
+### Sprint 12 (Recommended): Release Hardening & Store Readiness
+
+For industry-standard delivery, reserve a dedicated hardening sprint after Milestone 11:
+*   Full regression and exploratory testing (online/offline, reconnect, interrupted downloads, battery saver mode).
+*   Performance and stability pass on real devices (cold start time, memory pressure, crash-free sessions).
+*   Security and compliance checks (token storage, privacy links, permissions audit).
+*   Play Store readiness: final screenshots, policy declarations, signed build verification, and rollback/hotfix plan.
