@@ -55,9 +55,11 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-neutral-50 dark:bg-neutral-950">
-      <View className="px-5 pt-14 pb-5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-        <Heading size="lg">Student Dashboard</Heading>
-        <BodyText variant="subtle" className="mt-1">
+      <View className="pt-16 pb-6 px-6 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+        <Heading size="xl" className="mb-2">
+          Student Dashboard
+        </Heading>
+        <BodyText className="text-neutral-500 dark:text-neutral-400">
           Quick access to practice, JAMB, and mock exams.
         </BodyText>
       </View>
@@ -73,6 +75,10 @@ export default function HomeScreen() {
           />
         }
       >
+        <Subheading size="md" className="mb-3 px-1">
+          Quick Access
+        </Subheading>
+
         <View className="flex-row flex-wrap justify-between">
           <TouchableOpacity
             onPress={() => router.push("/(tabs)/practice-setup")}

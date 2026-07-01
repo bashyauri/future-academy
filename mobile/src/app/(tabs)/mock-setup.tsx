@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  Alert,
-  View,
-  ScrollView,
-  ActivityIndicator,
-  Switch,
-} from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { Alert, View, ScrollView, ActivityIndicator } from "react-native";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "@/context/ThemeContext";
 import { Card, Button } from "@/components";
@@ -30,11 +24,6 @@ type Subject = {
   name: string;
 };
 
-type Year = {
-  year: number | string;
-  label: string;
-};
-
 type MockFormatSpec = {
   overall?: { time_limit?: number; sum_subject_time?: boolean };
   per_subject?: Array<{
@@ -56,7 +45,6 @@ export default function MockSetupScreen() {
   // API data
   const [examTypes, setExamTypes] = useState<ExamType[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [years, setYears] = useState<Year[]>([]);
   const [mockFormats, setMockFormats] = useState<
     Record<string, MockFormatSpec>
   >({});
@@ -66,12 +54,47 @@ export default function MockSetupScreen() {
     null,
   );
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
-  const [selectedYear, setSelectedYear] = useState<Year | null>(null);
-  const [shuffle, setShuffle] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
+  const [prepareStatus, setPrepareStatus] = useState<string | null>(null);
+  const [isUpdatingSelection, setIsUpdatingSelection] = useState(false);
 
   // Configuration derived from mock formats
   const maxSubjects = 4;
+
+  const fetchSubjectsForExamType = async (
+    examTypeId?: number,
+  ): Promise<void> => {
+    if (!examTypeId) {
+      setSubjects([]);
+      setSelectedSubjects([]);
+
+      return;
+    }
+
+    const subjectsResponse = await api.get("/config/subjects", {
+      params: examTypeId ? { exam_type_id: examTypeId } : undefined,
+    });
+
+    const fetchedSubjects: Subject[] =
+      subjectsResponse.data?.data ?? subjectsResponse.data ?? [];
+
+    setSubjects(fetchedSubjects);
+
+    setSelectedSubjects((previous) => {
+      const allowedSubjectIds = new Set(
+        fetchedSubjects.map((subject) => subject.id),
+      );
+      const stillValid = previous.filter((subject) =>
+        allowedSubjectIds.has(subject.id),
+      );
+
+      if (stillValid.length > 0) {
+        return stillValid;
+      }
+
+      return [];
+    });
+  };
 
   // Fetch all configuration on mount
   useEffect(() => {
@@ -79,26 +102,18 @@ export default function MockSetupScreen() {
       try {
         setIsLoading(true);
         setError(null);
-        const [examRes, subjectsRes, yearsRes, formatsRes] = await Promise.all([
+        const [examRes, formatsRes] = await Promise.all([
           api.get("/config/exam-types"),
-          api.get("/config/subjects"),
-          api.get("/config/years"),
           api.get("/config/mock-formats"),
         ]);
-        setExamTypes(examRes.data?.data ?? []);
-        setSubjects(subjectsRes.data?.data ?? []);
-        // include a "Random" year option like the web version
-        setYears([
-          { year: "random", label: "Random" },
-          ...(yearsRes.data?.data ?? []),
-        ]);
+        const fetchedExamTypes: ExamType[] = examRes.data?.data ?? [];
+
+        setExamTypes(fetchedExamTypes);
         setMockFormats(formatsRes.data?.data ?? {});
-        // Default selections
-        if (examRes.data?.data?.length)
-          setSelectedExamType(examRes.data.data[0]);
-        if (subjectsRes.data?.data?.length)
-          setSelectedSubjects([subjectsRes.data.data[0]]);
-        setSelectedYear({ year: "random", label: "Random" });
+
+        setSelectedExamType(null);
+
+        await fetchSubjectsForExamType(undefined);
       } catch (e) {
         console.warn(e);
         setError(
@@ -110,6 +125,21 @@ export default function MockSetupScreen() {
     };
     fetchConfig();
   }, []);
+
+  useEffect(() => {
+    const syncSelection = async () => {
+      try {
+        setIsUpdatingSelection(true);
+        await fetchSubjectsForExamType(selectedExamType?.id);
+      } catch (fetchError) {
+        console.warn("Failed to sync selection options", fetchError);
+      } finally {
+        setIsUpdatingSelection(false);
+      }
+    };
+
+    syncSelection();
+  }, [selectedExamType]);
 
   const toggleSubject = (subject: Subject) => {
     const already = selectedSubjects.find((s) => s.id === subject.id);
@@ -127,19 +157,43 @@ export default function MockSetupScreen() {
 
     try {
       setIsPreparing(true);
+      setPrepareStatus("Checking selected subjects...");
 
       const { downloadedNow } = await downloadMissingSubjects(
         selectedSubjects.map((subject) => ({
           id: subject.id,
           name: subject.name,
         })),
+        {
+          onProgress: (progress) => {
+            if (progress.phase === "checking") {
+              setPrepareStatus(`Checking ${progress.subjectName}...`);
+            }
+
+            if (progress.phase === "downloading") {
+              setPrepareStatus(`Downloading ${progress.subjectName}...`);
+            }
+
+            if (
+              progress.phase === "page" &&
+              progress.currentPage &&
+              progress.lastPage
+            ) {
+              setPrepareStatus(
+                `Downloading ${progress.subjectName}: page ${progress.currentPage}/${progress.lastPage}`,
+              );
+            }
+          },
+        },
       );
+
+      setPrepareStatus("Creating mock session...");
 
       const payload = {
         exam_type_id: selectedExamType.id,
         subject_ids: selectedSubjects.map((s) => s.id),
-        year: selectedYear?.year ?? null,
-        shuffle,
+        year: null,
+        shuffle: true,
       };
       const res = await api.post("/mock/sessions", payload);
       // Assuming the API returns a session ID and a route to start the exam
@@ -149,17 +203,16 @@ export default function MockSetupScreen() {
       // e.g., router.push(`/mock/${sessionId}`);
       console.log("Mock session created", sessionId);
 
-      if (downloadedNow.length > 0) {
-        Alert.alert(
-          "Offline subjects updated",
-          `${downloadedNow.length} subject(s) were downloaded for this mock exam.`,
-        );
-      }
+      Alert.alert(
+        "Mock session ready",
+        `${downloadedNow.length > 0 ? `${downloadedNow.length} subject pack(s) downloaded. ` : ""}${sessionId ? `Session: ${sessionId}` : "You can now proceed to questions."}`,
+      );
     } catch (e) {
       console.warn(e);
       setError("Failed to start mock exam. Please try again later.");
     } finally {
       setIsPreparing(false);
+      setPrepareStatus(null);
     }
   };
 
@@ -194,8 +247,8 @@ export default function MockSetupScreen() {
           Mock Exam Setup
         </Heading>
         <BodyText className="text-neutral-900 dark:text-neutral-400">
-          Choose exam type, year and up to {maxSubjects} subjects for a full
-          mock experience.
+          Choose exam type and up to {maxSubjects} subjects for a full mock
+          experience.
         </BodyText>
       </View>
 
@@ -208,32 +261,25 @@ export default function MockSetupScreen() {
           <Subheading size="md" className="mb-3 px-2">
             Select Exam Type
           </Subheading>
+          {isUpdatingSelection ? (
+            <View className="flex-row items-center px-2 mb-3">
+              <ActivityIndicator size="small" color="#4f46e5" />
+              <Caption className="ml-2 text-neutral-500 dark:text-neutral-400">
+                Updating exam type options...
+              </Caption>
+            </View>
+          ) : null}
           <View className="flex flex-wrap gap-2 mb-8 pl-2">
             {examTypes.map((et) => (
               <Button
                 key={et.id}
                 variant={selectedExamType?.id === et.id ? "primary" : "outline"}
                 onPress={() => setSelectedExamType(et)}
-                className="mr-3"
+                disabled={isUpdatingSelection}
+                size="sm"
+                style={{ marginRight: 12, marginBottom: 12 }}
               >
                 {et.name}
-              </Button>
-            ))}
-          </View>
-
-          {/* Year Selection */}
-          <Subheading size="md" className="mb-3 px-2">
-            Select Year
-          </Subheading>
-          <View className="flex-row flex-wrap px-2 mb-6">
-            {years.map((y) => (
-              <Button
-                key={String(y.year)}
-                variant={selectedYear?.year === y.year ? "primary" : "outline"}
-                onPress={() => setSelectedYear(y)}
-                className="mr-3 mb-3"
-              >
-                {y.label ?? y.year}
               </Button>
             ))}
           </View>
@@ -242,6 +288,18 @@ export default function MockSetupScreen() {
           <Subheading size="md" className="mb-3 px-2">
             Select Subjects (max {maxSubjects})
           </Subheading>
+          {!selectedExamType ? (
+            <Card
+              variant="bordered"
+              padding="md"
+              className="mx-2 mb-6 bg-white dark:bg-neutral-900"
+            >
+              <Caption className="text-neutral-500 dark:text-neutral-400">
+                Select an exam type to load available subjects.
+              </Caption>
+            </Card>
+          ) : null}
+
           <View className="flex-row flex-wrap px-2 mb-6">
             {subjects.map((sub) => {
               const selected = selectedSubjects.find((s) => s.id === sub.id);
@@ -253,7 +311,8 @@ export default function MockSetupScreen() {
                   variant={selected ? "primary" : "outline"}
                   onPress={() => toggleSubject(sub)}
                   disabled={!canSelect && !selected}
-                  className="mr-3 mb-3"
+                  size="sm"
+                  style={{ marginRight: 12, marginBottom: 12 }}
                 >
                   {sub.name}
                 </Button>
@@ -261,32 +320,33 @@ export default function MockSetupScreen() {
             })}
           </View>
 
-          {/* Options */}
-          <Subheading size="md" className="mb-3 px-2">
-            Options
-          </Subheading>
-          <Card
-            variant="bordered"
-            padding="md"
-            className="mb-24 bg-white dark:bg-neutral-900"
-          >
-            <View className="flex-row items-center justify-between mb-4">
-              <BodyText className="font-medium">Shuffle Questions</BodyText>
-              <Switch
-                value={shuffle}
-                onValueChange={setShuffle}
-                trackColor={{
-                  false: isDark ? "#3f3f46" : "#e4e4e7",
-                  true: "#4f46e5",
-                }}
-              />
-            </View>
-          </Card>
+          {subjects.length === 0 ? (
+            <Card
+              variant="bordered"
+              padding="md"
+              className="mx-2 mb-6 bg-white dark:bg-neutral-900"
+            >
+              <Caption className="text-neutral-500 dark:text-neutral-400">
+                No subjects are currently mapped to this exam type.
+              </Caption>
+            </Card>
+          ) : null}
+
+          <View className="mb-24" />
         </View>
       </ScrollView>
 
       {/* Sticky Bottom Action */}
       <View className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-lg border-t border-neutral-200 dark:border-neutral-800">
+        {isPreparing && prepareStatus ? (
+          <View className="flex-row items-center mb-3">
+            <ActivityIndicator size="small" color="#4f46e5" />
+            <Caption className="ml-2 text-neutral-700 dark:text-neutral-300">
+              {prepareStatus}
+            </Caption>
+          </View>
+        ) : null}
+
         <Button
           onPress={startMock}
           disabled={
