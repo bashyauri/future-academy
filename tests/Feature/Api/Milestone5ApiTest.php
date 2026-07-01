@@ -208,14 +208,35 @@ test('can start quiz attempt', function () {
     $response = $this->withToken($this->token)
         ->postJson('/api/v1/quizzes/'.$quiz->id.'/start', [
             'question_count' => 10,
+            'time_limit' => 45,
             'shuffle' => true,
         ]);
 
     $response->assertStatus(200)
         ->assertJsonStructure([
             'message',
-            'data' => ['attempt_id', 'quiz_id', 'total_questions', 'question_order', 'started_at'],
+            'data' => ['attempt_id', 'quiz_id', 'total_questions', 'question_order', 'time_limit', 'started_at'],
+        ])
+        ->assertJsonPath('data.time_limit', 45);
+});
+
+test('jamb session requires exactly four subjects', function () {
+    $jamb = ExamType::factory()->create([
+        'slug' => 'jamb',
+    ]);
+
+    $subjects = Subject::factory()->count(3)->create(['is_active' => true]);
+
+    $response = $this->withToken($this->token)
+        ->postJson('/api/v1/jamb/sessions', [
+            'subject_ids' => $subjects->pluck('id')->toArray(),
+            'year' => 2024,
+            'questions_per_subject' => 40,
+            'time_limit' => 180,
+            'shuffle' => false,
         ]);
+
+    $response->assertStatus(422);
 });
 
 test('unauthenticated requests are rejected', function () {

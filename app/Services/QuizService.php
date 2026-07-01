@@ -94,6 +94,8 @@ class QuizService
 
             $questionCount = $options['question_count'] ?? $quiz->question_count;
             $shuffle = $options['shuffle'] ?? false;
+            $timeLimitMinutes = $options['time_limit'] ?? null;
+            $timeLimitSeconds = $timeLimitMinutes ? ((int) $timeLimitMinutes * 60) : 0;
 
             $query = $quiz->questions();
 
@@ -113,6 +115,7 @@ class QuizService
                 'exam_year' => $quiz->exam_year,
                 'status' => 'in_progress',
                 'started_at' => now(),
+                'time_taken_seconds' => $timeLimitSeconds,
                 'total_questions' => count($questions),
                 'question_order' => $questions,
             ]);

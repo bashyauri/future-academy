@@ -53,6 +53,7 @@ Route::prefix('v1')->middleware('force.json')->group(function () {
             Route::get('/quizzes', [QuizController::class, 'index']);
             Route::get('/quizzes/{id}', [QuizController::class, 'show']);
             Route::post('/quizzes/{id}/start', [QuizController::class, 'start']);
+            Route::post('/jamb/sessions', [QuizController::class, 'initializeJambSession']);
             Route::post('/quiz-attempts/{id}/submit', [QuizController::class, 'submitAnswers']);
             Route::get('/quiz-attempts/{id}/results', [QuizController::class, 'results']);
         });

@@ -5,7 +5,7 @@ namespace App\Http\Requests\Api;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class QuizStartRequest extends FormRequest
+class JambSessionRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,7 +23,10 @@ class QuizStartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'question_count' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'subject_ids' => ['required', 'array', 'size:4'],
+            'subject_ids.*' => ['required', 'integer', 'exists:subjects,id'],
+            'year' => ['nullable', 'integer'],
+            'questions_per_subject' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:200'],
             'time_limit' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:300'],
             'shuffle' => ['sometimes', 'boolean'],
         ];
@@ -37,9 +40,13 @@ class QuizStartRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'question_count.integer' => 'Question count must be an integer.',
-            'question_count.min' => 'Question count must be at least 1.',
-            'question_count.max' => 'Question count cannot exceed 100.',
+            'subject_ids.required' => 'Please select subjects.',
+            'subject_ids.array' => 'Subjects must be an array.',
+            'subject_ids.size' => 'You must select exactly 4 subjects for JAMB.',
+            'subject_ids.*.exists' => 'One or more selected subjects are invalid.',
+            'questions_per_subject.integer' => 'Questions per subject must be an integer.',
+            'questions_per_subject.min' => 'Questions per subject must be at least 1.',
+            'questions_per_subject.max' => 'Questions per subject cannot exceed 200.',
             'time_limit.integer' => 'Time limit must be an integer.',
             'time_limit.min' => 'Time limit must be at least 1 minute.',
             'time_limit.max' => 'Time limit cannot exceed 300 minutes.',

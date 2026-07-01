@@ -44,12 +44,25 @@ class ConfigurationController extends Controller
     /**
      * Get all active subjects
      */
-    public function subjects(): JsonResponse
+    public function subjects(Request $request): JsonResponse
     {
+        $subjectsQuery = Subject::query()
+            ->where('is_active', true);
+
+        if ($request->filled('exam_type_id')) {
+            $examTypeId = $request->integer('exam_type_id');
+
+            $subjectsQuery->whereHas('questions', function ($query) use ($examTypeId) {
+                $query->where('exam_type_id', $examTypeId)
+                    ->where('is_active', true)
+                    ->where('status', 'approved');
+            });
+        }
+
         return response()->json([
             'message' => 'Subjects retrieved successfully',
             'data' => SubjectResource::collection(
-                Subject::query()->where('is_active', true)->get()
+                $subjectsQuery->get()
             ),
         ]);
     }
@@ -68,13 +81,36 @@ class ConfigurationController extends Controller
     /**
      * Get available years for questions
      */
-    public function years(): JsonResponse
+    public function years(Request $request): JsonResponse
     {
-        $years = Cache::remember('available_years', 3600, function () {
-            return Question::query()->whereNotNull('exam_year')
-                ->distinct()
-                ->orderBy('exam_year', 'desc')
-                ->pluck('exam_year')
+        $examTypeId = $request->integer('exam_type_id');
+        $subjectId = $request->integer('subject_id');
+        $cacheKey = sprintf(
+            'available_years_exam_type_%s_subject_%s',
+            $examTypeId > 0 ? $examTypeId : 'all',
+            $subjectId > 0 ? $subjectId : 'all'
+        );
+
+        $years = Cache::remember($cacheKey, 3600, function () use ($examTypeId, $subjectId) {
+            return Question::query()
+                ->where(function ($query) {
+                    $query->whereNotNull('exam_year')
+                        ->orWhereNotNull('year');
+                })
+                ->when($examTypeId > 0, function ($query) use ($examTypeId) {
+                    $query->where('exam_type_id', $examTypeId);
+                })
+                ->when($subjectId > 0, function ($query) use ($subjectId) {
+                    $query->where('subject_id', $subjectId);
+                })
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->get(['exam_year', 'year'])
+                ->map(fn ($question) => $question->exam_year ?: $question->year)
+                ->filter()
+                ->unique()
+                ->sortDesc()
+                ->values()
                 ->toArray();
         });
 
