@@ -37,10 +37,11 @@ gantt
 
     section Mobile Frontend Track
     Sprint 7 - App Shell, Auth & Onboarding   :milestone7, 2026-07-15, 7d
-    Sprint 8 - Offline Download & SQLite      :milestone8, 2026-07-22, 7d
+    Sprint 8 - Online Dashboard & Subjects    :milestone8, 2026-07-22, 7d
     Sprint 9 - Practice & JAMB Quiz Players   :milestone9, 2026-07-29, 7d
     Sprint 10 - Mock Exam Player & Anti-Cheat  :milestone10, 2026-08-05, 7d
-    Sprint 11 - Sync Engine, Analytics & Polish:milestone11, 2026-08-12, 7d
+    Sprint 11 - Video Lessons, Analytics & Polish:milestone11, 2026-08-12, 7d
+    Sprint 12 - Offline Support (Optional)    :milestone12, 2026-08-19, 7d
 ```
 
 ---
@@ -145,37 +146,35 @@ Build the foundational app structure, user authentication, and onboarding setups
 
 ---
 
-### 🟡 Milestone 8: Offline Download Manager & Local SQLite Database (Week 8)
-Enable the app to download and store question packs for fully offline use.
+### 🟡 Milestone 8: Online Dashboard & Subject Index (Week 8)
+Enable the app to display a student's enrolled subjects and general dashboard widgets online.
 *   **Tasks**:
-    *   Set up local SQLite database schema on app start using `expo-sqlite` (`questions`, `options`, `offline_attempts`, `offline_answers` tables).
     *   Build the **Subject Index screen** (`(tabs)/index.tsx`) that lists enrolled subjects from `GET /api/v1/subjects`.
-    *   Build the **Download Manager**: progress indicator, per-subject download button, download size preview.
-    *   Implement `GET /api/v1/subjects/{id}/download` data fetch and persist the questions/options into local SQLite.
-    *   Add download status (Downloaded / Not Downloaded / Outdated) indicators per subject.
-    *   Handle download failures gracefully with retry logic and offline detection via `@react-native-community/netinfo`.
+    *   Implement pull-to-refresh logic for the subjects list.
+    *   Add error states if the network is disconnected using `@react-native-community/netinfo`.
+    *   Display basic user stats retrieved from the Analytics API.
 *   **Client Deliverable**:
-    *   Student can download a full subject question bank in under 2 seconds on 4G, with the data visible in the app even in airplane mode.
+    *   Student can see their enrolled subjects instantly upon login, fetched live from the API.
 
 ---
 
 ### 🟡 Milestone 9: Practice Quiz & JAMB Quiz Players (Week 9)
-Deliver the two core study modes with a fully working offline quiz experience.
+Deliver the two core study modes with a fully working online quiz experience.
 *   **Tasks**:
-    *   Build **Practice Setup screen** (`(tabs)/practice-setup.tsx`): subject selector, optional year filter, question count slider.
-    *   Build **Single-Subject Quiz Player** (`practice/single-quiz.tsx`):
-        *   Load questions from local SQLite.
-        *   Question navigator, option selection, answer reveal with explanation.
-        *   Progress bar and question counter.
-        *   Record answers into `offline_answers` table.
-        *   On completion, write a completed attempt to `offline_attempts`.
-    *   Build **JAMB Setup screen** (`(tabs)/jamb-setup.tsx`): 4-subject picker with year filter.
-    *   Build **JAMB Quiz Player** (`practice/jamb-quiz.tsx`):
-        *   Subject tab switcher (Mathematics | English | Biology | Chemistry).
-        *   Per-subject question navigation.
-        *   Shared timer across all subjects.
+    *   Build **Practice Setup screen** (`(tabs)/practice-setup.tsx`): (DONE).
+    *   Build **Single-Subject Quiz Player** (`practice/[id].tsx`):
+        *   Fetch questions dynamically from `GET /api/v1/quizzes/{id}`.
+        *   Build UI Architecture: Progress indicator, selectable option list (Radio Group), and bottom action bar.
+        *   Local state management for selected options.
+        *   Submit answers directly to `POST /api/v1/quiz-attempts/{id}/submit`.
+    *   Build **JAMB Setup screen** (`(tabs)/jamb-setup.tsx`): (DONE).
+    *   Build **JAMB Quiz Player** (`jamb/[id].tsx`):
+        *   Subject tab switcher (e.g., Mathematics | English | Biology | Chemistry).
+        *   Grid-based question navigator drawer for quick jumping.
+        *   Shared countdown timer across all subjects.
+        *   Auto-submit functionality when time expires or on manual submit.
 *   **Client Deliverable**:
-    *   Student can complete a full 40-question JAMB practice session offline and see their score on the results screen.
+    *   Student can complete a full 40-question JAMB practice session online and see their score on the results screen.
 
 ---
 
@@ -185,22 +184,20 @@ Deliver the timed, invigilated exam experience.
     *   Build **Mock Setup screen** (`(tabs)/mock-setup.tsx`): single vs. multi-subject toggle, subject picker.
     *   Build **Mock Groups screen** (`(tabs)/mock-groups.tsx`): list available batches from `GET /api/v1/mock/groups`.
     *   Build **Mock Quiz Player** (`mock/mock-quiz.tsx`):
+        *   Fetch questions directly from the API utilizing the session token.
         *   Countdown timer (visible, auto-submits on expiry).
         *   Lock questions after submission — no changes allowed.
         *   Anti-cheat: detect app backgrounding and log violations.
-        *   Store completed attempt in `offline_attempts` with `mock_group_id`.
     *   Call `POST /api/v1/mock/sessions` for multi-subject mock initialization.
     *   Display per-subject score breakdown on the results screen.
 *   **Client Deliverable**:
-    *   Student can start and complete a timed 2-hour multi-subject mock exam. The timer auto-submits and scores are shown instantly.
+    *   Student can start and complete a timed 2-hour multi-subject mock exam. The timer auto-submits and scores are sent directly to the server.
 
 ---
 
-### 🟡 Milestone 11: Background Sync Engine, Video Lessons, Analytics & App Polish (Week 11)
-Connect all offline data back to the server, display streaks/analytics, and finalize the production-ready app.
+### 🟡 Milestone 11: Video Lessons, Analytics & App Polish (Week 11)
+Connect video content, display streaks/analytics, and finalize the production-ready app.
 *   **Tasks**:
-    *   Build the **Sync Engine**: on app resume or Wi-Fi connection, batch-upload all unsynced `offline_attempts` and `offline_answers` to `POST /api/v1/sync`.
-    *   Show sync status indicator ("3 attempts pending sync" / "All synced ✓").
     *   Build **Video Lessons screen** (`lessons/video.tsx`): fetch Bunny CDN token from `GET /api/v1/lessons/{id}/video-token` and play securely.
     *   Implement **Dashboard Analytics & Study Streaks**:
         *   Fetch and display the study streak from `GET /api/v1/analytics/study-streak`.
@@ -210,7 +207,19 @@ Connect all offline data back to the server, display streaks/analytics, and fina
     *   Performance pass: skeleton loading screens, image lazy-loading, pull-to-refresh.
     *   Final EAS production build and Play Store submission checklist.
 *   **Client Deliverable**:
-    *   Full end-to-end flow: student completes offline mock, phone reconnects to data, scores appear in the admin Filament panel automatically. Production APK ready for Play Store submission.
+    *   Full end-to-end flow: student completes online mock, scores appear in the admin Filament panel automatically. Production APK ready for Play Store submission.
+
+---
+
+### 🟡 Milestone 12: Offline Support & Local Database (Week 12 - Optional)
+Enable the app to optionally download and store question packs for offline use.
+*   **Tasks**:
+    *   Set up local SQLite database schema on app start using `expo-sqlite`.
+    *   Build the **Download Manager**: progress indicator, per-subject download button.
+    *   Implement data fetch and persist into local SQLite.
+    *   Build the **Sync Engine**: batch-upload offline attempts upon reconnection.
+*   **Client Deliverable**:
+    *   Student can optionally download subjects for offline study.
 
 ### Sprint 12 (Recommended): Release Hardening & Store Readiness
 
