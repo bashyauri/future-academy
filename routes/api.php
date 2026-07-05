@@ -112,7 +112,7 @@ Route::prefix('v1')
             */
             Route::middleware([
                 'throttle:60,1',
-                'ensure.subscription.or.trial'
+                'ensure.subscription.or.trial',
             ])->group(function () {
 
                 /*
@@ -150,8 +150,10 @@ Route::prefix('v1')
                 |--------------------------------------------------------------------------
                 */
                 Route::prefix('practice')->group(function () {
-
                     Route::post('/start', [PracticeQuizApiController::class, 'startQuiz']);
+                    Route::get('/active-attempts', [PracticeQuizApiController::class, 'getActiveAttempts']);
+                    Route::delete('/attempts/{attempt}', [PracticeQuizApiController::class, 'deleteAttempt']);
+                    Route::get('/question-count', [PracticeQuizApiController::class, 'getQuestionCount']);
                     Route::get('/load/{attempt}', [PracticeQuizApiController::class, 'loadAttempt']);
                     Route::post('/load-batch', [PracticeQuizApiController::class, 'loadBatch']);
                     Route::post('/save', [PracticeQuizApiController::class, 'saveAnswers']);

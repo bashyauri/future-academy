@@ -59,6 +59,10 @@ const PracticeQuizScreen = () => {
         const response = await api.get(
           `/practice/load/${id}`,
         );
+        console.log(
+  "Practice Load Response",
+  response.data
+);
 
         const data =
   response.data?.data ?? response.data;

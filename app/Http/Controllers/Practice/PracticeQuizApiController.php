@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Practice;
 
 use App\Http\Controllers\Controller;
+use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\UserAnswer;
@@ -93,6 +94,18 @@ class PracticeQuizApiController extends Controller
         $firstBatch = array_slice($questionIds, 0, 5);
         $questions = $this->loadQuestionsBatch($firstBatch, $validated['shuffle'] ?? false);
 
+        // Cache the initial state to preserve time_limit
+        $cacheKey = "practice_attempt_{$attempt->id}";
+        cache()->put($cacheKey, [
+            'questions' => $questions,
+            'answers' => array_fill(0, $totalQuestions, null),
+            'position' => 0,
+            'all_question_ids' => $questionIds,
+            'loaded_up_to_index' => min(4, $totalQuestions - 1),
+            'total_questions' => $totalQuestions,
+            'time_limit' => $validated['time'] ?? null,
+        ], now()->addHours(3));
+
         return response()->json([
             'success' => true,
             'attempt_id' => $attempt->id,
@@ -135,7 +148,7 @@ class PracticeQuizApiController extends Controller
                 'loaded_up_to_index' => $cached['loaded_up_to_index'],
                 'user_answers' => $cached['answers'],
                 'current_question_index' => $cached['position'],
-                'time_limit' => $attempt->time_limit ?? null,
+                'time_limit' => $cached['time_limit'] ?? null,
                 'started_at' => $attempt->started_at->toIso8601String(),
                 'status' => $attempt->status,
             ]);
@@ -169,7 +182,7 @@ class PracticeQuizApiController extends Controller
             'loaded_up_to_index' => min(4, $totalQuestions - 1),
             'user_answers' => $userAnswers,
             'current_question_index' => $attempt->current_question_index ?? 0,
-            'time_limit' => $attempt->time_limit ?? null,
+            'time_limit' => null,
             'started_at' => $attempt->started_at->toIso8601String(),
             'status' => $attempt->status,
         ]);
@@ -277,6 +290,7 @@ class PracticeQuizApiController extends Controller
             'all_question_ids' => 'required|array',
             'questions' => 'required|array',
             'loaded_up_to_index' => 'required|integer',
+            'time_limit' => 'nullable|integer',
         ]);
 
         $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
@@ -288,6 +302,9 @@ class PracticeQuizApiController extends Controller
 
         // Update cache
         $cacheKey = "practice_attempt_{$attempt->id}";
+        $existing = cache()->get($cacheKey);
+        $timeLimit = $validated['time_limit'] ?? $existing['time_limit'] ?? null;
+
         cache()->put($cacheKey, [
             'questions' => $validated['questions'],
             'answers' => $validated['answers'],
@@ -295,6 +312,7 @@ class PracticeQuizApiController extends Controller
             'all_question_ids' => $validated['all_question_ids'],
             'loaded_up_to_index' => $validated['loaded_up_to_index'],
             'total_questions' => count($validated['all_question_ids']),
+            'time_limit' => $timeLimit,
         ], now()->addHours(3));
 
         // Update current position
@@ -443,6 +461,128 @@ class PracticeQuizApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Progress saved. You can resume later.',
+        ]);
+    }
+
+    /**
+     * Get active in-progress attempts for single-subject practice
+     */
+    public function getActiveAttempts(Request $request)
+    {
+        $attempts = QuizAttempt::where('user_id', auth()->id())
+            ->where('status', 'in_progress')
+            ->whereNull('completed_at')
+            ->with(['subject:id,name'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $filtered = $attempts->filter(function ($attempt) {
+            $order = $attempt->question_order ?? [];
+
+            // A single subject practice quiz is sequential (non-associative array of IDs)
+            $isAssoc = ! empty($order) && array_keys($order) !== range(0, count($order) - 1);
+            $subjectCount = $isAssoc ? count($order) : 1;
+            if ($subjectCount !== 1) {
+                return false;
+            }
+
+            // Check if timed and expired
+            $cacheKey = "practice_attempt_{$attempt->id}";
+            $cached = cache()->get($cacheKey);
+            $timeLimit = $cached['time_limit'] ?? null;
+
+            if ($attempt->started_at && $timeLimit && $timeLimit > 0) {
+                $elapsed = now()->diffInSeconds($attempt->started_at);
+                if ($elapsed >= ($timeLimit * 60)) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->map(function ($attempt) {
+            $cacheKey = "practice_attempt_{$attempt->id}";
+            $cached = cache()->get($cacheKey);
+            $timeLimit = $cached['time_limit'] ?? null;
+
+            $examTypeName = null;
+            if ($attempt->exam_type_id) {
+                $examTypeName = ExamType::find($attempt->exam_type_id)?->name;
+            }
+
+            return [
+                'id' => $attempt->id,
+                'subject_id' => $attempt->subject_id,
+                'subject_name' => $attempt->subject?->name,
+                'exam_type_id' => $attempt->exam_type_id,
+                'exam_type_name' => $examTypeName,
+                'exam_year' => $attempt->exam_year,
+                'total_questions' => $attempt->total_questions,
+                'current_question_index' => $attempt->current_question_index,
+                'started_at' => $attempt->started_at->toIso8601String(),
+                'time_limit' => $timeLimit,
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'attempts' => $filtered,
+        ]);
+    }
+
+    /**
+     * Dismiss/delete an active attempt
+     */
+    public function deleteAttempt($attemptId)
+    {
+        $attempt = QuizAttempt::where('id', $attemptId)
+            ->where('user_id', auth()->id())
+            ->where('status', 'in_progress')
+            ->firstOrFail();
+
+        // Clear cache
+        cache()->forget("practice_attempt_{$attempt->id}");
+
+        $attempt->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Attempt dismissed successfully.',
+        ]);
+    }
+
+    /**
+     * Get dynamic available question count for specific subject, exam type, and year
+     */
+    public function getQuestionCount(Request $request)
+    {
+        $validated = $request->validate([
+            'subject_id' => 'required|exists:subjects,id',
+            'exam_type_id' => 'nullable|exists:exam_types,id',
+            'year' => 'nullable|integer',
+        ]);
+
+        $query = Question::query()
+            ->where('subject_id', $validated['subject_id'])
+            ->where('is_active', true)
+            ->where('status', 'approved')
+            ->where('is_mock', false);
+
+        if ($validated['exam_type_id'] ?? null) {
+            $query->where('exam_type_id', $validated['exam_type_id']);
+        }
+
+        if ($validated['year'] ?? null) {
+            $query->where(function ($q) use ($validated) {
+                $q->where('exam_year', $validated['year'])
+                    ->orWhere(function ($sub) use ($validated) {
+                        $sub->whereNull('exam_year')->where('year', $validated['year']);
+                    });
+            });
+        }
+
+        return response()->json([
+            'success' => true,
+            'count' => $query->count(),
         ]);
     }
 }
