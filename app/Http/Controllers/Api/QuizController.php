@@ -148,16 +148,260 @@ class QuizController extends Controller
     }
 
     /**
-     * Get attempt results
+     * Start a new JAMB session and create the attempt
      */
-    public function results(Request $request, int $id): JsonResponse
+    public function startJambSession(JambSessionRequest $request): JsonResponse
     {
-        $user = $request->user();
-        $results = $this->quizService->getAttemptResults($user, $id);
+        $validated = $request->validated();
+        $jambExamType = ExamType::query()->where('slug', 'jamb')->first();
+
+        if (! $jambExamType) {
+            return response()->json(['message' => 'JAMB exam type is not configured.'], 422);
+        }
+
+        $questionsPerSubject = (int) ($validated['questions_per_subject'] ?? 40);
+        $selectedYear = $validated['year'] ?? null;
+        $subjectIds = array_map('intval', $validated['subject_ids']);
+        $shuffle = (bool) ($validated['shuffle'] ?? false);
+
+        $subjects = Subject::query()
+            ->whereIn('id', $subjectIds)
+            ->where('is_active', true)
+            ->get();
+
+        if ($subjects->count() !== count($subjectIds)) {
+            return response()->json(['message' => 'One or more selected subjects are invalid.'], 422);
+        }
+
+        $questionOrder = [];
+        $questionsBySubject = [];
+        $userAnswers = [];
+        $subjectsData = [];
+
+        foreach ($subjects as $subject) {
+            $query = Question::query()
+                ->where('exam_type_id', $jambExamType->id)
+                ->where('subject_id', $subject->id)
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->with('options:id,question_id,option_text,option_image,is_correct')
+                ->when($selectedYear, function ($q, $year) {
+                    $q->where('exam_year', $year);
+                });
+
+            if ($shuffle) {
+                $query->inRandomOrder();
+            }
+
+            $subjectQuestions = $query->limit($questionsPerSubject)->get();
+
+            if ($subjectQuestions->count() < $questionsPerSubject) {
+                $yearText = $selectedYear ?: 'all available years';
+                return response()->json([
+                    'message' => "Not enough questions for {$subject->name} in {$yearText}. Available: {$subjectQuestions->count()}, Required: {$questionsPerSubject}",
+                ], 422);
+            }
+
+            $mappedQuestions = $subjectQuestions->map(function ($q) use ($shuffle) {
+                $options = $q->options->map(function ($opt) {
+                    return [
+                        'id' => $opt->id,
+                        'option_text' => $opt->option_text,
+                        'option_text_html' => (string) $opt->option_text_html,
+                        'option_image' => $opt->option_image,
+                        'is_correct' => $opt->is_correct,
+                    ];
+                })->toArray();
+
+                if ($shuffle) {
+                    shuffle($options);
+                }
+
+                return [
+                    'id' => $q->id,
+                    'question_text' => $q->question_text,
+                    'question_text_html' => (string) $q->question_text,
+                    'question_image' => $q->question_image,
+                    'explanation' => $q->explanation,
+                    'explanation_html' => (string) $q->explanation_html,
+                    'options' => $options,
+                ];
+            })->toArray();
+
+            $questionOrder[$subject->id] = $subjectQuestions->pluck('id')->toArray();
+            $questionsBySubject[$subject->id] = $mappedQuestions;
+            $userAnswers[$subject->id] = array_fill(0, $questionsPerSubject, null);
+            $subjectsData[] = [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'code' => $subject->code,
+            ];
+        }
+
+        $attempt = \App\Models\QuizAttempt::create([
+            'user_id' => auth()->id(),
+            'exam_type_id' => $jambExamType->id,
+            'exam_year' => $selectedYear,
+            'score' => 0,
+            'total_questions' => count($subjectIds) * $questionsPerSubject,
+            'time_taken_seconds' => 0,
+            'time_spent_seconds' => 0,
+            'percentage' => 0,
+            'started_at' => now(),
+            'status' => 'in_progress',
+            'question_order' => $questionOrder,
+            'current_question_index' => 0,
+        ]);
+
+        $payload = [
+            'attempt_id' => $attempt->id,
+            'time_limit' => $validated['time_limit'] ?? null,
+            'current_subject_index' => 0,
+            'current_question_index' => 0,
+            'questions_by_subject' => $questionsBySubject,
+            'user_answers' => $userAnswers,
+            'subjects_data' => $subjectsData,
+            'elapsed_seconds' => 0,
+        ];
+
+        cache()->put("jamb_attempt_{$attempt->id}", $payload, now()->addHours(6));
 
         return response()->json([
-            'message' => 'Quiz results retrieved successfully',
-            'data' => $results,
+            'message' => 'JAMB session started successfully',
+            'data' => $payload,
         ]);
+    }
+
+    /**
+     * Load an existing JAMB attempt
+     */
+    public function loadJambAttempt(int $attemptId): JsonResponse
+    {
+        $attempt = \App\Models\QuizAttempt::findOrFail($attemptId);
+
+        if ($attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $cached = cache()->get("jamb_attempt_{$attempt->id}");
+        if ($cached) {
+            $cached['elapsed_seconds'] = now()->diffInSeconds($attempt->started_at);
+            return response()->json([
+                'success' => true,
+                'data' => $cached,
+            ]);
+        }
+
+        return response()->json(['message' => 'Session expired or not found in cache. Please restart.'], 404);
+    }
+
+    /**
+     * Submit JAMB Quiz Answers
+     */
+    public function submitJambQuiz(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'attempt_id' => 'required|exists:quiz_attempts,id',
+            'user_answers' => 'required|array',
+        ]);
+
+        $attempt = \App\Models\QuizAttempt::findOrFail($validated['attempt_id']);
+        if ($attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $userAnswersBySubject = $validated['user_answers'];
+        $questionOrder = $attempt->question_order ?? [];
+        $correctCount = 0;
+        $answeredCount = 0;
+        $scoresBySubject = [];
+
+        foreach ($questionOrder as $subjectId => $questionIds) {
+            $subjectScore = 0;
+            $subjectAnswers = $userAnswersBySubject[$subjectId] ?? [];
+
+            foreach ($questionIds as $index => $questionId) {
+                $optionId = $subjectAnswers[$index] ?? null;
+                if ($optionId) {
+                    $answeredCount++;
+                    $question = Question::with('options')->find($questionId);
+                    $isCorrect = (bool) ($question?->options->firstWhere('id', $optionId)?->is_correct);
+                    
+                    if ($isCorrect) {
+                        $correctCount++;
+                        $subjectScore++;
+                    }
+
+                    \App\Models\UserAnswer::updateOrCreate(
+                        [
+                            'quiz_attempt_id' => $attempt->id,
+                            'question_id' => $questionId,
+                        ],
+                        [
+                            'option_id' => $optionId,
+                            'is_correct' => $isCorrect,
+                            'time_spent_seconds' => 0,
+                        ]
+                    );
+                }
+            }
+            $scoresBySubject[$subjectId] = $subjectScore;
+        }
+
+        $totalQuestions = $attempt->total_questions > 0 ? $attempt->total_questions : 1;
+        $percentage = ($correctCount / $totalQuestions) * 100;
+        $timeSpent = now()->diffInSeconds($attempt->started_at);
+
+        $attempt->update([
+            'score' => $correctCount,
+            'percentage' => $percentage,
+            'answered_questions' => $answeredCount,
+            'correct_answers' => $correctCount,
+            'score_percentage' => $percentage,
+            'time_spent_seconds' => $timeSpent,
+            'time_taken_seconds' => $timeSpent,
+            'completed_at' => now(),
+            'status' => 'completed',
+        ]);
+
+        cache()->forget("jamb_attempt_{$attempt->id}");
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'scores_by_subject' => $scoresBySubject,
+                'total_score' => $correctCount,
+                'percentage' => $percentage,
+            ]
+        ]);
+    }
+
+    /**
+     * Exit/Save current state of a JAMB quiz
+     */
+    public function exitJambQuiz(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'attempt_id' => 'required|exists:quiz_attempts,id',
+            'user_answers' => 'required|array',
+            'current_subject_index' => 'required|integer',
+            'current_question_index' => 'required|integer',
+        ]);
+
+        $attempt = \App\Models\QuizAttempt::findOrFail($validated['attempt_id']);
+        if ($attempt->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $cached = cache()->get("jamb_attempt_{$attempt->id}");
+        if ($cached) {
+            $cached['user_answers'] = $validated['user_answers'];
+            $cached['current_subject_index'] = $validated['current_subject_index'];
+            $cached['current_question_index'] = $validated['current_question_index'];
+            
+            cache()->put("jamb_attempt_{$attempt->id}", $cached, now()->addHours(6));
+        }
+
+        return response()->json(['success' => true]);
     }
 }

@@ -142,6 +142,10 @@ Route::prefix('v1')
                 |--------------------------------------------------------------------------
                 */
                 Route::post('/jamb/sessions', [QuizController::class, 'initializeJambSession']);
+                Route::post('/jamb/start', [QuizController::class, 'startJambSession']);
+                Route::get('/jamb/load/{attempt}', [QuizController::class, 'loadJambAttempt']);
+                Route::post('/jamb/submit', [QuizController::class, 'submitJambQuiz']);
+                Route::post('/jamb/exit', [QuizController::class, 'exitJambQuiz']);
                 Route::get('/jamb/download', [SubjectDownloadController::class, 'downloadJambPractice']);
 
                 /*

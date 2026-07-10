@@ -1,10 +1,12 @@
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNetInfo } from "@react-native-community/netinfo";
+
 import { storage } from "@/lib/storage";
 import {
   Alert,
   View,
+  Platform,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -49,6 +51,7 @@ type ActiveAttempt = {
   current_question_index: number;
   started_at: string;
   time_limit: number | null;
+  is_timed: boolean;
 };
 
 function normalizeYears(input: unknown): Year[] {
@@ -92,6 +95,20 @@ function toNumericYear(selectedYear: Year | null): number | undefined {
   return Number.isFinite(parsedYear) ? parsedYear : undefined;
 }
 
+function getRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+}
+
 export default function PracticeSetupScreen() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -106,6 +123,7 @@ export default function PracticeSetupScreen() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedYear, setSelectedYear] = useState<Year | null>(null);
   const [questionCountInput, setQuestionCountInput] = useState("");
+  const [questionCountError, setQuestionCountError] = useState<string | null>(null);
   const [timeLimitInput, setTimeLimitInput] = useState("");
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,7 +139,9 @@ export default function PracticeSetupScreen() {
   );
   const [activeAttempts, setActiveAttempts] = useState<ActiveAttempt[]>([]);
   const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
-  const [availableQuestionCount, setAvailableQuestionCount] = useState<number | null>(null);
+  const [availableQuestionCount, setAvailableQuestionCount] = useState<
+    number | null
+  >(null);
   const [isLoadingQuestionCount, setIsLoadingQuestionCount] = useState(false);
 
   const loadYears = async (subjectId?: number, examTypeId?: number) => {
@@ -179,23 +199,29 @@ export default function PracticeSetupScreen() {
     }
   };
 
-  const loadQuestionCount = async (subjectId?: number, examTypeId?: number, year?: number | string) => {
+  const loadQuestionCount = async (
+    subjectId?: number,
+    examTypeId?: number,
+    year?: number | string,
+  ) => {
     try {
       setIsLoadingQuestionCount(true);
       const params: Record<string, number> = { subject_id: subjectId! };
-      
+
       if (examTypeId) {
         params.exam_type_id = examTypeId;
       }
-      
+
       if (year && year !== "all") {
         params.year = Number(year);
       }
 
       const response = await api.get("/practice/question-count", { params });
       setAvailableQuestionCount(response.data?.count ?? null);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load question count:", e);
+      console.error("Error response:", e?.response?.data);
+      console.error("Error status:", e?.response?.status);
       setAvailableQuestionCount(null);
     } finally {
       setIsLoadingQuestionCount(false);
@@ -219,7 +245,7 @@ export default function PracticeSetupScreen() {
     } catch (error: any) {
       Alert.alert(
         "Failed to Resume",
-        error?.response?.data?.message ?? error?.message ?? "Unknown error"
+        error?.response?.data?.message ?? error?.message ?? "Unknown error",
       );
     } finally {
       setIsPreparing(false);
@@ -228,27 +254,62 @@ export default function PracticeSetupScreen() {
   };
 
   const dismissAttempt = async (attemptId: number) => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        "Are you sure you want to dismiss this practice session?",
+      );
+
+      if (!confirmed) return;
+
+      await performDismiss(attemptId);
+      return;
+    }
+
+    Alert.alert(
+      "Dismiss Practice Session",
+      "Are you sure you want to dismiss this practice session?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Dismiss",
+          style: "destructive",
+          onPress: () => performDismiss(attemptId),
+        },
+      ],
+    );
+  };
+
+  const performDismiss = async (attemptId: number) => {
     try {
-      await api.delete(`/practice/attempts/${attemptId}`);
+      const response = await api.delete(`/practice/attempts/${attemptId}`);
+
       setActiveAttempts((prev) => prev.filter((a) => a.id !== attemptId));
     } catch (error: any) {
       Alert.alert(
         "Failed to Dismiss",
-        error?.response?.data?.message ?? error?.message ?? "Unknown error"
+        error?.response?.data?.message ?? error?.message ?? "Unknown error",
       );
     }
   };
-
   const getMatchingAttempt = (): ActiveAttempt | null => {
     if (!selectedSubject) return null;
 
-    return activeAttempts.find((attempt) => {
-      const subjectMatch = attempt.subject_id === selectedSubject.id;
-      const examTypeMatch = !selectedExamType || attempt.exam_type_id === selectedExamType.id;
-      const yearMatch = !selectedYear || selectedYear.year === "all" || attempt.exam_year === Number(selectedYear.year);
-      
-      return subjectMatch && examTypeMatch && yearMatch;
-    }) ?? null;
+    return (
+      activeAttempts.find((attempt) => {
+        const subjectMatch = attempt.subject_id === selectedSubject.id;
+        const examTypeMatch =
+          !selectedExamType || attempt.exam_type_id === selectedExamType.id;
+        const yearMatch =
+          !selectedYear ||
+          selectedYear.year === "all" ||
+          attempt.exam_year === Number(selectedYear.year);
+
+        return subjectMatch && examTypeMatch && yearMatch;
+      }) ?? null
+    );
   };
 
   const handleYearSelection = (yearOption: Year) => {
@@ -322,7 +383,7 @@ export default function PracticeSetupScreen() {
     loadQuestionCount(
       selectedSubject.id,
       selectedExamType?.id,
-      selectedYear?.year
+      selectedYear?.year,
     );
   }, [selectedSubject, selectedExamType, selectedYear]);
 
@@ -372,111 +433,86 @@ export default function PracticeSetupScreen() {
             await loadYears(undefined, undefined);
           }
         } catch (e) {
-          setError("Could not load configuration. Please check your connection.");
+          setError(
+            "Could not load configuration. Please check your connection.",
+          );
         }
       };
       fetchConfig();
     }
   }, [netInfo.isConnected]);
 
-const startPracticeSession = async () => {
-  const questionCount =
-  questionCountInput.trim() !== ""
-    ? Number(questionCountInput)
-    : undefined;
+  const startPracticeSession = async () => {
+    const questionCount =
+      questionCountInput.trim() !== "" ? Number(questionCountInput) : undefined;
 
-const timeLimit =
-  timeLimitInput.trim() !== ""
-    ? Number(timeLimitInput)
-    : undefined;
+    const timeLimit =
+      timeLimitInput.trim() !== "" ? Number(timeLimitInput) : undefined;
 
-if (
-  questionCount !== undefined &&
-  (!Number.isFinite(questionCount) ||
-    questionCount <= 0)
-) {
-  Alert.alert(
-    "Invalid Question Count",
-    "Enter a value greater than 0.",
-  );
-  return;
-}
+    if (
+      questionCount !== undefined &&
+      (!Number.isFinite(questionCount) || questionCount <= 0)
+    ) {
+      Alert.alert("Invalid Question Count", "Enter a value greater than 0.");
+      return;
+    }
 
-if (
-  timeLimit !== undefined &&
-  (!Number.isFinite(timeLimit) ||
-    timeLimit <= 0)
-) {
-  Alert.alert(
-    "Invalid Time Limit",
-    "Enter a value greater than 0.",
-  );
-  return;
-}
+    if (
+      timeLimit !== undefined &&
+      (!Number.isFinite(timeLimit) || timeLimit <= 0)
+    ) {
+      Alert.alert("Invalid Time Limit", "Enter a value greater than 0.");
+      return;
+    }
 
-  if (!selectedSubject) {
-    Alert.alert(
-      "Subject Required",
-      "Please select a subject."
-    );
-    return;
-  }
+    if (!selectedSubject) {
+      Alert.alert("Subject Required", "Please select a subject.");
+      return;
+    }
 
-  try {
-    setIsPreparing(true);
-    setPrepareStatus(
-      "Creating practice session..."
-    );
+    try {
+      setIsPreparing(true);
+      setPrepareStatus("Creating practice session...");
 
-    const payload = {
-  subject: selectedSubject.id,
+      const payload = {
+        subject: selectedSubject.id,
 
-  exam_type: selectedExamType?.id,
+        exam_type: selectedExamType?.id,
 
-  year:
-    selectedYear?.year !== "all"
-      ? Number(selectedYear?.year)
-      : undefined,
+        year:
+          selectedYear?.year !== "all" ? Number(selectedYear?.year) : undefined,
 
-  limit: questionCount,
+        limit: questionCount,
 
-  time: timeLimit,
+        time: timeLimit,
 
-  shuffle: shuffleQuestions,
-};
-    const response = await api.post(
-      "/practice/start",
-      payload,
-    );
+        shuffle: shuffleQuestions,
+      };
+      const response = await api.post("/practice/start", payload);
 
-    const attemptData =
-  response.data?.data ?? response.data;
-  if (!attemptData?.attempt_id) {
-  throw new Error(
-    "Practice session created but no attempt ID was returned.",
-  );
-}
+      const attemptData = response.data?.data ?? response.data;
+      if (!attemptData?.attempt_id) {
+        throw new Error(
+          "Practice session created but no attempt ID was returned.",
+        );
+      }
 
-    await storage.setItem(
-      `practice_attempt_${attemptData.attempt_id}`,
-      JSON.stringify(attemptData),
-    );
+      await storage.setItem(
+        `practice_attempt_${attemptData.attempt_id}`,
+        JSON.stringify(attemptData),
+      );
 
-   router.push(
-  `/practice/${attemptData.attempt_id}`,
-);
-  } catch (error: any) {
-    Alert.alert(
-      "Failed to Start Practice",
-      error?.response?.data?.message ??
-        error?.message ??
-        "Unknown error"
-    );
-  } finally {
-    setIsPreparing(false);
-    setPrepareStatus(null);
-  }
-};
+      router.push(`/practice/${attemptData.attempt_id}`);
+    } catch (error: any) {
+      Alert.alert(
+        "Failed to Start Practice",
+        error?.response?.data?.message ?? error?.message ?? "Unknown error",
+      );
+    } finally {
+      setIsPreparing(false);
+      setPrepareStatus(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -543,19 +579,31 @@ if (
                         <BodyText className="font-semibold mb-1">
                           {attempt.subject_name}
                         </BodyText>
-                        {attempt.exam_type_name && (
-                          <Caption className="text-neutral-500 dark:text-neutral-400 mb-1">
-                            {attempt.exam_type_name}
+                        <View className="flex-row items-center gap-2 mb-1">
+                          {attempt.exam_type_name && (
+                            <Caption className="text-neutral-500 dark:text-neutral-400">
+                              {attempt.exam_type_name}
+                            </Caption>
+                          )}
+                          {attempt.exam_year && (
+                            <Caption className="text-neutral-500 dark:text-neutral-400">
+                              • {attempt.exam_year}
+                            </Caption>
+                          )}
+                        </View>
+                        <View className="flex-row items-center gap-2">
+                          <Caption className="text-neutral-500 dark:text-neutral-400">
+                            {attempt.current_question_index + 1} /{" "}
+                            {attempt.total_questions} questions
                           </Caption>
-                        )}
-                        {attempt.exam_year && (
-                          <Caption className="text-neutral-500 dark:text-neutral-400 mb-1">
-                            Year {attempt.exam_year}
-                          </Caption>
-                        )}
-                        <Caption className="text-neutral-500 dark:text-neutral-400">
-                          {attempt.current_question_index + 1} / {attempt.total_questions} questions
-                        </Caption>
+                          {attempt.is_timed && (
+                            <View className="px-2 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30">
+                              <Caption className="text-primary-700 dark:text-primary-300 text-xs">
+                                Timed
+                              </Caption>
+                            </View>
+                          )}
+                        </View>
                       </View>
                       <View className="flex-row gap-2">
                         <Button
@@ -690,7 +738,7 @@ if (
         ) : null}
 
         <Subheading size="md" className="mb-3 px-2">
-          Options
+          Practice Settings
         </Subheading>
         <Card
           variant="bordered"
@@ -702,28 +750,52 @@ if (
             <View className="flex-row items-center gap-2 mb-2">
               <TextInput
                 value={questionCountInput}
-                onChangeText={setQuestionCountInput}
+                onChangeText={(text) => {
+                  setQuestionCountInput(text);
+                  if (text && availableQuestionCount !== null) {
+                    const count = parseInt(text, 10);
+                    if (count > availableQuestionCount) {
+                      setQuestionCountError(`Only ${availableQuestionCount} questions available`);
+                    } else {
+                      setQuestionCountError(null);
+                    }
+                  } else {
+                    setQuestionCountError(null);
+                  }
+                }}
                 keyboardType="number-pad"
                 placeholder="All questions"
                 placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
-                className="flex-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-neutral-100"
+                className={`flex-1 rounded-xl border px-3 py-2 text-neutral-900 dark:text-neutral-100 ${
+                  questionCountError
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-neutral-300 dark:border-neutral-700"
+                } bg-white dark:bg-neutral-900`}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onPress={() => setQuestionCountInput("")}
-              >
-                Use All
-              </Button>
-            </View>
-            <Caption className="text-neutral-500 dark:text-neutral-400">
-              {isLoadingQuestionCount ? (
-                "Loading available questions..."
-              ) : availableQuestionCount !== null ? (
-                `${availableQuestionCount} questions available`
-              ) : (
-                "Leave blank to practice all available questions."
+              {availableQuestionCount !== null && availableQuestionCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    setQuestionCountInput("");
+                    setQuestionCountError(null);
+                  }}
+                >
+                  Use All ({availableQuestionCount})
+                </Button>
               )}
+            </View>
+            {questionCountError && (
+              <Caption className="text-red-600 dark:text-red-400 mb-2">
+                {questionCountError}
+              </Caption>
+            )}
+            <Caption className="text-neutral-500 dark:text-neutral-400">
+              {isLoadingQuestionCount
+                ? "Loading available questions..."
+                : availableQuestionCount !== null
+                  ? `${availableQuestionCount} questions available`
+                  : "Leave blank to practice all available questions."}
             </Caption>
           </View>
 
@@ -743,14 +815,25 @@ if (
                 </Caption>
               </View>
             </View>
-            <TextInput
-              value={timeLimitInput}
-              onChangeText={setTimeLimitInput}
-              keyboardType="number-pad"
-              placeholder="No limit"
-              placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
-              className="w-28 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-neutral-100"
-            />
+            <View className="flex-row items-center gap-2">
+              <TextInput
+                value={timeLimitInput}
+                onChangeText={setTimeLimitInput}
+                keyboardType="number-pad"
+                placeholder="No limit"
+                placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+                className="w-28 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-neutral-100"
+              />
+              {timeLimitInput ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={() => setTimeLimitInput("")}
+                >
+                  No Limit
+                </Button>
+              ) : null}
+            </View>
           </View>
 
           <View className="flex-row items-center justify-between border-t border-neutral-200 dark:border-neutral-800 pt-4">
@@ -767,7 +850,7 @@ if (
                   Shuffle Questions
                 </BodyText>
                 <Caption className="text-neutral-900">
-                  Randomize question order
+                  Randomize the order of questions. Answers and explanations show automatically.
                 </Caption>
               </View>
             </View>
