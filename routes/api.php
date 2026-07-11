@@ -112,7 +112,7 @@ Route::prefix('v1')
             */
             Route::middleware([
                 'throttle:60,1',
-                'ensure.subscription.or.trial',
+                // 'ensure.subscription.or.trial',
             ])->group(function () {
 
                 /*
