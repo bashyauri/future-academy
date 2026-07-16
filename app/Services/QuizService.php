@@ -33,6 +33,7 @@ class QuizService
                 'id' => $quiz->id,
                 'title' => $quiz->title,
                 'description' => $quiz->description,
+                'lesson_id' => $quiz->lesson_id,
                 'type' => $quiz->type,
                 'duration_minutes' => $quiz->duration_minutes,
                 'question_count' => $quiz->question_count,
@@ -57,6 +58,7 @@ class QuizService
             'id' => $quiz->id,
             'title' => $quiz->title,
             'description' => $quiz->description,
+            'lesson_id' => $quiz->lesson_id,
             'type' => $quiz->type,
             'duration_minutes' => $quiz->duration_minutes,
             'question_count' => $quiz->question_count,
@@ -69,13 +71,16 @@ class QuizService
                 return [
                     'id' => $question->id,
                     'question_text' => $question->question_text,
+                    'question_text_html' => $question->question_text_html ?? $question->question_text,
                     'question_image' => $question->question_image,
                     'explanation' => $question->explanation,
+                    'explanation_html' => $question->explanation_html ?? $question->explanation,
                     'options' => $question->options->map(function ($option) {
                         return [
                             'id' => $option->id,
                             'label' => $option->label,
                             'option_text' => $option->option_text,
+                            'option_text_html' => $option->option_text_html ?? $option->option_text,
                             'option_image' => $option->option_image,
                         ];
                     })->toArray(),
@@ -213,11 +218,21 @@ class QuizService
                 return [
                     'question_id' => $answer->question_id,
                     'question_text' => $answer->question->question_text,
+                    'question_text_html' => $answer->question->question_text_html ?? $answer->question->question_text,
                     'selected_option_id' => $answer->option_id,
                     'selected_option_label' => $answer->option?->label,
                     'is_correct' => $answer->is_correct,
                     'explanation' => $answer->question->explanation,
+                    'explanation_html' => $answer->question->explanation_html ?? $answer->question->explanation,
                     'time_spent_seconds' => $answer->time_spent_seconds,
+                    'options' => $answer->question->options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'option_text' => $option->option_text,
+                            'option_text_html' => $option->option_text_html ?? $option->option_text,
+                            'is_correct' => $option->is_correct,
+                        ];
+                    })->toArray(),
                 ];
             })->toArray(),
         ];

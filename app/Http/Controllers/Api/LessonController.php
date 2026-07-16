@@ -70,15 +70,21 @@ class LessonController extends Controller
     public function complete(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
-        $progress = $this->lessonService->markAsCompleted($user, $id);
+        try {
+            $progress = $this->lessonService->markAsCompleted($user, $id);
 
-        return response()->json([
-            'message' => 'Lesson marked as completed successfully',
-            'data' => [
-                'lesson_id' => $progress->lesson_id,
-                'is_completed' => $progress->is_completed,
-                'completed_at' => $progress->updated_at,
-            ],
-        ]);
+            return response()->json([
+                'message' => 'Lesson marked as completed successfully',
+                'data' => [
+                    'lesson_id' => $progress->lesson_id,
+                    'is_completed' => $progress->is_completed,
+                    'completed_at' => $progress->updated_at,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 }

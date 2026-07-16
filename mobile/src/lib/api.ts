@@ -2,7 +2,7 @@ import { storage } from "@/lib/storage";
 import axios from "axios";
 
 const API_BASE_URL = __DEV__
-  ? "http://192.168.1.77:8000/api/v1"
+  ? "http://192.168.1.76:8000/api/v1"
   : "https://futureacademy-rm.com/api/v1";
 
 const api = axios.create({
@@ -17,7 +17,7 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   try {
     const token = await storage.getItem("auth_token");
-    console.log('>>> Request interceptor - token:', token);
+    console.log(">>> Request interceptor - token:", token);
     if (token) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
