@@ -1,230 +1,166 @@
-# Future Academy: Mobile Integration Project Roadmap
+# Future Academy: Web to Mobile Parity Roadmap
 
-This document outlines the professional milestone roadmap to share with your client. It covers **two parallel tracks** — the **Laravel API backend** (Sprints 1–5) and the **Expo mobile frontend** (Sprints 6–10) — broken into concrete weekly sprints with testable deliverables.
+Last updated: 2026-07-17
 
----
+This roadmap tracks the Laravel web platform and the Expo mobile app with one guiding rule: the mobile app should mirror the working web experience wherever the workflow makes sense on a phone.
 
-## 📅 Milestone Breakdown
+## Current Product Snapshot
 
-### Industry-Standard Delivery Gates
+### Web Platform - Working
 
-Apply these gates at the end of every sprint before sign-off:
-*   **Engineering Gate**: lint/type checks pass, critical tests pass, and no known blocker bugs.
-*   **QA Gate**: regression checklist completed on Android devices (low-end and mid-range) in both light and dark mode.
-*   **UAT Gate**: product owner/client validates the milestone demo against acceptance criteria.
-*   **Release Gate**: release notes updated, rollback plan prepared, and production/staging build artifacts stored.
+- Student, parent/guardian, school, and community registration is available on the web signup form.
+- Login, logout, email verification, password reset, profile settings, password changes, two-factor settings, and single-session enforcement are in place.
+- Student onboarding supports stream and subject selection.
+- Student dashboard, practice, JAMB practice, mock exams, lessons, video progress, analytics, and subscription/trial access controls are implemented.
+- Admin/staff Filament resources exist for users, subjects, topics, exam types, quizzes, questions, lessons, roles, permissions, subscriptions, mock group management, logs, maintenance tools, and subscription debugging.
 
-### Sprint 0 (Recommended): Foundation & Delivery Pipeline
+### Parent Dashboard - Working
 
-Before Sprint 7, add a short setup sprint to reduce downstream risk:
-*   Finalize API contract and response shape assumptions for mobile integration.
-*   Set up CI checks (typecheck/lint/test), environment configuration, and app versioning strategy.
-*   Define telemetry baseline (crash-free rate, API error rate, sync success rate).
-*   Prepare device test matrix (Android versions, screen sizes, memory classes).
+The parent dashboard is now a real operational dashboard, not just a placeholder.
 
-```mermaid
-gantt
-    title Future Academy Mobile Project Roadmap
-    dateFormat  YYYY-MM-DD
+- Parents can link an existing student by email.
+- Parents can create and link a new student account directly from the dashboard.
+- New student accounts are created with invitation/reset email flow so the student can finish setup securely.
+- Parents can resend invitation emails for students who have not completed onboarding.
+- Linked students are loaded with enrolled subjects and subscriptions.
+- Per-student subscription mapping is enforced; subscriptions are no longer treated as global access for every child.
+- Unassigned legacy subscriptions are surfaced for cleanup/renewal.
+- Parent cards show student readiness, paid access status, and subscription state.
+- Parents can renew, cancel eligible recurring subscriptions, or pay for a specific student.
+- Progress metrics include videos watched, quiz attempts, average score, mock exams taken, best mock score, enrolled subjects, lessons completed, learning time, Bunny video views, watch time, and completion rate.
+- Progress/performance links route to analytics with the selected student context.
+- Manage Enrollment links route parents into the student's lesson/subject enrollment flow.
+- Metrics are gated so unpaid students show unlock/payment prompts instead of progress details.
 
-    section Backend Track
-    Sprint 1 - Sanctum Auth & Profiles       :done, milestone1, 2026-06-10, 7d
-    Sprint 2 - Curriculum & Downloads         :done, milestone2, 2026-06-17, 7d
-    Sprint 3 - Core Sync Engine               :done, milestone3, 2026-06-24, 7d
-    Sprint 4 - Mock Groups & Sessions         :milestone4, 2026-07-01, 7d
-    Sprint 5 - Analytics & Lessons APIs       :milestone5, 2026-07-08, 7d
-    Sprint 6 - Interactive Scribe Docs        :milestone6, 2026-07-15, 7d
+### Mobile App - Working / In Progress
 
-    section Mobile Frontend Track
-    Sprint 7 - App Shell, Auth & Onboarding   :milestone7, 2026-07-15, 7d
-    Sprint 8 - Online Dashboard & Subjects    :milestone8, 2026-07-22, 7d
-    Sprint 9 - Practice & JAMB Quiz Players   :milestone9, 2026-07-29, 7d
-    Sprint 10 - Mock Exam Player & Anti-Cheat  :milestone10, 2026-08-05, 7d
-    Sprint 11 - Video Lessons, Analytics & Polish:milestone11, 2026-08-12, 7d
-    Sprint 12 - Offline Support (Optional)    :milestone12, 2026-08-19, 7d
-```
+- Expo Router app shell exists with auth, onboarding, tabs, practice, JAMB, mock, quiz, and lessons routes.
+- Mobile login uses the Laravel Sanctum API and stores the token through the shared auth context.
+- Mobile onboarding, dashboard, practice setup, JAMB setup, mock setup, quiz players, lessons, offline DB helpers, and shared design components are present.
+- Mobile signup has now been added to mirror web registration account types: student, parent/guardian, school, and community.
+- The mobile auth stack now includes login, register, and onboarding screens.
+- Parent/guardian accounts bypass student onboarding and route directly to the parent dashboard.
+- Student-specific tabs (Practice, JAMB, Mock) are hidden when a guardian account is logged in.
+- The mobile parent dashboard is fully implemented and mirrors the web parent dashboard.
 
----
+## Delivery Gates
 
-## 🔵 BACKEND TRACK — Sprints 1–5
+Apply these gates before each milestone is accepted.
 
-### ✅ Milestone 1: API Security & Authentication (Week 1) — COMPLETE
-Establish the secure foundation for the mobile app connection.
-*   **Tasks**:
-    *   Configure Laravel Sanctum middleware for bearer-token auth.
-    *   Create `AuthController` for issuing mobile access tokens.
-    *   Build the `GET /api/v1/user` profile endpoint.
-    *   Write feature tests to verify login authentication, validation errors, and invalid token denials.
-*   **Client Deliverable**:
-    *   API routes working with Postman token storage.
-    *   Passing Pest test suite logs showing successful secure access (`tests/Feature/Api/AuthApiTest.php`).
+- Engineering: lint/type checks pass, focused tests pass, and no known blocker bugs remain.
+- QA: Android smoke test completed on at least one low-end and one mid-range device in light and dark mode.
+- UAT: product owner/client validates the workflow against the milestone acceptance criteria.
+- Release: release notes, rollback notes, environment values, and build artifacts are ready.
 
----
+## Backend API Milestones
 
-### ✅ Milestone 2: Question Pack Downloader APIs (Week 2) — COMPLETE
-Provide the data payloads required for the mobile app's offline features.
-*   **Tasks**:
-    *   Create `SubjectDownloadController`.
-    *   Implement single-subject question package download endpoint, integrating optional year parameters.
-    *   Implement multi-subject **JAMB Practice** download endpoint, packaging the exact 4-subject layouts.
-    *   Optimize SQL queries to prevent N+1 issues when loading question options.
-*   **Client Deliverable**:
-    *   Endpoints returning question packages of varying sizes (by year or all-years combined) with execution speeds under 500ms.
-    *   Passing tests (`tests/Feature/Api/SubjectDownloadApiTest.php`).
+### Milestone 1: Mobile Auth and Profile - Complete
 
----
+- Sanctum bearer-token login exists at `POST /api/v1/login`.
+- Current user profile exists at `GET /api/v1/user`.
+- Logout exists at `POST /api/v1/logout`.
+- Login validation, invalid credentials, inactive account, token access, and logout are covered by tests.
 
-### ✅ Milestone 3: Core Offline Sync Engine (Week 3) — COMPLETE
-Build the system that processes offline student progress once they reconnect.
-*   **Tasks**:
-    *   Create `SyncController` with transaction checks.
-    *   Build batch handler to insert offline quiz attempts, processing individual question answers and updating metrics.
-    *   Build video watch-time and completion progress synchronizer.
-    *   Write edge-case tests to handle network disconnect retries and prevent double-grading attempts.
-*   **Client Deliverable**:
-    *   Database records automatically updating on the admin panel after a single simulated batch request is sent from Postman.
-    *   Passing tests (`tests/Feature/Api/SyncApiTest.php`).
+### Milestone 2: Mobile Registration Parity - Complete
 
----
+- Public mobile registration exists at `POST /api/v1/register`.
+- Registration accepts the same public web account types: `student`, `guardian`, `school`, and `community`.
+- Student, school, and community accounts receive trial access; guardian accounts do not.
+- Registration issues a Sanctum token for the current device.
+- Registration dispatches the standard Laravel registered event so email verification behavior stays aligned with the web flow.
+- Mobile registration validation covers duplicate emails, account type validation, password confirmation, and required device name.
 
-### ✅ Milestone 4: Mock Exam Batches & Sessions (Week 4) — COMPLETE
-Deliver the exam environment backend backing timed tests and mock setups.
-*   **Tasks**:
-    *   Create `MockExamController`. ✅
-    *   Implement single-subject **Mock Group (batch)** selection and download endpoints. ✅
-    *   Implement multi-subject **Mock Session** initialization, returning dynamic subject configurations and time limits. ✅
-    *   Integrate mock attempt sync validation inside database transaction layers. ✅
-*   **Client Deliverable**:
-    *   Working API workflows showing students starting a multi-subject Mock Session and submitting scores securely. ✅
+### Milestone 3: Curriculum and Configuration APIs - Complete
 
----
+- Enrolled subject list and configuration subject list are exposed.
+- Exam types, years, and mock format configuration are exposed.
+- Subject download and JAMB practice download endpoints are present for mobile/offline flows.
 
-### ✅ Milestone 5: Analytics, Lessons & Configuration APIs (Week 5) — COMPLETE
-Provide the data APIs needed for dashboard, analytics, and lesson features.
-*   **Tasks**:
-    *   Create `AnalyticsController` for user stats, subject performance, quiz history. ✅
-    *   Create `LessonController` for lessons list, video progress, completion tracking. ✅
-    *   Create `ConfigurationController` for subjects list, exam types, years, mock formats. ✅
-    *   Create `QuizController` for quiz list, start quiz, submit answers, results. ✅
-    *   Write tests for all new endpoints. ✅
-*   **Client Deliverable**:
-    *   All analytics and dashboard data available via API. ✅
-    *   Lessons accessible via API with video URLs and progress tracking. ✅
-    *   Configuration data for mobile app setup. ✅
+### Milestone 4: Practice, JAMB, and Mock APIs - Complete
 
-### 🟡 Milestone 6: Interactive Scribe Documentation & Handover (Week 6) — PENDING
-Provide the final, interactive manuals so the client's mobile developers can link the app instantly.
-*   **Tasks**:
-    *   Install and configure **Laravel Scribe**.
-    *   Annotate all mobile routes and controller methods with PHPDoc `@group`, `@bodyParam`, `@response` tags.
-    *   Use existing database content so Scribe response calls can use real database-backed example data.
-    *   Compile Scribe to build the interactive HTML documentation.
-    *   Export the fully validated Postman library (`collection.json`).
-*   **Client Deliverable**:
-    *   A Stripe-style interactive API documentation webpage hosted on the staging server, complete with a "Try it out" feature and download link for the Postman collection.
+- Practice start, active attempts, load, batch load, save, submit, exit, and question count endpoints are present.
+- JAMB session initialization, start, load, submit, exit, and download endpoints are present.
+- Mock group list, detail, download, and multi-subject session initialization endpoints are present.
 
----
+### Milestone 5: Lessons, Video Progress, Analytics, and Sync - Complete
 
-## 📱 MOBILE FRONTEND TRACK — Sprints 7–11
+- Lessons list/detail/progress/complete endpoints are present.
+- Analytics overview, subject performance, quiz history, and study streak endpoints are present.
+- Offline sync and sync status endpoints are present.
 
-> **Tech Stack**: Expo (React Native) + TypeScript + Expo Router + NativeWind (Tailwind CSS) + expo-sqlite + TanStack Query
+### Milestone 5b: Parent API - Complete
 
----
+- `ParentApiController` exists at `app/Http/Controllers/Api/ParentApiController.php`.
+- Dashboard overview endpoint at `GET /api/v1/parent/dashboard` returns linked students, combined stats, and subscriptions.
+- Link existing student by email at `POST /api/v1/parent/students/link`.
+- Create and link a new student account at `POST /api/v1/parent/students/create`.
+- Resend invitation email at `POST /api/v1/parent/students/{studentId}/resend-invitation`.
+- Student-scoped analytics: overview, subject performance, quiz history, and study streak under `GET /api/v1/parent/students/{studentId}/analytics/*`.
+- Student enrollment read at `GET /api/v1/parent/students/{studentId}/subjects`.
+- Student enrollment update at `POST /api/v1/parent/students/{studentId}/enrollment`.
+- All routes registered in `routes/api.php` under the `parent` prefix with `auth:sanctum` and throttle middleware.
 
-### 🟡 Milestone 7: App Shell, Navigation, Authentication & Onboarding Screens (Week 7)
-Build the foundational app structure, user authentication, and onboarding setups.
-*   **Tasks**:
-    *   Scaffold the Expo project with Expo Router file-based navigation.
-    *   Build the `(auth)/login.tsx` screen with email/password form and device name capture.
-    *   Integrate the `POST /api/v1/login` endpoint — store token securely with `expo-secure-store`.
-    *   Build the **Onboarding Flow screen** (`(auth)/onboarding.tsx`): select stream (Science, Arts, Social Sciences) or manually pick subjects, saving selection via configuration API.
-    *   Implement token-based route protection and onboarding checks (redirect unauthenticated users to login, and authenticated but non-onboarded users to onboarding).
-    *   Build the `(tabs)` shell: Home/Dashboard, Practice, JAMB, Mock, Settings tabs with placeholder screens.
-    *   Build the Settings screen with Logout button (calls `POST /api/v1/logout`).
-*   **Client Deliverable**:
-    *   APK shared via WhatsApp that a student can install, log in with real credentials, complete the stream selection onboarding, and see the main tab navigation.
+## Mobile Parity Milestones
 
----
+### Milestone 6: Auth, Signup, and Onboarding - Complete / Verify on Device
 
-### 🟡 Milestone 8: Online Dashboard & Subject Index (Week 8)
-Enable the app to display a student's enrolled subjects and general dashboard widgets online.
-*   **Tasks**:
-    *   Build the **Subject Index screen** (`(tabs)/index.tsx`) that lists enrolled subjects from `GET /api/v1/subjects`.
-    *   Implement pull-to-refresh logic for the subjects list.
-    *   Add error states if the network is disconnected using `@react-native-community/netinfo`.
-    *   Display basic user stats retrieved from the Analytics API.
-*   **Client Deliverable**:
-    *   Student can see their enrolled subjects instantly upon login, fetched live from the API.
+- Login screen works with `POST /api/v1/login`.
+- Signup screen mirrors web account types and posts to `POST /api/v1/register`.
+- Auth context stores the token and user object including `account_type`.
+- Unauthenticated users are redirected to login.
+- Authenticated students who have not completed onboarding are redirected to onboarding.
+- Guardian, school, and community accounts bypass onboarding and go straight to the tabs dashboard.
+- Remaining QA: verify email-verification handling on a real mobile registration flow.
 
----
+### Milestone 7: Student Mobile Dashboard - In Progress
 
-### 🟡 Milestone 9: Practice Quiz & JAMB Quiz Players (Week 9)
-Deliver the two core study modes with a fully working online quiz experience.
-*   **Tasks**:
-    *   Build **Practice Setup screen** (`(tabs)/practice-setup.tsx`): (DONE).
-    *   Build **Single-Subject Quiz Player** (`practice/[id].tsx`):
-        *   Fetch questions dynamically from `GET /api/v1/quizzes/{id}`.
-        *   Build UI Architecture: Progress indicator, selectable option list (Radio Group), and bottom action bar.
-        *   Local state management for selected options.
-        *   Submit answers directly to `POST /api/v1/quiz-attempts/{id}/submit`.
-    *   Build **JAMB Setup screen** (`(tabs)/jamb-setup.tsx`): (DONE).
-    *   Build **JAMB Quiz Player** (`jamb/[id].tsx`):
-        *   Subject tab switcher (e.g., Mathematics | English | Biology | Chemistry).
-        *   Grid-based question navigator drawer for quick jumping.
-        *   Shared countdown timer across all subjects.
-        *   Auto-submit functionality when time expires or on manual submit.
-*   **Client Deliverable**:
-    *   Student can complete a full 40-question JAMB practice session online and see their score on the results screen.
+- Mobile home/dashboard should mirror the web student dashboard.
+- Show enrolled subjects, analytics overview, study streak, recent quiz activity, subscription/trial state, and lesson progress.
+- Preserve pull-to-refresh and network/error states.
 
----
+### Milestone 8: Parent Mobile Dashboard - Complete
 
-### 🟡 Milestone 10: Mock Exam Player & Anti-Cheat Timer (Week 10)
-Deliver the timed, invigilated exam experience.
-*   **Tasks**:
-    *   Build **Mock Setup screen** (`(tabs)/mock-setup.tsx`): single vs. multi-subject toggle, subject picker.
-    *   Build **Mock Groups screen** (`(tabs)/mock-groups.tsx`): list available batches from `GET /api/v1/mock/groups`.
-    *   Build **Mock Quiz Player** (`mock/mock-quiz.tsx`):
-        *   Fetch questions directly from the API utilizing the session token.
-        *   Countdown timer (visible, auto-submits on expiry).
-        *   Lock questions after submission — no changes allowed.
-        *   Anti-cheat: detect app backgrounding and log violations.
-    *   Call `POST /api/v1/mock/sessions` for multi-subject mock initialization.
-    *   Display per-subject score breakdown on the results screen.
-*   **Client Deliverable**:
-    *   Student can start and complete a timed 2-hour multi-subject mock exam. The timer auto-submits and scores are sent directly to the server.
+Mobile mirrors the working web parent dashboard.
 
----
+- Guardian, school, and community account types are routed to `<ParentDashboard />` on the home tab; student-specific tabs are hidden.
+- Dashboard header shows the guardian's name, a family icon, and a mini stats row (students linked, average score, mock exams taken).
+- Overview grid shows videos watched, lessons completed, quizzes taken, and combined study time across all linked students.
+- Each student card shows: avatar initial, name, email, Ready/Setup-Needed badge, access label badge, and (if not onboarded) a Resend Invitation button.
+- Progress metrics (video and lesson progress bars, avg score, study time, mock count) are shown when the parent has a paid subscription for that student; a locked state with a subscribe prompt is shown otherwise.
+- Track Progress button navigates to `parent/student-analytics` with the selected student's ID and name as route params.
+- Enrollment button opens a bottom-sheet modal that loads all available subjects, shows currently enrolled subjects as checked, allows toggling, and saves via `POST /api/v1/parent/students/{id}/enrollment`.
+- Add Students section provides Link Existing (by email) and Create New (name + email + invitation) inline forms.
+- Subscriptions section lists all active/pending parent subscriptions with plan name, assigned student, status badge, and expiry date.
+- Student analytics screen at `app/parent/student-analytics.tsx` shows streak, quizzes, avg score, total study time, per-subject performance cards, and full quiz history with pull-to-refresh.
+- Pull-to-refresh is supported on both the dashboard and the analytics screen.
 
-### 🟡 Milestone 11: Video Lessons, Analytics & App Polish (Week 11)
-Connect video content, display streaks/analytics, and finalize the production-ready app.
-*   **Tasks**:
-    *   Build **Video Lessons screen** (`lessons/video.tsx`): fetch Bunny CDN token from `GET /api/v1/lessons/{id}/video-token` and play securely.
-    *   Implement **Dashboard Analytics & Study Streaks**:
-        *   Fetch and display the study streak from `GET /api/v1/analytics/study-streak`.
-        *   Fetch and display detailed subject performance analytics from `GET /api/v1/analytics/subject-performance`.
-        *   Integrate overall quiz statistics and progress tracking.
-    *   Implement **crash reporting** with Sentry and **analytics** with Firebase.
-    *   Performance pass: skeleton loading screens, image lazy-loading, pull-to-refresh.
-    *   Final EAS production build and Play Store submission checklist.
-*   **Client Deliverable**:
-    *   Full end-to-end flow: student completes online mock, scores appear in the admin Filament panel automatically. Production APK ready for Play Store submission.
+### Milestone 9: Practice and JAMB Quiz Players - In Progress
 
----
+- Practice setup and player should match web behavior for subject, exam type, year, question count, save, submit, and results.
+- JAMB setup and player should support four-subject sessions, subject tabs, navigator, countdown, auto-submit, and score breakdown.
 
-### 🟡 Milestone 12: Offline Support & Local Database (Week 12 - Optional)
-Enable the app to optionally download and store question packs for offline use.
-*   **Tasks**:
-    *   Set up local SQLite database schema on app start using `expo-sqlite`.
-    *   Build the **Download Manager**: progress indicator, per-subject download button.
-    *   Implement data fetch and persist into local SQLite.
-    *   Build the **Sync Engine**: batch-upload offline attempts upon reconnection.
-*   **Client Deliverable**:
-    *   Student can optionally download subjects for offline study.
+### Milestone 10: Mock Exam Player - In Progress
 
-### Sprint 12 (Recommended): Release Hardening & Store Readiness
+- Mock setup should support single-subject and multi-subject flows.
+- Mock player should load server sessions, maintain countdown, submit on expiry, and show per-subject results.
+- Anti-cheat/backgrounding behavior should be verified on Android devices.
 
-For industry-standard delivery, reserve a dedicated hardening sprint after Milestone 11:
-*   Full regression and exploratory testing (online/offline, reconnect, interrupted downloads, battery saver mode).
-*   Performance and stability pass on real devices (cold start time, memory pressure, crash-free sessions).
-*   Security and compliance checks (token storage, privacy links, permissions audit).
-*   Play Store readiness: final screenshots, policy declarations, signed build verification, and rollback/hotfix plan.
+### Milestone 11: Lessons and Video - In Progress
+
+- Mobile lesson lists and lesson detail screens should mirror web lesson access behavior.
+- Video progress should sync to the Laravel lesson progress APIs.
+- Bunny/video rendering should be tested on Android devices and slow networks.
+
+### Milestone 12: Offline Support and Sync - Optional / Hardening
+
+- SQLite schema and offline helpers exist.
+- Download manager, local question pack storage, reconnect detection, and sync retry UX still need end-to-end QA.
+
+## Immediate Next Work
+
+1. **QA: Parent dashboard on device** — smoke test the parent dashboard on Android in both light and dark mode; verify link, create, resend invitation, enrollment modal, and Track Progress navigation against the local API.
+2. **Milestone 7 (Student Dashboard)** — complete the student home tab to show enrolled subjects, analytics overview (streak, quizzes, avg score), recent quiz history, lesson progress, and subscription/trial state with pull-to-refresh.
+3. **Milestone 9 (Practice & JAMB Players)** — verify and polish the practice and JAMB quiz player flows end-to-end on device.
+4. **Milestone 10 (Mock Exam Player)** — verify mock session loading, countdown, auto-submit, and per-subject results on device.
+5. **Milestone 11 (Lessons & Video)** — verify lesson list, detail, and Bunny video progress sync on Android and slow networks.
+6. Run mobile type/lint checks: `npx tsc --noEmit` inside the `mobile/` directory.

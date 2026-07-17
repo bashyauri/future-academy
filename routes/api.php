@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ConfigurationController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\MockExamController;
 use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Api\ParentApiController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\SubjectDownloadController;
 use App\Http\Controllers\Api\SyncController;
@@ -22,6 +23,7 @@ Route::prefix('v1')
         |--------------------------------------------------------------------------
         */
         Route::middleware('throttle:5,1')->group(function () {
+            Route::post('/register', [AuthController::class, 'register']);
             Route::post('/login', [AuthController::class, 'login']);
         });
 
@@ -103,6 +105,26 @@ Route::prefix('v1')
                 ->group(function () {
                     Route::post('/', [SyncController::class, 'sync']);
                     Route::get('/status', [SyncController::class, 'status']);
+                });
+
+            /*
+            |--------------------------------------------------------------------------
+            | Parent Dashboard & Guardian Features
+            |--------------------------------------------------------------------------
+            */
+            Route::prefix('parent')
+                ->middleware('throttle:60,1')
+                ->group(function () {
+                    Route::get('/dashboard', [ParentApiController::class, 'dashboard']);
+                    Route::post('/students/link', [ParentApiController::class, 'linkStudent']);
+                    Route::post('/students/create', [ParentApiController::class, 'createStudent']);
+                    Route::post('/students/{studentId}/resend-invitation', [ParentApiController::class, 'resendInvitation']);
+                    Route::get('/students/{studentId}/analytics/overview', [ParentApiController::class, 'studentOverview']);
+                    Route::get('/students/{studentId}/analytics/subject-performance', [ParentApiController::class, 'studentSubjectPerformance']);
+                    Route::get('/students/{studentId}/analytics/quiz-history', [ParentApiController::class, 'studentQuizHistory']);
+                    Route::get('/students/{studentId}/analytics/study-streak', [ParentApiController::class, 'studentStudyStreak']);
+                    Route::get('/students/{studentId}/subjects', [ParentApiController::class, 'studentSubjects']);
+                    Route::post('/students/{studentId}/enrollment', [ParentApiController::class, 'studentUpdateEnrollment']);
                 });
 
             /*
