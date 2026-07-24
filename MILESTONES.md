@@ -112,11 +112,11 @@ Apply these gates before each milestone is accepted.
 - Guardian, school, and community accounts bypass onboarding and go straight to the tabs dashboard.
 - Remaining QA: verify email-verification handling on a real mobile registration flow.
 
-### Milestone 7: Student Mobile Dashboard - In Progress
+### Milestone 7: Student Mobile Dashboard - Complete / Verify on Device
 
-- Mobile home/dashboard should mirror the web student dashboard.
-- Show enrolled subjects, analytics overview, study streak, recent quiz activity, subscription/trial state, and lesson progress.
-- Preserve pull-to-refresh and network/error states.
+- Mobile home/dashboard mirrors the web student dashboard.
+- Shows enrolled subjects, analytics overview, study streak, recent quiz activity.
+- Preserves pull-to-refresh and network/error states.
 
 ### Milestone 8: Parent Mobile Dashboard - Complete
 
@@ -134,33 +134,38 @@ Mobile mirrors the working web parent dashboard.
 - Student analytics screen at `app/parent/student-analytics.tsx` shows streak, quizzes, avg score, total study time, per-subject performance cards, and full quiz history with pull-to-refresh.
 - Pull-to-refresh is supported on both the dashboard and the analytics screen.
 
-### Milestone 9: Practice and JAMB Quiz Players - In Progress
+### Milestone 9: Practice and JAMB Quiz Players - Complete / Verify on Device
 
-- Practice setup and player should match web behavior for subject, exam type, year, question count, save, submit, and results.
-- JAMB setup and player should support four-subject sessions, subject tabs, navigator, countdown, auto-submit, and score breakdown.
+- Practice setup and player match web behavior for subject, exam type, year, question count, save, submit, and results.
+- JAMB setup and player support four-subject sessions, subject tabs, navigator, countdown, auto-submit, and score breakdown.
 
-### Milestone 10: Mock Exam Player - In Progress
+### Milestone 10: Mock Exam Player - Complete / Verify on Device
 
-- Mock setup should support single-subject and multi-subject flows.
-- Mock player should load server sessions, maintain countdown, submit on expiry, and show per-subject results.
-- Anti-cheat/backgrounding behavior should be verified on Android devices.
+- Mock setup supports single-subject and multi-subject flows.
+- Mock player loads server sessions, maintains countdown, submits on expiry, and shows per-subject results.
+- Anti-cheat/backgrounding behavior needs to be verified on Android devices.
 
-### Milestone 11: Lessons and Video - In Progress
+### Milestone 11: Lessons and Video - Complete / Verify on Device
 
-- Mobile lesson lists and lesson detail screens should mirror web lesson access behavior.
-- Video progress should sync to the Laravel lesson progress APIs.
-- Bunny/video rendering should be tested on Android devices and slow networks.
+- Mobile lesson lists and lesson detail screens mirror web lesson access behavior.
+- Video progress syncs to the Laravel lesson progress APIs.
+- Bunny/video rendering needs to be verified on Android devices and slow networks.
 
 ### Milestone 12: Offline Support and Sync - Optional / Hardening
 
 - SQLite schema and offline helpers exist.
 - Download manager, local question pack storage, reconnect detection, and sync retry UX still need end-to-end QA.
 
+### Milestone 13: Mobile Payments - Complete / Verify on Device
+
+- `PaymentApiController` implemented in the backend to support stateless payments via Paystack metadata.
+- `/pricing` screen created in the mobile app using `expo-web-browser` to securely handle checkout sessions.
+- Parent dashboard UI updated with a "Subscribe" prompt.
+- Student dashboard UI updated with an "Unlock Full Access" upgrade prompt if unsubscribed.
+
 ## Immediate Next Work
 
-1. **QA: Parent dashboard on device** — smoke test the parent dashboard on Android in both light and dark mode; verify link, create, resend invitation, enrollment modal, and Track Progress navigation against the local API.
-2. **Milestone 7 (Student Dashboard)** — complete the student home tab to show enrolled subjects, analytics overview (streak, quizzes, avg score), recent quiz history, lesson progress, and subscription/trial state with pull-to-refresh.
-3. **Milestone 9 (Practice & JAMB Players)** — verify and polish the practice and JAMB quiz player flows end-to-end on device.
-4. **Milestone 10 (Mock Exam Player)** — verify mock session loading, countdown, auto-submit, and per-subject results on device.
-5. **Milestone 11 (Lessons & Video)** — verify lesson list, detail, and Bunny video progress sync on Android and slow networks.
-6. Run mobile type/lint checks: `npx tsc --noEmit` inside the `mobile/` directory.
+1. **QA: Mobile Payments** — smoke test the subscription process on an Android device to ensure the `expo-web-browser` flow correctly opens Paystack and returns to the app.
+2. **QA: Parent dashboard on device** — smoke test the parent dashboard on Android in both light and dark mode; verify link, create, resend invitation, enrollment modal, and Track Progress navigation against the local API.
+3. **QA: Student features on device** — verify the student dashboard, practice/JAMB quiz players, mock exam player, and video lessons flow end-to-end on an Android device.
+4. **[Complete]** Run mobile type/lint checks: `npm exec tsc --noEmit` inside the `mobile/` directory to fix any remaining TS errors.

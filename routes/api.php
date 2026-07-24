@@ -203,6 +203,17 @@ Route::prefix('v1')
 
                 /*
                 |--------------------------------------------------------------------------
+                | Payment
+                |--------------------------------------------------------------------------
+                */
+                Route::prefix('payment')->group(function () {
+                    Route::get('/pricing', [App\Http\Controllers\Api\PaymentApiController::class, 'pricing']);
+                    Route::post('/initialize', [App\Http\Controllers\Api\PaymentApiController::class, 'initialize']);
+                    Route::post('/verify', [App\Http\Controllers\Api\PaymentApiController::class, 'verify']);
+                });
+
+                /*
+                |--------------------------------------------------------------------------
                 | Onboarding
                 |--------------------------------------------------------------------------
                 */
@@ -210,3 +221,5 @@ Route::prefix('v1')
             });
         });
     });
+
+Route::get('/v1/payment/callback-redirect', [App\Http\Controllers\Api\PaymentApiController::class, 'callbackRedirect']);
