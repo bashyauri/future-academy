@@ -7,6 +7,7 @@ use App\Http\Resources\Api\ExamTypeResource;
 use App\Http\Resources\Api\SubjectResource;
 use App\Models\ExamType;
 use App\Models\Question;
+use App\Models\Stream;
 use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +39,46 @@ class ConfigurationController extends Controller
         return response()->json([
             'message' => 'Subjects retrieved successfully',
             'data' => SubjectResource::collection($subjects),
+        ]);
+    }
+
+    /**
+     * Get all active streams for onboarding
+     */
+    public function streams(): JsonResponse
+    {
+        $streams = Stream::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->with(['subjects:id,name'])
+            ->get()
+            ->map(function (Stream $stream): array {
+                $subjectIdsFromConfig = collect($stream->default_subjects ?? [])
+                    ->filter(fn ($value) => is_numeric($value))
+                    ->map(fn ($value) => (int) $value)
+                    ->values();
+
+                $subjectIds = $subjectIdsFromConfig->isNotEmpty()
+                    ? $subjectIdsFromConfig
+                    : $stream->subjects->pluck('id')->values();
+
+                $subjectNames = $stream->subjects->pluck('name')->values();
+
+                return [
+                    'id' => $stream->id,
+                    'slug' => $stream->slug,
+                    'name' => $stream->name,
+                    'description' => $stream->description,
+                    'icon' => $stream->icon,
+                    'default_subject_ids' => $subjectIds,
+                    'default_subject_names' => $subjectNames,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'message' => 'Streams retrieved successfully',
+            'data' => $streams,
         ]);
     }
 

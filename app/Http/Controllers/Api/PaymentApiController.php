@@ -25,8 +25,14 @@ class PaymentApiController extends Controller
      */
     public function pricing(Request $request): JsonResponse
     {
-        $plans = config('pricing.plans');
-        
+        $plans = config('pricing.plans', []);
+
+        Log::info('API pricing plans response', [
+            'user_id' => $request->user()?->id,
+            'plan_keys' => array_keys($plans),
+            'is_empty' => empty($plans),
+        ]);
+
         return response()->json([
             'message' => 'Pricing plans retrieved',
             'data' => [
@@ -43,7 +49,6 @@ class PaymentApiController extends Controller
         $validated = $request->validate([
             'plan' => 'required|in:monthly,yearly',
             'type' => 'required|in:one_time,recurring',
-            'plan_code' => 'nullable|string',
             'student_id' => 'nullable|integer|exists:users,id',
         ]);
 
@@ -70,10 +75,24 @@ class PaymentApiController extends Controller
 
         $planKey = $validated['plan'];
         $isRecurring = $validated['type'] === 'recurring';
-        $amount = config("pricing.plans.{$planKey}.amount");
+        $planConfig = config('pricing.plans', []);
+        $planData = data_get($planConfig, $planKey);
+        $amount = data_get($planData, 'amount');
 
+        if (! is_numeric($amount) || (float) $amount <= 0) {
+            Log::error('Invalid pricing configuration for plan', [
+                'plan' => $planKey,
+                'resolved_plan_data' => $planData,
+            ]);
+
+            return response()->json([
+                'message' => 'Selected plan is not configured correctly.'
+            ], 500);
+        }
+
+        $paystackPlanConfig = config('services.paystack.plans', []);
         $planCode = $isRecurring
-            ? ($validated['plan_code'] ?? config("services.paystack.plans.{$planKey}"))
+            ? data_get($paystackPlanConfig, $planKey)
             : null;
 
         if ($isRecurring && ! $planCode) {
@@ -135,7 +154,7 @@ class PaymentApiController extends Controller
         $validated = $request->validate([
             'reference' => 'required|string',
         ]);
-        
+
         $reference = $validated['reference'];
         $user = $request->user();
 
@@ -162,12 +181,13 @@ class PaymentApiController extends Controller
         }
 
         $data = $verify['data'];
-        
+
         // Ensure metadata exists
         $metadata = $data['metadata'] ?? [];
         $plan = $metadata['plan'] ?? ($data['plan']['plan_code'] ?? 'custom');
         $type = $metadata['type'] ?? 'one_time';
         $studentId = $metadata['student_id'] ?? null;
+        $customerCode = $data['customer']['customer_code'] ?? null;
 
         // Extract subscription code
         $subscriptionCode = null;
@@ -175,7 +195,6 @@ class PaymentApiController extends Controller
             if (! empty($data['subscription']['subscription_code'])) {
                 $subscriptionCode = $data['subscription']['subscription_code'];
             } else {
-                $customerCode = $data['customer']['customer_code'] ?? null;
                 if ($customerCode) {
                     $subResult = $this->paymentService->fetchSubscriptionByCustomer($customerCode);
                     if ($subResult['success'] && ! empty($subResult['data']['subscription_code'])) {
@@ -187,10 +206,14 @@ class PaymentApiController extends Controller
 
         $authCode = $data['authorization']['authorization_code'] ?? null;
         $nextPaymentDate = null;
-        if ($type === 'recurring' && $subscriptionCode) {
-            $subDetails = $this->paymentService->fetchSubscription($subscriptionCode);
-            if ($subDetails['success'] && ! empty($subDetails['data']['next_payment_date'])) {
-                $nextPaymentDate = Carbon::parse($subDetails['data']['next_payment_date']);
+        if ($type === 'recurring') {
+            if (! empty($data['subscription']['next_payment_date'])) {
+                $nextPaymentDate = Carbon::parse($data['subscription']['next_payment_date']);
+            } elseif ($customerCode) {
+                $subDetails = $this->paymentService->fetchSubscriptionByCustomer($customerCode);
+                if ($subDetails['success'] && ! empty($subDetails['data']['next_payment_date'])) {
+                    $nextPaymentDate = Carbon::parse($subDetails['data']['next_payment_date']);
+                }
             }
         }
 
@@ -220,7 +243,7 @@ class PaymentApiController extends Controller
             'data' => $subscription
         ]);
     }
-    
+
     /**
      * Simple HTML redirect for WebBrowser
      */

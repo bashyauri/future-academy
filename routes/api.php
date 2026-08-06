@@ -51,6 +51,7 @@ Route::prefix('v1')
                 Route::get('/subjects', [ConfigurationController::class, 'enrolledSubjects']);
 
                 Route::prefix('config')->group(function () {
+                    Route::get('/streams', [ConfigurationController::class, 'streams']);
                     Route::get('/subjects', [ConfigurationController::class, 'subjects']);
                     Route::get('/exam-types', [ConfigurationController::class, 'examTypes']);
                     Route::get('/years', [ConfigurationController::class, 'years']);
