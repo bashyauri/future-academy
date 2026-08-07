@@ -39,9 +39,6 @@ Route::prefix('v1')
             | Authentication
             |--------------------------------------------------------------------------
             */
-            Route::get('/user', [AuthController::class, 'user']);
-            Route::post('/logout', [AuthController::class, 'logout']);
-
             /*
             |--------------------------------------------------------------------------
             | Configuration
@@ -49,14 +46,6 @@ Route::prefix('v1')
             */
             Route::middleware('throttle:60,1')->group(function () {
                 Route::get('/subjects', [ConfigurationController::class, 'enrolledSubjects']);
-
-                Route::prefix('config')->group(function () {
-                    Route::get('/streams', [ConfigurationController::class, 'streams']);
-                    Route::get('/subjects', [ConfigurationController::class, 'subjects']);
-                    Route::get('/exam-types', [ConfigurationController::class, 'examTypes']);
-                    Route::get('/years', [ConfigurationController::class, 'years']);
-                    Route::get('/mock-formats', [ConfigurationController::class, 'mockFormats']);
-                });
             });
 
             /*
@@ -221,6 +210,36 @@ Route::prefix('v1')
                 Route::post('/onboarding', [OnboardingController::class, 'complete']);
             });
         });
+
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::get('/user', [AuthController::class, 'user']);
+
+            Route::post('/logout', [AuthController::class, 'logout']);
+
+            Route::post('/email/verification-notification', [AuthController::class, 'resendVerificationNotification'])
+                ->middleware('throttle:6,1');
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Configuration
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('config')
+            ->middleware('throttle:60,1')
+            ->group(function () {
+                Route::get('/streams', [ConfigurationController::class, 'streams']);
+                Route::get('/subjects', [ConfigurationController::class, 'subjects']);
+                Route::get('/exam-types', [ConfigurationController::class, 'examTypes']);
+                Route::get('/years', [ConfigurationController::class, 'years']);
+                Route::get('/mock-formats', [ConfigurationController::class, 'mockFormats']);
+            });
+
+        Route::prefix('onboarding')
+            ->middleware('throttle:60,1')
+            ->group(function () {
+                Route::get('/bootstrap', [ConfigurationController::class, 'bootstrap']);
+            });
     });
 
 Route::get('/v1/payment/callback-redirect', [App\Http\Controllers\Api\PaymentApiController::class, 'callbackRedirect']);
