@@ -46,9 +46,9 @@ class UserResource extends JsonResource
 
             'has_active_subscription' =>
                 $this->hasActiveSubscription(),
-                'on_trial' => $this->onTrial(),
-
-
+            'on_trial' => $this->onTrial(),
+            'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),
+            'subscription_ends_at' => $this->currentSubscription?->ends_at?->toIso8601String(),
 
             'created_at' =>
                 $this->created_at,

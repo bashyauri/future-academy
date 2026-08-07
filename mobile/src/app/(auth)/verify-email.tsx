@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Alert, AppState, Text, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -8,7 +8,7 @@ import { Heading, BodyText } from "@/components/Typography";
 import api from "@/lib/api";
 
 export default function VerifyEmailScreen() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [sending, setSending] = useState(false);
@@ -33,22 +33,50 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  const refreshVerificationStatus = async () => {
+  const refreshVerificationStatus = async (silent = false) => {
     setChecking(true);
 
     try {
-      const response = await api.get("/user");
-      const refreshedUser = response.data?.user ?? response.data;
-      updateUser(refreshedUser);
+      const refreshedUser = (await refreshUser()) as {
+        email_verified_at?: string | null;
+      } | null;
+
+      if (!silent && refreshedUser?.email_verified_at) {
+        Alert.alert("Email Verified", "Your email is now verified.");
+      }
     } catch (error: any) {
-      Alert.alert(
-        "Unable to Check",
-        error.response?.data?.message || "Please try again.",
-      );
+      if (!silent) {
+        Alert.alert(
+          "Unable to Check",
+          error.response?.data?.message || "Please try again.",
+        );
+      }
     } finally {
       setChecking(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.email_verified_at) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      refreshVerificationStatus(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [user?.email_verified_at]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refreshVerificationStatus(true);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <View
@@ -80,7 +108,7 @@ export default function VerifyEmailScreen() {
           variant="outline"
           size="lg"
           fullWidth
-          onPress={refreshVerificationStatus}
+          onPress={() => refreshVerificationStatus(false)}
           loading={checking}
         >
           I Have Verified My Email
@@ -93,7 +121,8 @@ export default function VerifyEmailScreen() {
         <Text
           className={`text-sm text-center ${isDark ? "text-neutral-400" : "text-neutral-600"}`}
         >
-          After verifying, return here and the app will continue automatically.
+          We’ll keep checking for the verification update automatically while
+          you’re here.
         </Text>
       </View>
     </View>

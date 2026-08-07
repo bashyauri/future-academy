@@ -106,6 +106,25 @@ test('authenticated user can access profile endpoint', function () {
         ->assertJsonPath('user.email', $user->email);
 });
 
+test('profile payload includes trial and subscription expiry metadata', function () {
+    $user = User::factory()->create([
+        'is_active' => true,
+        'trial_ends_at' => now()->addDays(3),
+    ]);
+
+    $token = $user->createToken('Test Device')->plainTextToken;
+
+    $response = $this->withToken($token)
+        ->getJson('/api/v1/user');
+
+    $response->assertStatus(200)
+        ->assertJsonPath('user.id', $user->id)
+        ->assertJsonPath('user.on_trial', true)
+        ->assertJsonPath('user.has_active_subscription', false)
+        ->assertJsonPath('user.trial_ends_at', $user->trial_ends_at->toIso8601String())
+        ->assertJsonPath('user.subscription_ends_at', null);
+});
+
 test('unverified authenticated user can access profile endpoint', function () {
     $user = User::factory()->create([
         'is_active' => true,
