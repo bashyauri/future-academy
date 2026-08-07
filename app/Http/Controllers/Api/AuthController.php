@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * @group Authentication
@@ -60,6 +61,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'account_type' => $user->account_type,
+                'email_verified_at' => $user->email_verified_at,
                 'has_completed_onboarding' => $user->has_completed_onboarding ?? false,
             ],
         ], 201);
@@ -78,7 +80,7 @@ class AuthController extends Controller
     {
         $data = $request->validated();
 
-        $user = User::where('email', $data['email'])->first();
+        $user = User::query()->where('email', '=', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             Log::warning('Failed login attempt', [
@@ -116,6 +118,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'account_type' => $user->account_type,
+                'email_verified_at' => $user->email_verified_at,
                 'has_completed_onboarding' => $user->has_completed_onboarding ?? false,
             ],
         ], 200);
@@ -144,13 +147,36 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request
-            ->user()
-            ->currentAccessToken()
-            ->delete();
+        $currentAccessToken = $request->user()?->currentAccessToken();
+
+        if ($currentAccessToken && isset($currentAccessToken->id)) {
+            PersonalAccessToken::query()
+            ->whereKey($currentAccessToken->id)
+                ->delete();
+        }
 
         return response()->json([
             'message' => 'Logged out successfully',
         ], 200);
+    }
+
+    /**
+     * Resend the email verification notification.
+     */
+    public function resendVerificationNotification(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email already verified.',
+            ]);
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json([
+            'message' => 'Verification link sent.',
+        ]);
     }
 }

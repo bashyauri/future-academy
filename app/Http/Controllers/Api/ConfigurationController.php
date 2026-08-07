@@ -11,10 +11,26 @@ use App\Models\Stream;
 use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ConfigurationController extends Controller
 {
+    /**
+     * Get onboarding bootstrap data.
+     */
+    public function bootstrap(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Onboarding data retrieved successfully',
+            'data' => [
+                'streams' => $this->activeStreams()->values()->all(),
+                'subjects' => SubjectResource::collection($this->activeSubjects())->resolve(),
+                'exam_types' => ExamTypeResource::collection($this->activeExamTypes())->resolve(),
+            ],
+        ]);
+    }
+
     /**
      * Get authenticated user's enrolled active subjects.
      */
@@ -31,8 +47,8 @@ class ConfigurationController extends Controller
         if ($subjects->isEmpty() && is_array($user->selected_subjects) && ! empty($user->selected_subjects)) {
             $subjects = Subject::query()
                 ->where('is_active', true)
-                ->whereIn('id', $user->selected_subjects)
-                ->orderBy('name')
+                ->whereIn('id', $user->selected_subjects, 'and', false)
+                ->orderBy('name', 'asc')
                 ->get();
         }
 
@@ -47,34 +63,7 @@ class ConfigurationController extends Controller
      */
     public function streams(): JsonResponse
     {
-        $streams = Stream::query()
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->with(['subjects:id,name'])
-            ->get()
-            ->map(function (Stream $stream): array {
-                $subjectIdsFromConfig = collect($stream->default_subjects ?? [])
-                    ->filter(fn ($value) => is_numeric($value))
-                    ->map(fn ($value) => (int) $value)
-                    ->values();
-
-                $subjectIds = $subjectIdsFromConfig->isNotEmpty()
-                    ? $subjectIdsFromConfig
-                    : $stream->subjects->pluck('id')->values();
-
-                $subjectNames = $stream->subjects->pluck('name')->values();
-
-                return [
-                    'id' => $stream->id,
-                    'slug' => $stream->slug,
-                    'name' => $stream->name,
-                    'description' => $stream->description,
-                    'icon' => $stream->icon,
-                    'default_subject_ids' => $subjectIds,
-                    'default_subject_names' => $subjectNames,
-                ];
-            })
-            ->values();
+        $streams = $this->activeStreams();
 
         return response()->json([
             'message' => 'Streams retrieved successfully',
@@ -87,24 +76,11 @@ class ConfigurationController extends Controller
      */
     public function subjects(Request $request): JsonResponse
     {
-        $subjectsQuery = Subject::query()
-            ->where('is_active', true);
-
-        if ($request->filled('exam_type_id')) {
-            $examTypeId = $request->integer('exam_type_id');
-
-            $subjectsQuery->whereHas('questions', function ($query) use ($examTypeId) {
-                $query->where('exam_type_id', $examTypeId)
-                    ->where('is_active', true)
-                    ->where('status', 'approved');
-            });
-        }
+        $examTypeId = $request->filled('exam_type_id') ? $request->integer('exam_type_id') : null;
 
         return response()->json([
             'message' => 'Subjects retrieved successfully',
-            'data' => SubjectResource::collection(
-                $subjectsQuery->get()
-            ),
+            'data' => SubjectResource::collection($this->activeSubjects($examTypeId)),
         ]);
     }
 
@@ -115,7 +91,7 @@ class ConfigurationController extends Controller
     {
         return response()->json([
             'message' => 'Exam types retrieved successfully',
-            'data' => ExamTypeResource::collection(ExamType::all()),
+            'data' => ExamTypeResource::collection($this->activeExamTypes()),
         ]);
     }
 
@@ -172,5 +148,66 @@ class ConfigurationController extends Controller
             'message' => 'Mock formats retrieved successfully',
             'data' => $formats,
         ]);
+    }
+
+    private function activeStreams(): Collection
+    {
+        return Stream::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->get()
+            ->map(function (Stream $stream): array {
+                $subjectIdsFromConfig = collect($stream->default_subjects ?? [])
+                    ->filter(fn ($value) => is_numeric($value))
+                    ->map(fn ($value) => (int) $value)
+                    ->values();
+
+                $subjectIds = $subjectIdsFromConfig->isNotEmpty()
+                    ? $subjectIdsFromConfig
+                    : collect();
+
+                $subjectNames = $subjectIds->isNotEmpty()
+                    ? Subject::query()
+                        ->whereIn('id', $subjectIds->all(), 'and', false)
+                        ->orderBy('sort_order', 'asc')
+                        ->orderBy('name', 'asc')
+                        ->pluck('name')
+                        ->values()
+                    : collect();
+
+                return [
+                    'id' => $stream->id,
+                    'slug' => $stream->slug,
+                    'name' => $stream->name,
+                    'description' => $stream->description,
+                    'icon' => $stream->icon,
+                    'default_subject_ids' => $subjectIds,
+                ];
+            })
+            ->values();
+    }
+
+    private function activeSubjects(?int $examTypeId = null): Collection
+    {
+        return Subject::query()
+            ->where('is_active', true)
+            ->when($examTypeId !== null && $examTypeId > 0, function ($query) use ($examTypeId) {
+                $query->whereHas('questions', function ($questionQuery) use ($examTypeId) {
+                    $questionQuery->where('exam_type_id', $examTypeId)
+                        ->where('is_active', true)
+                        ->where('status', 'approved');
+                });
+            })
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
+    }
+
+    private function activeExamTypes(): Collection
+    {
+        return ExamType::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->get();
     }
 }
