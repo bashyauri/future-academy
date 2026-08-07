@@ -9,9 +9,12 @@ use App\Http\Resources\Api\UserResource;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -151,7 +154,7 @@ class AuthController extends Controller
 
         if ($currentAccessToken && isset($currentAccessToken->id)) {
             PersonalAccessToken::query()
-            ->whereKey($currentAccessToken->id)
+                ->whereKey($currentAccessToken->id)
                 ->delete();
         }
 
@@ -178,5 +181,51 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Verification link sent.',
         ]);
+    }
+
+    /**
+     * Verify a user's email address via the signed API link.
+     *
+     * This endpoint is hit when the user clicks the verification link in their
+     * email. It works without a web session, making it compatible with mobile
+     * users who are not logged in to the website when they click the link.
+     */
+    public function verifyEmail(Request $request, int $id, string $hash): Response|RedirectResponse
+    {
+        if (! URL::hasValidSignature($request)) {
+            return response()
+                ->view('auth.email-verified', [
+                    'success' => false,
+                    'message' => 'This verification link is invalid or has expired.',
+                ], 400);
+        }
+
+        $user = User::find($id);
+
+        if (! $user || ! hash_equals($hash, sha1($user->getEmailForVerification()))) {
+            return response()
+                ->view('auth.email-verified', [
+                    'success' => false,
+                    'message' => 'This verification link is invalid or has expired.',
+                ], 400);
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
+
+        // If the user has an active web session they are a browser/web user.
+        // Redirect them to the dashboard exactly as Fortify would have done,
+        // preserving the original web UX. Sessionless (mobile) users get the
+        // branded HTML success page instead.
+        if (auth()->guard('web')->check()) {
+            return redirect()->route('redirect.dashboard');
+        }
+
+        return response()
+            ->view('auth.email-verified', [
+                'success' => true,
+                'message' => 'Your email has been verified! You can now return to the app.',
+            ]);
     }
 }

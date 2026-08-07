@@ -28,6 +28,14 @@ Route::prefix('v1')
             Route::post('/login', [AuthController::class, 'login']);
         });
 
+        // Email verification link — no auth required, validated via signed URL.
+        // This route is intentionally outside the force.json middleware because
+        // it returns an HTML view displayed in the user's browser after clicking
+        // the link in their email.
+        Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+            ->middleware('throttle:6,1')
+            ->name('api.email.verify');
+
         /*
         |--------------------------------------------------------------------------
         | Authenticated Routes
