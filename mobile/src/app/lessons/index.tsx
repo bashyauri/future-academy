@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscriptionGuard } from "@/lib/useSubscriptionGuard";
 import { Heading, BodyText, Caption } from "@/components/Typography";
 import { Button } from "@/components";
 import api from "@/lib/api";
@@ -58,34 +59,8 @@ export default function LessonsScreen() {
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [showAllSubjects, setShowAllSubjects] = useState(!subjectId);
 
-  useEffect(() => {
-    const syncEntitlementState = async () => {
-      try {
-        await refreshUser();
-      } catch (error) {
-        console.warn("Failed to refresh entitlement state", error);
-      }
-    };
-
-    void syncEntitlementState();
-  }, [refreshUser]);
-
-  useEffect(() => {
-    const hasEntitlement = user?.has_active_subscription;
-    const isOnTrial = user?.on_trial === true;
-    const trialEnded = Boolean(
-      user?.trial_ends_at &&
-      new Date(user.trial_ends_at).getTime() <= Date.now(),
-    );
-
-    if (user && !hasEntitlement && !isOnTrial && !trialEnded) {
-      router.replace("/pricing");
-    }
-
-    if (user && !hasEntitlement && trialEnded) {
-      router.replace("/pricing");
-    }
-  }, [user, router]);
+  // Gate: redirect to /pricing if user has no active subscription or trial.
+  useSubscriptionGuard();
 
   const loadLessons = async () => {
     try {
@@ -166,17 +141,25 @@ export default function LessonsScreen() {
     );
   }
 
-  if (error) {
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
+
+  if (error || (!subject && !showAllSubjects)) {
     return (
       <View className="flex-1 items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
         <MaterialIcons name="error-outline" size={48} color="#ef4444" />
         <BodyText className="mt-4 text-center text-neutral-700 dark:text-neutral-300">
-          {error}
+          {error || "Subject not found"}
         </BodyText>
         <Button
           variant="outline"
           size="md"
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="mt-4"
         >
           Go Back
@@ -198,7 +181,7 @@ export default function LessonsScreen() {
       >
         <View className="flex-row items-center">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={{ marginRight: 12 }}
           >
             <MaterialIcons

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\MockExamController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\ParentApiController;
+use App\Http\Controllers\Api\PaymentApiController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\SubjectDownloadController;
 use App\Http\Controllers\Api\SyncController;
@@ -119,12 +120,20 @@ Route::prefix('v1')
 
             /*
             |--------------------------------------------------------------------------
-            | Premium Features
+            | Onboarding (accessible before subscription)
+            |--------------------------------------------------------------------------
+            */
+            Route::post('/onboarding', [OnboardingController::class, 'complete'])
+                ->middleware('throttle:60,1');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Premium Features (require active subscription or trial)
             |--------------------------------------------------------------------------
             */
             Route::middleware([
                 'throttle:60,1',
-                // 'ensure.subscription.or.trial',
+                'ensure.subscription.or.trial',
             ])->group(function () {
 
                 /*
@@ -183,33 +192,19 @@ Route::prefix('v1')
                 |--------------------------------------------------------------------------
                 */
                 Route::prefix('mock')->group(function () {
-
                     Route::get('/groups', [MockExamController::class, 'index']);
                     Route::get('/groups/{batchNumber}', [MockExamController::class, 'show']);
                     Route::get('/groups/{batchNumber}/download', [MockExamController::class, 'download']);
-
                     Route::post('/sessions', [MockExamController::class, 'initializeSession']);
                 });
-
-                /*
-                |--------------------------------------------------------------------------
-                | Payment
-                |--------------------------------------------------------------------------
-                */
-                Route::prefix('payment')->group(function () {
-                    Route::get('/pricing', [App\Http\Controllers\Api\PaymentApiController::class, 'pricing']);
-                    Route::post('/initialize', [App\Http\Controllers\Api\PaymentApiController::class, 'initialize']);
-                    Route::post('/verify', [App\Http\Controllers\Api\PaymentApiController::class, 'verify']);
-                });
-
-                /*
-                |--------------------------------------------------------------------------
-                | Onboarding
-                |--------------------------------------------------------------------------
-                */
-                Route::post('/onboarding', [OnboardingController::class, 'complete']);
             });
         });
+
+        Route::prefix('payment')
+            ->middleware('throttle:60,1')
+            ->group(function () {
+                Route::get('/pricing', [PaymentApiController::class, 'pricing']);
+            });
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/user', [AuthController::class, 'user']);
@@ -218,6 +213,13 @@ Route::prefix('v1')
 
             Route::post('/email/verification-notification', [AuthController::class, 'resendVerificationNotification'])
                 ->middleware('throttle:6,1');
+
+            Route::prefix('payment')
+                ->middleware('throttle:60,1')
+                ->group(function () {
+                    Route::post('/initialize', [PaymentApiController::class, 'initialize']);
+                    Route::post('/verify', [PaymentApiController::class, 'verify']);
+                });
         });
 
         /*
@@ -242,4 +244,4 @@ Route::prefix('v1')
             });
     });
 
-Route::get('/v1/payment/callback-redirect', [App\Http\Controllers\Api\PaymentApiController::class, 'callbackRedirect']);
+Route::get('/v1/payment/callback-redirect', [PaymentApiController::class, 'callbackRedirect']);

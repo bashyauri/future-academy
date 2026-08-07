@@ -25,10 +25,19 @@ class PaymentApiController extends Controller
      */
     public function pricing(Request $request): JsonResponse
     {
-        $plans = config('pricing.plans', []);
+        $user = $request->user();
+        $isParent = $user && method_exists($user, 'isParent') && $user->isParent();
+
+        $plans = $isParent
+            ? config('pricing.parent_plans', config('pricing.plans', []))
+            : config('pricing.plans', []);
+
+        if (empty($plans)) {
+            $plans = config('pricing.plans', []);
+        }
 
         Log::info('API pricing plans response', [
-            'user_id' => $request->user()?->id,
+            'user_id' => $user?->id,
             'plan_keys' => array_keys($plans),
             'is_empty' => empty($plans),
         ]);
@@ -37,7 +46,7 @@ class PaymentApiController extends Controller
             'message' => 'Pricing plans retrieved',
             'data' => [
                 'plans' => $plans,
-            ]
+            ],
         ]);
     }
 
@@ -86,7 +95,7 @@ class PaymentApiController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Selected plan is not configured correctly.'
+                'message' => 'Selected plan is not configured correctly.',
             ], 500);
         }
 
@@ -97,7 +106,7 @@ class PaymentApiController extends Controller
 
         if ($isRecurring && ! $planCode) {
             return response()->json([
-                'message' => 'Subscription plan not configured.'
+                'message' => 'Subscription plan not configured.',
             ], 400);
         }
 
@@ -122,7 +131,7 @@ class PaymentApiController extends Controller
             reference: $reference,
             planCode: $planCode,
             metadata: $metadata,
-            callbackUrl: config('app.url') . '/api/v1/payment/callback-redirect'
+            callbackUrl: config('app.url').'/api/v1/payment/callback-redirect'
         );
 
         if (! $init['success']) {
@@ -133,7 +142,7 @@ class PaymentApiController extends Controller
             ]);
 
             return response()->json([
-                'message' => $init['message'] ?? 'Unable to start payment process.'
+                'message' => $init['message'] ?? 'Unable to start payment process.',
             ], 400);
         }
 
@@ -142,7 +151,7 @@ class PaymentApiController extends Controller
             'data' => [
                 'authorization_url' => $init['authorization_url'],
                 'reference' => $reference,
-            ]
+            ],
         ]);
     }
 
@@ -163,7 +172,7 @@ class PaymentApiController extends Controller
         if ($existingSub) {
             return response()->json([
                 'message' => 'Payment successful',
-                'data' => $existingSub
+                'data' => $existingSub,
             ]);
         }
 
@@ -176,7 +185,7 @@ class PaymentApiController extends Controller
             ]);
 
             return response()->json([
-                'message' => $verify['message'] ?? 'Payment was not successful.'
+                'message' => $verify['message'] ?? 'Payment was not successful.',
             ], 400);
         }
 
@@ -240,7 +249,7 @@ class PaymentApiController extends Controller
 
         return response()->json([
             'message' => 'Payment successful',
-            'data' => $subscription
+            'data' => $subscription,
         ]);
     }
 
@@ -250,9 +259,12 @@ class PaymentApiController extends Controller
     public function callbackRedirect(Request $request)
     {
         $reference = $request->query('reference');
-        // This HTML simply tells the app to intercept the URL and close the web browser.
+
+        $mobileUrl = 'mobile://payment/callback?reference='.urlencode((string) $reference);
+        $fallbackUrl = 'futureacademy://payment/callback?reference='.urlencode((string) $reference);
+
         return response(
-            "<html><body><h2>Payment Processing</h2><script>window.location.replace('futureacademy://payment/callback?reference=' + " . json_encode($reference) . ");</script></body></html>"
+            '<html><body><h2>Payment Processing</h2><script>const reference='.json_encode((string) $reference).";const mobileUrl='mobile://payment/callback?reference=' + encodeURIComponent(reference);const fallbackUrl='futureacademy://payment/callback?reference=' + encodeURIComponent(reference);window.location.replace(mobileUrl);window.setTimeout(function(){window.location.replace(fallbackUrl);}, 500);</script></body></html>"
         );
     }
 }

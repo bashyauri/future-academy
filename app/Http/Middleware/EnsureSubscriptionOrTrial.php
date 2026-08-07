@@ -135,6 +135,18 @@ class EnsureSubscriptionOrTrial
 
     private function routeAllowsTrialAccess(Request $request): bool
     {
+        if ($request->is('api/*')) {
+            return $request->is([
+                'api/v1/lessons*',
+                'api/v1/quizzes*',
+                'api/v1/quiz-attempts*',
+                'api/v1/subjects*',
+                'api/v1/user*',
+                'api/v1/config*',
+                'api/v1/analytics*',
+            ]);
+        }
+
         return $request->routeIs([
             'profile.edit',
             'user-password.edit',
@@ -152,6 +164,13 @@ class EnsureSubscriptionOrTrial
 
     private function routeAllowsGuardianSetupAccess(Request $request): bool
     {
+        if ($request->is('api/*')) {
+            return $request->is([
+                'api/v1/lessons*',
+                'api/v1/subjects*',
+            ]);
+        }
+
         return $request->routeIs([
             'lessons.subjects',
             'lessons.list',
@@ -161,11 +180,13 @@ class EnsureSubscriptionOrTrial
     private function blockedFeatureLabel(Request $request): string
     {
         $routeName = $request->route()?->getName();
+        $path = $request->path();
 
         return match (true) {
-            str_starts_with((string) $routeName, 'mock.') => __('Mock Exams'),
-            str_starts_with((string) $routeName, 'practice.') => __('Practice Quizzes'),
-            $routeName === 'analytics' => __('Analytics Dashboard'),
+            str_starts_with((string) $routeName, 'mock.') || str_contains($path, '/mock') => __('Mock Exams'),
+            str_starts_with((string) $routeName, 'practice.') || str_contains($path, '/practice') => __('Practice Quizzes'),
+            str_contains($path, '/jamb') => __('JAMB Practice'),
+            $routeName === 'analytics' || str_contains($path, '/analytics') => __('Analytics Dashboard'),
             default => __('Premium Features'),
         };
     }
