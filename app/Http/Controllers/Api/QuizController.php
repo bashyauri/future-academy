@@ -148,6 +148,24 @@ class QuizController extends Controller
     }
 
     /**
+ * Get quiz attempt results
+ */
+public function results(Request $request, int $id): JsonResponse
+{
+    $user = $request->user();
+
+    $results = $this->quizService->getAttemptResults(
+        $user,
+        $id
+    );
+
+    return response()->json([
+        'message' => 'Quiz results retrieved successfully',
+        'data' => $results,
+    ]);
+}
+
+    /**
      * Start a new JAMB session and create the attempt
      */
     public function startJambSession(JambSessionRequest $request): JsonResponse

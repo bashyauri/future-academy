@@ -438,7 +438,7 @@ export default function QuizPlayerScreen() {
                   />
 
                   {/* Options Review */}
-                  <View className="mt-3 space-y-2">
+                  <View className="mt-4">
                     {ans.options.map((opt) => {
                       const isSelected = ans.selected_option_id === opt.id;
                       const isCorrectOpt = opt.is_correct;
@@ -463,7 +463,7 @@ export default function QuizPlayerScreen() {
                       return (
                         <View
                           key={opt.id}
-                          className={`flex-row items-center border p-3 rounded-xl ${bgColor} ${borderColor}`}
+                          className={`flex-row items-center border p-3 rounded-xl mb-3 ${bgColor} ${borderColor}`}
                         >
                           <View className="flex-1">
                             {!opt.option_text_html || !opt.option_text_html.includes("<") ? (
@@ -605,7 +605,7 @@ export default function QuizPlayerScreen() {
                   <TouchableOpacity
                     key={opt.id}
                     onPress={() => selectOption(opt.id)}
-                    className={`flex-row items-start border-2 rounded-2xl p-4 ${bgColor} ${borderColor}`}
+                    className={`flex-row items-start border-2 rounded-2xl p-4 mb-4 ${bgColor} ${borderColor}`}
                     style={{ minHeight: 56 }}
                   >
                     <View className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 mt-0.5 ${isSelected ? "border-indigo-600 bg-indigo-600" : "border-neutral-300 dark:border-neutral-700"}`}>
