@@ -53,13 +53,13 @@ class Manage extends Component
                 [
                     'code' => config('services.paystack.plans.monthly'),
                     'name' => 'Monthly (Recurring)',
-                    'amount' => 2000,
+                    'amount' => config('pricing.plans.monthly.amount', 2000),
                     'type' => 'recurring',
                 ],
                 [
                     'code' => config('services.paystack.plans.yearly'),
                     'name' => 'Yearly (Recurring)',
-                    'amount' => 12000,
+                    'amount' => config('pricing.plans.yearly.amount', 10000),
                     'type' => 'recurring',
                 ],
             ];
@@ -69,13 +69,13 @@ class Manage extends Component
             [
                 'code' => null,
                 'name' => 'Monthly (One-Time)',
-                'amount' => 2500,
+                'amount' => config('pricing.plans.monthly.amount', 2000),
                 'type' => 'one_time',
             ],
             [
                 'code' => null,
                 'name' => 'Yearly (One-Time)',
-                'amount' => 13000,
+                'amount' => config('pricing.plans.yearly.amount', 10000),
                 'type' => 'one_time',
             ],
         ];

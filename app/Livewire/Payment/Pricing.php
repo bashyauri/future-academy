@@ -3,6 +3,7 @@
 namespace App\Livewire\Payment;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Livewire\Component;
 
 class Pricing extends Component
@@ -18,6 +19,10 @@ class Pricing extends Component
     public bool $isGuardian = false;
 
     public array $linkedStudents = [];
+
+    public array $plans = [];
+
+    public bool $loadingPlans = true;
 
     public function mount(): void
     {
@@ -50,6 +55,29 @@ class Pricing extends Component
 
         if (! in_array((int) $this->student_id, $linkedStudentIds, true)) {
             $this->student_id = null;
+        }
+
+        $this->loadPricing();
+    }
+
+    public function loadPricing(): void
+    {
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->acceptJson()
+                ->get(config('app.url').'/api/v1/payment/pricing');
+
+            if ($response->successful()) {
+                $this->plans = $response->json('data.plans', []);
+            } else {
+                // Fallback to config if API fails
+                $this->plans = config('pricing.plans', []);
+            }
+        } catch (\Exception $e) {
+            // Fallback to config on any error
+            $this->plans = config('pricing.plans', []);
+        } finally {
+            $this->loadingPlans = false;
         }
     }
 

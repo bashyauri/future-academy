@@ -20,7 +20,7 @@ return [
         ],
         'yearly' => [
             'name' => 'Yearly Plan',
-            'amount' => 12000, // ₦12,000/year
+            'amount' => 10000, // ₦10,000/year
             'duration' => 365, // days
             'description' => 'Full year access to all content',
             'features' => [
@@ -30,41 +30,7 @@ return [
                 'Progress tracking',
                 'Detailed analytics',
                 'Annual renewal',
-                'Best value - save ₦2,000/year',
-            ],
-        ],
-    ],
-
-    // Pricing for parent plans (same as individual for now)
-    'parent_plans' => [
-        'monthly' => [
-            'name' => 'Parent Monthly Plan',
-            'amount' => 2000, // ₦2,000/month - covers all linked children
-            'duration' => 30,
-            'description' => 'Covers all your linked students',
-            'features' => [
-                'Access for all linked students',
-                'All lessons and videos',
-                'Unlimited practice exams',
-                'Mock exams (JAMB format)',
-                'Family progress dashboard',
-                'Monthly renewal',
-            ],
-        ],
-        'yearly' => [
-            'name' => 'Parent Yearly Plan',
-            'amount' => 12000, // ₦12,000/year - covers all linked children
-            'duration' => 365,
-            'description' => 'Full year access for all students',
-            'features' => [
-                'Access for all linked students',
-                'All lessons and videos',
-                'Unlimited practice exams',
-                'Mock exams (JAMB format)',
-                'Family progress dashboard',
-                'Detailed analytics per student',
-                'Annual renewal',
-                'Best value - save ₦2,000/year',
+                'Best value - save ₦14,000/year',
             ],
         ],
     ],
@@ -72,6 +38,9 @@ return [
     /**
      * Get pricing for a specific plan
      * Usage: config('pricing.plans.monthly.amount') => 2000
-     * Usage: config('pricing.plans.yearly.amount') => 12000
+     * Usage: config('pricing.plans.yearly.amount') => 10000
+     *
+     * Note: Guardians purchase premium access per linked student using the same pricing.
+     * They must select which student to purchase for each time.
      */
 ];

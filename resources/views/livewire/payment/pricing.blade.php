@@ -50,7 +50,7 @@
         </div>
     </div>
 @endif
-    <form action="{{ route('payment.initialize') }}" method="POST" target="_blank" rel="noopener noreferrer" class="w-full flex flex-col gap-4 mt-1">
+    <form action="{{ route('payment.initialize') }}" method="POST" id="payment-form" class="w-full flex flex-col gap-4 mt-1">
         @csrf
 
         @if($isGuardian)
@@ -83,10 +83,21 @@
         @if(! $isGuardian || ! empty($student_id))
             <div class="flex flex-col gap-2">
                 <label for="plan" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Choose Plan') }}</label>
-                <select name="plan" id="plan" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
-                    <option value="monthly">{{ __('Monthly - ₦' . number_format(config('pricing.plans.monthly.amount'))) }}</option>
-                    <option value="yearly">{{ __('Yearly - ₦' . number_format(config('pricing.plans.yearly.amount'))) }}</option>
-                </select>
+                @if($loadingPlans)
+                    <div class="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{{ __('Loading plans...') }}</span>
+                    </div>
+                @else
+                    <select name="plan" id="plan" class="form-select w-full rounded border-green-300 dark:border-green-700 bg-white dark:bg-green-950 text-sm text-green-900 dark:text-green-100 focus:ring-green-400 focus:border-green-400 dark:focus:ring-green-600 dark:focus:border-green-600 transition-colors">
+                        @foreach($plans as $key => $plan)
+                            <option value="{{ $key }}">{{ __(':plan - ₦:amount', ['plan' => ucfirst($key), 'amount' => number_format($plan['amount'])]) }}</option>
+                        @endforeach
+                    </select>
+                @endif
             </div>
             <div class="flex flex-col gap-2">
                 <label for="type" class="block text-xs font-semibold mb-1 text-green-900 dark:text-green-200">{{ __('Payment Type') }}</label>
@@ -104,6 +115,109 @@
             </div>
         @endif
     </form>
+
+    <script>
+        let paymentWindow = null;
+        let paymentReference = null;
+        let verificationInterval = null;
+
+        document.getElementById('payment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const submitButton = this.querySelector('button[type="submit"]');
+
+            // Disable button and show loading
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+
+            fetch('{{ route("payment.initialize") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.data && data.data.authorization_url) {
+                    paymentReference = data.data.reference;
+
+                    // Open payment in popup instead of new tab for better control
+                    const width = 500;
+                    const height = 600;
+                    const left = (screen.width - width) / 2;
+                    const top = (screen.height - height) / 2;
+                    paymentWindow = window.open(
+                        data.data.authorization_url,
+                        'paystack-payment',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                    );
+
+                    // Start polling for payment completion
+                    if (paymentWindow) {
+                        verificationInterval = setInterval(checkPaymentStatus, 3000);
+
+                        // Handle window close
+                        paymentWindow.onbeforeunload = function() {
+                            clearInterval(verificationInterval);
+                            // Attempt final verification when window closes
+                            setTimeout(() => verifyPayment(paymentReference), 1000);
+                        };
+                    }
+                } else {
+                    throw new Error(data.message || 'Payment initialization failed');
+                }
+            })
+            .catch(error => {
+                console.error('Payment error:', error);
+                alert(error.message || 'Could not start payment process. Please try again.');
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Pay Now';
+            });
+        });
+
+        function checkPaymentStatus() {
+            if (!paymentReference || !paymentWindow || paymentWindow.closed) {
+                clearInterval(verificationInterval);
+                return;
+            }
+
+            // Try to verify payment silently
+            verifyPayment(paymentReference, true);
+        }
+
+        function verifyPayment(reference, silent = false) {
+            fetch('{{ route("payment.verify") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ reference: reference })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Payment successful' || data.data) {
+                    clearInterval(verificationInterval);
+                    if (paymentWindow && !paymentWindow.closed) {
+                        paymentWindow.close();
+                    }
+                    // Reload page to show subscription status
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                if (!silent) {
+                    console.error('Verification error:', error);
+                }
+            });
+        }
+    </script>
     <div class="mt-6 w-full flex flex-col items-center gap-2">
         <flux:heading size="md" class="text-green-900 dark:text-green-200 font-bold mb-1">{{ __('Why Go Premium?') }}</flux:heading>
         <ul class="w-full flex flex-col gap-1">
