@@ -20,7 +20,7 @@ return [
         ],
         'yearly' => [
             'name' => 'Yearly Plan',
-            'amount' => 10000, // ₦10,000/year
+            'amount' => 18000, // ₦18,000/year
             'duration' => 365, // days
             'description' => 'Full year access to all content',
             'features' => [
@@ -30,7 +30,7 @@ return [
                 'Progress tracking',
                 'Detailed analytics',
                 'Annual renewal',
-                'Best value - save ₦14,000/year',
+                'Best value - save ₦6,000/year',
             ],
         ],
     ],
@@ -38,7 +38,7 @@ return [
     /**
      * Get pricing for a specific plan
      * Usage: config('pricing.plans.monthly.amount') => 2000
-     * Usage: config('pricing.plans.yearly.amount') => 10000
+     * Usage: config('pricing.plans.yearly.amount') => 18000
      *
      * Note: Guardians purchase premium access per linked student using the same pricing.
      * They must select which student to purchase for each time.
