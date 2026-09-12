@@ -256,4 +256,15 @@
             </div>
         </div>
     </div>
+
+    {{-- Footer --}}
+    <div class="border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">
+                &copy; {{ now()->year }} {{ config('app.name', 'Future Academy') }}. All rights reserved.
+                &nbsp;&bull;&nbsp;
+                <a href="{{ route('privacy-policy') }}" class="underline underline-offset-2 hover:text-neutral-700 dark:hover:text-neutral-300" wire:navigate>Privacy Policy</a>
+            </p>
+        </div>
+    </div>
 </div>

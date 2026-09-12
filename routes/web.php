@@ -42,6 +42,11 @@ use Laravel\Fortify\Features;
 
 // Public home page
 Route::get('/', HomePage::class)->name('home');
+Route::view('/account-deletion', 'account-deletion')
+    ->name('account-deletion');
+
+// Privacy Policy
+Route::view('/privacy-policy', 'privacy-policy')->name('privacy-policy');
 
 // Redirect after login
 Route::get('/redirect-dashboard', function () {
