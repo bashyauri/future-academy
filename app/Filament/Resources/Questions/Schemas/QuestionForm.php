@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Questions\Schemas;
 use App\Models\ExamType;
 use App\Models\Subject;
 use App\Models\Topic;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -109,9 +110,9 @@ class QuestionForm
                             ->collapsible()
                             ->collapsed(false)
                             ->itemLabel(
-                                fn(array $state): ?string => ($state['label'] ?? '?') . '. ' .
+                                fn (array $state): ?string => ($state['label'] ?? '?').'. '.
                                     (strlen($state['option_text'] ?? '') > 40
-                                        ? substr($state['option_text'], 0, 40) . '...'
+                                        ? substr($state['option_text'], 0, 40).'...'
                                         : ($state['option_text'] ?? 'Empty option'))
                             )
                             ->addActionLabel('+ Add Another Option')
@@ -133,7 +134,7 @@ class QuestionForm
                                     ->searchable()
                                     ->preload()
                                     ->live()
-                                    ->afterStateUpdated(fn($state, callable $set) => $set('subject_id', null))
+                                    ->afterStateUpdated(fn ($state, callable $set) => $set('subject_id', null))
                                     ->prefixIcon('heroicon-o-academic-cap')
                                     ->columnSpan(2),
 
@@ -142,9 +143,10 @@ class QuestionForm
                                     ->required()
                                     ->options(function (callable $get) {
                                         $examTypeId = $get('exam_type_id');
-                                        if (!$examTypeId) {
+                                        if (! $examTypeId) {
                                             return Subject::where('is_active', true)->pluck('name', 'id');
                                         }
+
                                         return Subject::whereHas('examTypes', function ($query) use ($examTypeId) {
                                             $query->where('exam_types.id', $examTypeId);
                                         })->where('is_active', true)->pluck('name', 'id');
@@ -152,7 +154,7 @@ class QuestionForm
                                     ->searchable()
                                     ->preload()
                                     ->live()
-                                    ->afterStateUpdated(fn($state, callable $set) => $set('topic_id', null))
+                                    ->afterStateUpdated(fn ($state, callable $set) => $set('topic_id', null))
                                     ->prefixIcon('heroicon-o-book-open')
                                     ->columnSpan(2),
 
@@ -160,9 +162,10 @@ class QuestionForm
                                     ->label('Topic')
                                     ->options(function (callable $get) {
                                         $subjectId = $get('subject_id');
-                                        if (!$subjectId) {
+                                        if (! $subjectId) {
                                             return [];
                                         }
+
                                         return Topic::where('subject_id', $subjectId)
                                             ->where('is_active', true)
                                             ->pluck('name', 'id');
@@ -214,14 +217,14 @@ class QuestionForm
                                     ])
                                     ->default('pending')
                                     ->prefixIcon('heroicon-o-shield-check')
-                                    ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
+                                    ->visible(fn () => Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
                                     ->columnSpan(1),
 
                                 Toggle::make('is_active')
                                     ->label('Active')
                                     ->default(true)
                                     ->inline(false)
-                                    ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
+                                    ->visible(fn () => Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
                                     ->columnSpan(1),
                             ])
                             ->columns(4),
@@ -230,7 +233,7 @@ class QuestionForm
                             ->label('Rejection Reason')
                             ->rows(2)
                             ->placeholder('Explain why this question was rejected...')
-                            ->visible(fn(callable $get) => $get('status') === 'rejected')
+                            ->visible(fn (callable $get) => $get('status') === 'rejected')
                             ->columnSpanFull(),
                     ])
                     ->collapsible()

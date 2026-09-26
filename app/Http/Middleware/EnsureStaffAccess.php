@@ -37,7 +37,7 @@ class EnsureStaffAccess
             return redirect()->route('filament.auth.login');
         }
 
-        $hasAccess = collect($this->staffPermissions)->contains(fn($perm) => $user->hasPermissionTo($perm));
+        $hasAccess = collect($this->staffPermissions)->contains(fn ($perm) => $user->hasPermissionTo($perm));
 
         if (! $hasAccess) {
             // Redirect to appropriate dashboard instead of showing 403

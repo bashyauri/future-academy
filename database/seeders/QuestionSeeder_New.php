@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\Subject;
-use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -15,12 +14,14 @@ class QuestionSeeder_New extends Seeder
     {
         if (Question::count() > 100) {
             $this->command->info('Sufficient questions already exist.');
+
             return;
         }
 
         $admin = User::whereAccountType('admin')->first();
-        if (!$admin) {
+        if (! $admin) {
             $this->command->error('No admin user found.');
+
             return;
         }
 

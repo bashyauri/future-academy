@@ -3,12 +3,15 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SubscriptionResource\Pages;
+use App\Filament\Resources\SubscriptionResource\Schemas\SubscriptionForm;
+use App\Filament\Resources\SubscriptionResource\Tables\SubscriptionsTable;
 use App\Models\Subscription;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+
 class SubscriptionResource extends Resource
 {
     protected static ?string $model = Subscription::class;
@@ -29,12 +32,12 @@ class SubscriptionResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\SubscriptionResource\Schemas\SubscriptionForm::configure($schema);
+        return SubscriptionForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\SubscriptionResource\Tables\SubscriptionsTable::configure($table);
+        return SubscriptionsTable::configure($table);
     }
 
     public static function getRelations(): array

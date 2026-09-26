@@ -2,11 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Services\PaymentService;
 use Illuminate\Console\Command;
-use Carbon\Carbon;
 
 class SyncSubscriptionCodes extends Command
 {
@@ -53,6 +52,7 @@ class SyncSubscriptionCodes extends Command
 
         if ($invalidSubscriptions->isEmpty()) {
             $this->info('✅ No subscriptions with FA-xxx codes found. All codes are valid!');
+
             return 0;
         }
 
@@ -62,7 +62,7 @@ class SyncSubscriptionCodes extends Command
         // Display found subscriptions
         $this->table(
             ['ID', 'User Email', 'FA Code', 'Reference', 'Created At'],
-            $invalidSubscriptions->map(fn($sub) => [
+            $invalidSubscriptions->map(fn ($sub) => [
                 $sub->id,
                 $sub->user?->email ?? 'N/A',
                 $sub->subscription_code,
@@ -73,9 +73,10 @@ class SyncSubscriptionCodes extends Command
 
         $this->newLine();
 
-        if (!$this->option('force')) {
-            if (!$this->confirm('Do you want to sync these subscription codes from Paystack?')) {
+        if (! $this->option('force')) {
+            if (! $this->confirm('Do you want to sync these subscription codes from Paystack?')) {
                 $this->info('Sync cancelled.');
+
                 return 0;
             }
         }
@@ -94,10 +95,11 @@ class SyncSubscriptionCodes extends Command
 
             // Get user
             $user = $subscription->user;
-            if (!$user) {
+            if (! $user) {
                 $this->newLine();
                 $this->error("❌ User not found for subscription {$subscription->id}");
                 $failed++;
+
                 continue;
             }
 
@@ -105,10 +107,11 @@ class SyncSubscriptionCodes extends Command
                 // Fetch subscription from Paystack by customer email
                 $result = $this->paymentService->fetchActiveSubscriptionByEmail($user->email);
 
-                if (!$result['success'] || !$result['data']) {
+                if (! $result['success'] || ! $result['data']) {
                     $this->newLine();
                     $this->warn("⚠️  No active subscription found on Paystack for {$user->email}");
                     $notFound++;
+
                     continue;
                 }
 
@@ -116,10 +119,11 @@ class SyncSubscriptionCodes extends Command
                 $paystackSub = $result['data'];
                 $realSubCode = $paystackSub['subscription_code'] ?? null;
 
-                if (!$realSubCode) {
+                if (! $realSubCode) {
                     $this->newLine();
                     $this->warn("⚠️  Paystack subscription has no code for {$user->email}");
                     $failed++;
+
                     continue;
                 }
 

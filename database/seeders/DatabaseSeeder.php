@@ -14,16 +14,16 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // User::factory(10)->create();
-        $this->call(\Database\Seeders\RolePermissionSeeder::class);
-        $this->call(\Database\Seeders\UserSeeder::class);
-        $this->call(\Database\Seeders\StreamSeeder::class);
-        $this->call(\Database\Seeders\ExamTypeSeeder::class);
-        $this->call(\Database\Seeders\SubjectTopicSeeder::class);
-        $this->call(\Database\Seeders\SubjectSeeder::class);
-        $this->call(\Database\Seeders\TopicSeeder::class);
-        $this->call(\Database\Seeders\QuestionSeeder_New::class);
-        $this->call(\Database\Seeders\QuizSeeder::class);
-        $this->call(\Database\Seeders\LessonSeeder::class);
+        $this->call(RolePermissionSeeder::class);
+        $this->call(UserSeeder::class);
+        $this->call(StreamSeeder::class);
+        $this->call(ExamTypeSeeder::class);
+        $this->call(SubjectTopicSeeder::class);
+        $this->call(SubjectSeeder::class);
+        $this->call(TopicSeeder::class);
+        $this->call(QuestionSeeder_New::class);
+        $this->call(QuizSeeder::class);
+        $this->call(LessonSeeder::class);
 
         $this->command->info('Database seeding completed successfully! 🎉');
         $this->command->line('Test Credentials:');
@@ -33,4 +33,3 @@ class DatabaseSeeder extends Seeder
         $this->command->line('Password: password');
     }
 }
-

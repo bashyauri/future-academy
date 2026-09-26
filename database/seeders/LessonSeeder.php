@@ -15,13 +15,15 @@ class LessonSeeder extends Seeder
         // Check if lessons already exist
         if (Lesson::count() > 0) {
             $this->command->info('Lessons already exist. Skipping LessonSeeder.');
+
             return;
         }
 
         $admin = User::where('email', 'super@admin.com')->first();
 
-        if (!$admin) {
+        if (! $admin) {
             $this->command->error('Super admin not found. Please run RolePermissionSeeder first.');
+
             return;
         }
 
@@ -29,8 +31,9 @@ class LessonSeeder extends Seeder
         $mathematics = Subject::where('name', 'Mathematics')->first();
         $english = Subject::where('name', 'English Language')->first();
 
-        if (!$mathematics || !$english) {
+        if (! $mathematics || ! $english) {
             $this->command->error('Subjects not found. Please run SubjectTopicSeeder first.');
+
             return;
         }
 

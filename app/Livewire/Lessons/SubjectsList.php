@@ -29,7 +29,8 @@ class SubjectsList extends Component
             }
 
             $user = $student;
-            $isParentViewing = $user->id !== $authenticatedUser->id;
+            $isParentViewing = $user->id !== $authenticatedUser->id
+                && ! $authenticatedUser->hasRole('super-admin');
         }
 
         // Keep subject counts aligned with parent dashboard (enrollments source of truth).

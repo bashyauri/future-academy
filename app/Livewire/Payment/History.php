@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Payment;
 
-use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
 
 class History extends Component
 {

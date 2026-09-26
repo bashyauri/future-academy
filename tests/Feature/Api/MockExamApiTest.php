@@ -5,7 +5,6 @@ use App\Models\MockGroup;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
-use Illuminate\Support\Str;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -23,7 +22,7 @@ test('can get mock groups for subject and exam type', function () {
     ]);
 
     $response = $this->withToken($this->token)
-        ->getJson('/api/v1/mock/groups?subject_id=' . $subject->id . '&exam_type_id=' . $examType->id);
+        ->getJson('/api/v1/mock/groups?subject_id='.$subject->id.'&exam_type_id='.$examType->id);
 
     $response->assertStatus(200)
         ->assertJsonStructure([
@@ -53,7 +52,7 @@ test('can get specific mock group by batch number', function () {
     ]);
 
     $response = $this->withToken($this->token)
-        ->getJson('/api/v1/mock/groups/1?subject_id=' . $subject->id . '&exam_type_id=' . $examType->id);
+        ->getJson('/api/v1/mock/groups/1?subject_id='.$subject->id.'&exam_type_id='.$examType->id);
 
     $response->assertStatus(200)
         ->assertJson([
@@ -70,7 +69,7 @@ test('returns 404 for non-existent mock group', function () {
     $examType = ExamType::factory()->create();
 
     $response = $this->withToken($this->token)
-        ->getJson('/api/v1/mock/groups/999?subject_id=' . $subject->id . '&exam_type_id=' . $examType->id);
+        ->getJson('/api/v1/mock/groups/999?subject_id='.$subject->id.'&exam_type_id='.$examType->id);
 
     $response->assertStatus(404)
         ->assertJson([
@@ -95,7 +94,7 @@ test('can download mock group questions', function () {
     ]);
 
     $response = $this->withToken($this->token)
-        ->getJson('/api/v1/mock/groups/1/download?subject_id=' . $subject->id . '&exam_type_id=' . $examType->id);
+        ->getJson('/api/v1/mock/groups/1/download?subject_id='.$subject->id.'&exam_type_id='.$examType->id);
 
     $response->assertStatus(200)
         ->assertJsonStructure([

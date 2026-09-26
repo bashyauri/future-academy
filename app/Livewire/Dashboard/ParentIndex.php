@@ -13,11 +13,11 @@ use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-
 class ParentIndex extends Component
 {
     /**
      * Holds resend invitation messages per student.
+     *
      * @var array<int, string>
      */
     public $resendInvitationMessage = [];
@@ -33,11 +33,13 @@ class ParentIndex extends Component
         $student = $parent->children()->where('users.id', $studentId)->first();
         if (! $student) {
             $this->resendInvitationMessage[$studentId] = __('Student not found or not linked.');
+
             return;
         }
         // Only allow if onboarding not completed
         if ($student->has_completed_onboarding) {
             $this->resendInvitationMessage[$studentId] = __('Student has already completed setup.');
+
             return;
         }
         $student->sendPasswordResetNotification(
@@ -45,6 +47,7 @@ class ParentIndex extends Component
         );
         $this->resendInvitationMessage[$studentId] = __('Invitation email resent to :email', ['email' => $student->email]);
     }
+
     public $stats = [];
 
     public Collection $children;

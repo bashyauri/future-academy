@@ -24,6 +24,7 @@ class ExamType extends Model
     {
         return static::where('is_active', true)->get();
     }
+
     protected $fillable = [
         'name',
         'slug',

@@ -8,13 +8,16 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
-
 class Profile extends Component
 {
     public string $name = '';
+
     public string $email = '';
+
     public string $phone = '';
+
     public string $address = '';
+
     public string $organization_name = '';
 
     /**

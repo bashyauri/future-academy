@@ -23,7 +23,7 @@ class EditPermission extends EditRecord
 
     public function getSubheading(): ?string
     {
-        return "Update permission settings and role assignments.";
+        return 'Update permission settings and role assignments.';
     }
 
     protected function getHeaderActions(): array
@@ -53,8 +53,9 @@ class EditPermission extends EditRecord
                         'view reports',
                         'manage subscriptions',
                     ];
+
                     return auth()->user()?->hasRole('super-admin')
-                        && !in_array($this->record->name, $protectedPermissions);
+                        && ! in_array($this->record->name, $protectedPermissions);
                 })
                 ->requiresConfirmation()
                 ->modalDescription('Are you sure you want to delete this permission? Roles and users will lose this permission.'),
@@ -68,7 +69,7 @@ class EditPermission extends EditRecord
         Notification::make()
             ->success()
             ->title('Permission updated successfully!')
-            ->body("Changes to '{$record->name}' have been saved. It's now assigned to " . $record->roles()->count() . " role(s).")
+            ->body("Changes to '{$record->name}' have been saved. It's now assigned to ".$record->roles()->count().' role(s).')
             ->send();
     }
 

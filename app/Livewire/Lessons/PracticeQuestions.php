@@ -7,13 +7,21 @@ use Livewire\Component;
 class PracticeQuestions extends Component
 {
     public $questions;
+
     public $lessonId;
+
     public $currentQuestionIndex = 0;
+
     public $selectedAnswers = [];
+
     public $showResults = [];
+
     public $showExplanations = [];
+
     public $score = 0;
+
     public $totalAnswered = 0;
+
     public $isComplete = false;
 
     public function mount($questions, $lessonId)
@@ -43,8 +51,9 @@ class PracticeQuestions extends Component
 
     public function submitAnswer($questionIndex)
     {
-        if (!isset($this->selectedAnswers[$questionIndex]) || $this->selectedAnswers[$questionIndex] === null) {
+        if (! isset($this->selectedAnswers[$questionIndex]) || $this->selectedAnswers[$questionIndex] === null) {
             $this->dispatch('notify', ['message' => 'Please select an answer', 'type' => 'warning']);
+
             return;
         }
 

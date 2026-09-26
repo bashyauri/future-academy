@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\RoleResource\Schemas;
 
 use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;

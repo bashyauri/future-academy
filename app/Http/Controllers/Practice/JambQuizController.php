@@ -22,7 +22,7 @@ class JambQuizController extends Controller
      */
     public function autosave(Request $request)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

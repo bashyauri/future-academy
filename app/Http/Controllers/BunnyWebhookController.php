@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Lesson;
 use App\Models\VideoProgress;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Livewire\Livewire;
 
 /**
@@ -47,7 +47,7 @@ class BunnyWebhookController extends Controller
             ]);
 
             // Validate webhook signature if AccessKey is configured
-            if (!$this->validateWebhookSignature($request)) {
+            if (! $this->validateWebhookSignature($request)) {
                 \Log::warning('Invalid Bunny webhook signature');
                 // Note: Still process the webhook (Bunny signature validation is optional)
             }
@@ -55,7 +55,7 @@ class BunnyWebhookController extends Controller
             $eventType = $payload['EventType'] ?? null;
             $videoGuid = $payload['VideoGuid'] ?? null;
 
-            if (!$videoGuid) {
+            if (! $videoGuid) {
                 return response()->json(['error' => 'No VideoGuid'], 400);
             }
 
@@ -74,6 +74,7 @@ class BunnyWebhookController extends Controller
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
             \Log::error('Bunny webhook error', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => 'Processing failed'], 500);
         }
     }
@@ -306,8 +307,9 @@ class BunnyWebhookController extends Controller
                 ->where('video_type', 'bunny')
                 ->first();
 
-            if (!$lesson) {
+            if (! $lesson) {
                 \Log::warning('No lesson found for video analytics', ['video_guid' => $videoGuid]);
+
                 return;
             }
 
@@ -353,8 +355,9 @@ class BunnyWebhookController extends Controller
                 ->where('video_type', 'bunny')
                 ->first();
 
-            if (!$lesson) {
+            if (! $lesson) {
                 \Log::warning('No lesson found for view ended analytics', ['video_guid' => $videoGuid]);
+
                 return;
             }
 

@@ -3,11 +3,9 @@
 namespace App\Filament\Resources\LessonResource\Pages;
 
 use App\Filament\Resources\LessonResource;
-use App\Services\BunnyStreamService;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Storage;
+use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Log;
 
 class EditLesson extends EditRecord
@@ -58,4 +56,3 @@ class EditLesson extends EditRecord
         }
     }
 }
-

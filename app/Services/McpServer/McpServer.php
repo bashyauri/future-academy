@@ -2,9 +2,9 @@
 
 namespace App\Services\McpServer;
 
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -42,6 +42,7 @@ class McpServer
                 $tools[$tool] = $config['description'];
             }
         }
+
         return $tools;
     }
 
@@ -56,6 +57,7 @@ class McpServer
                 $resources[$resource] = $config['description'];
             }
         }
+
         return $resources;
     }
 
@@ -64,12 +66,12 @@ class McpServer
      */
     public function listFiles(string $directory = '.'): array
     {
-        if (!$this->isAllowedDirectory($directory)) {
+        if (! $this->isAllowedDirectory($directory)) {
             return ['error' => 'Directory access denied'];
         }
 
         $path = base_path($directory);
-        if (!File::exists($path)) {
+        if (! File::exists($path)) {
             return ['error' => 'Directory not found'];
         }
 
@@ -85,7 +87,7 @@ class McpServer
                     continue;
                 }
 
-                $relativePath = str_replace($path . DIRECTORY_SEPARATOR, '', $item->getPathname());
+                $relativePath = str_replace($path.DIRECTORY_SEPARATOR, '', $item->getPathname());
                 $files[] = [
                     'path' => $relativePath,
                     'type' => $item->isDir() ? 'directory' : 'file',
@@ -102,14 +104,14 @@ class McpServer
     /**
      * Read file contents
      */
-    public function readFile(string $filePath, int $startLine = 1, int $endLine = null): array
+    public function readFile(string $filePath, int $startLine = 1, ?int $endLine = null): array
     {
-        if (!$this->isAllowedDirectory(dirname($filePath))) {
+        if (! $this->isAllowedDirectory(dirname($filePath))) {
             return ['error' => 'File access denied'];
         }
 
         $fullPath = base_path($filePath);
-        if (!File::exists($fullPath)) {
+        if (! File::exists($fullPath)) {
             return ['error' => 'File not found'];
         }
 
@@ -135,6 +137,7 @@ class McpServer
             ];
         } catch (\Exception $e) {
             Log::error('MCP: Error reading file', ['error' => $e->getMessage()]);
+
             return ['error' => 'Error reading file'];
         }
     }
@@ -182,7 +185,7 @@ class McpServer
      */
     protected function getRoutesSummary(): array
     {
-        $routes = \Illuminate\Support\Facades\Route::getRoutes();
+        $routes = Route::getRoutes();
         $summary = [
             'total' => count($routes),
             'by_method' => [],
@@ -205,7 +208,7 @@ class McpServer
      */
     protected function isAllowedDirectory(string $directory): bool
     {
-        if (!$this->config['security']['allowed_directories']) {
+        if (! $this->config['security']['allowed_directories']) {
             return false;
         }
 

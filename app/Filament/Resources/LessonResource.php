@@ -8,6 +8,7 @@ use App\Filament\Resources\LessonResource\Schemas\LessonForm;
 use App\Filament\Resources\LessonResource\Tables\LessonsTable;
 use App\Models\Lesson;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -29,7 +30,8 @@ class LessonResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return (bool) $user?->hasAnyPermission([
             'view lessons',
             'create lessons',
@@ -39,22 +41,22 @@ class LessonResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('view lessons') ?? false;
+        return Filament::auth()->user()?->can('view lessons') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('create lessons') ?? false;
+        return Filament::auth()->user()?->can('create lessons') ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('edit lessons') ?? false;
+        return Filament::auth()->user()?->can('edit lessons') ?? false;
     }
 
     public static function canDelete($record): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('delete lessons') ?? false;
+        return Filament::auth()->user()?->can('delete lessons') ?? false;
     }
 
     public static function form(Schema $schema): Schema

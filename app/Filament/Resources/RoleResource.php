@@ -3,12 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\RoleResource\Pages;
+use App\Filament\Resources\RoleResource\Schemas\RoleForm;
+use App\Filament\Resources\RoleResource\Tables\RolesTable;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
 
 class RoleResource extends Resource
@@ -31,12 +32,12 @@ class RoleResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\RoleResource\Schemas\RoleForm::configure($schema);
+        return RoleForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\RoleResource\Tables\RolesTable::configure($table);
+        return RolesTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -69,6 +70,7 @@ class RoleResource extends Resource
         if (in_array($record->name, $protectedRoles)) {
             return false;
         }
+
         return auth()->check() && auth()->user()->hasRole('super-admin');
     }
 

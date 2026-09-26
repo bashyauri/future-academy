@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Quizzes\Pages;
 use App\Enums\QuizType;
 use App\Filament\Resources\Quizzes\QuizResource;
 use App\Models\ExamType;
+use App\Models\Question;
 use App\Models\Subject;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -42,12 +43,12 @@ class EditQuiz extends EditRecord
             // JAMB English = 70 questions, all others = 50
             $totalQuestions = 0;
 
-            if (!empty($data['subject_ids']) && is_array($data['subject_ids'])) {
+            if (! empty($data['subject_ids']) && is_array($data['subject_ids'])) {
                 // Check if this is a JAMB exam
                 $examTypeIds = $data['exam_type_ids'] ?? [];
                 $isJamb = false;
 
-                if (!empty($examTypeIds)) {
+                if (! empty($examTypeIds)) {
                     $jambExamType = ExamType::whereIn('id', $examTypeIds)
                         ->where('name', 'LIKE', '%JAMB%')
                         ->first();
@@ -84,13 +85,14 @@ class EditQuiz extends EditRecord
     {
         $quiz = $this->record;
         $manualQuestions = collect(array_values($this->data['questions'] ?? []))
-            ->filter(fn($q) => !empty($q['question_id']))
-            ->mapWithKeys(fn($q, $i) => [
+            ->filter(fn ($q) => ! empty($q['question_id']))
+            ->mapWithKeys(fn ($q, $i) => [
                 $q['question_id'] => ['order' => $i + 1],
             ]);
 
         if ($manualQuestions->isNotEmpty()) {
             $quiz->questions()->sync($manualQuestions);
+
             return;
         }
 
@@ -103,32 +105,33 @@ class EditQuiz extends EditRecord
             'years' => $this->data['years'] ?? [],
         ];
 
-        $query = \App\Models\Question::query()->approved()->active();
-        if (!empty($criteria['subject_ids'])) {
+        $query = Question::query()->approved()->active();
+        if (! empty($criteria['subject_ids'])) {
             $query->whereIn('subject_id', $criteria['subject_ids']);
         }
-        if (!empty($criteria['topic_ids'])) {
+        if (! empty($criteria['topic_ids'])) {
             $query->whereIn('topic_id', $criteria['topic_ids']);
         }
-        if (!empty($criteria['exam_type_ids'])) {
+        if (! empty($criteria['exam_type_ids'])) {
             $query->whereIn('exam_type_id', $criteria['exam_type_ids']);
         }
-        if (!empty($criteria['difficulty_levels'])) {
+        if (! empty($criteria['difficulty_levels'])) {
             $query->whereIn('difficulty', $criteria['difficulty_levels']);
         }
-        if (!empty($criteria['years'])) {
+        if (! empty($criteria['years'])) {
             $query->whereIn('year', $criteria['years']);
         }
 
         $questionCount = $this->data['question_count'] ?? null;
-        $questionCount = is_numeric($questionCount) ? (int)$questionCount : 0;
+        $questionCount = is_numeric($questionCount) ? (int) $questionCount : 0;
         if ($questionCount > 0) {
             $query->limit($questionCount);
         }
 
         $criteriaQuestions = $query->get();
-        $syncData = $criteriaQuestions->mapWithKeys(function($q, $i) {
-            $i = is_numeric($i) ? (int)$i : 0;
+        $syncData = $criteriaQuestions->mapWithKeys(function ($q, $i) {
+            $i = is_numeric($i) ? (int) $i : 0;
+
             return [
                 $q->id => ['order' => $i + 1],
             ];

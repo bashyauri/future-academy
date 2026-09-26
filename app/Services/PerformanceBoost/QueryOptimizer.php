@@ -2,9 +2,9 @@
 
 namespace App\Services\PerformanceBoost;
 
-use Spatie\QueryBuilder\QueryBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * Performance optimization wrapper for Spatie QueryBuilder
@@ -24,19 +24,19 @@ class QueryOptimizer
     ): QueryBuilder {
         $builder = QueryBuilder::for($query);
 
-        if (!empty($allowedFilters)) {
+        if (! empty($allowedFilters)) {
             $builder->allowedFilters($allowedFilters);
         }
 
-        if (!empty($allowedSorts)) {
+        if (! empty($allowedSorts)) {
             $builder->allowedSorts($allowedSorts);
         }
 
-        if (!empty($allowedFields)) {
+        if (! empty($allowedFields)) {
             $builder->allowedFields($allowedFields);
         }
 
-        if (!empty($allowedIncludes)) {
+        if (! empty($allowedIncludes)) {
             $builder->allowedIncludes($allowedIncludes);
         }
 
@@ -50,7 +50,7 @@ class QueryOptimizer
         QueryBuilder $builder,
         int $perPage = 15,
         string $pageName = 'page',
-        int $page = null
+        ?int $page = null
     ) {
         return $builder->paginate(
             perPage: $perPage,

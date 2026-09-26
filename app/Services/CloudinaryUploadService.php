@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Subject;
+use App\Models\Topic;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Illuminate\Support\Str;
 
 /**
  * Service for managing Cloudinary upload presets and configurations.
@@ -33,8 +36,8 @@ class CloudinaryUploadService
 
         // Generate signature
         $toSign = collect($params)
-            ->filter(fn($value) => $value !== null)
-            ->map(fn($value, $key) => "{$key}={$value}")
+            ->filter(fn ($value) => $value !== null)
+            ->map(fn ($value, $key) => "{$key}={$value}")
             ->sort()
             ->implode('&');
 
@@ -58,14 +61,14 @@ class CloudinaryUploadService
         $folder = 'future-academy/lessons/uploads';
 
         if ($subjectId) {
-            $subject = \App\Models\Subject::find($subjectId);
+            $subject = Subject::find($subjectId);
             if ($subject) {
-                $folder = 'future-academy/lessons/' . \Illuminate\Support\Str::slug($subject->name);
+                $folder = 'future-academy/lessons/'.Str::slug($subject->name);
 
                 if ($topicId) {
-                    $topic = \App\Models\Topic::find($topicId);
+                    $topic = Topic::find($topicId);
                     if ($topic) {
-                        $folder .= '/' . \Illuminate\Support\Str::slug($topic->name);
+                        $folder .= '/'.Str::slug($topic->name);
                     }
                 }
             }
@@ -84,8 +87,8 @@ class CloudinaryUploadService
         // Recreate the signature
         ksort($data);
         $toSign = collect($data)
-            ->filter(fn($value) => is_string($value) || is_numeric($value))
-            ->map(fn($value, $key) => "{$key}={$value}")
+            ->filter(fn ($value) => is_string($value) || is_numeric($value))
+            ->map(fn ($value, $key) => "{$key}={$value}")
             ->implode('&');
 
         $expectedSignature = hash_hmac('sha256', $toSign, $apiSecret);

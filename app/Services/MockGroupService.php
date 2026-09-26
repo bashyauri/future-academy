@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\ExamType;
 use App\Models\MockGroup;
 use App\Models\Question;
 use App\Models\Subject;
-use App\Models\ExamType;
 
 class MockGroupService
 {
@@ -23,7 +23,7 @@ class MockGroupService
         $formats = config('mock.formats', []);
         $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? null;
 
-        if (!$formatConfig) {
+        if (! $formatConfig) {
             return self::DEFAULT_BATCH_SIZE;
         }
 

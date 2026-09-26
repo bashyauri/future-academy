@@ -35,12 +35,12 @@ return [
         ],
     ],
 
-    /**
-     * Get pricing for a specific plan
-     * Usage: config('pricing.plans.monthly.amount') => 2000
-     * Usage: config('pricing.plans.yearly.amount') => 18000
-     *
-     * Note: Guardians purchase premium access per linked student using the same pricing.
-     * They must select which student to purchase for each time.
-     */
+/**
+ * Get pricing for a specific plan
+ * Usage: config('pricing.plans.monthly.amount') => 2000
+ * Usage: config('pricing.plans.yearly.amount') => 18000
+ *
+ * Note: Guardians purchase premium access per linked student using the same pricing.
+ * They must select which student to purchase for each time.
+ */
 ];

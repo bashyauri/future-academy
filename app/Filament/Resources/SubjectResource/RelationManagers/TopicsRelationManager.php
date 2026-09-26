@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources\SubjectResource\RelationManagers;
 
-use Filament\Schemas\Components\TextInput;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Textarea;
+use Filament\Schemas\Components\TextInput;
 use Filament\Schemas\Components\Toggle;
 use Filament\Schemas\Schema;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 

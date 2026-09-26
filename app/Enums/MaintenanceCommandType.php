@@ -19,7 +19,7 @@ enum MaintenanceCommandType: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::OPTIMIZE => 'Optimize (compile & cache)',
             self::OPTIMIZE_CLEAR => 'Optimize: Clear (reset all caches)',
             self::CACHE_CLEAR => 'Cache: Clear',
@@ -37,7 +37,7 @@ enum MaintenanceCommandType: string
 
     public function color(): string
     {
-        return match($this) {
+        return match ($this) {
             self::OPTIMIZE => 'primary',
             self::MIGRATE_ROLLBACK => 'danger',
             self::QUEUE_RESTART => 'warning',
@@ -49,7 +49,7 @@ enum MaintenanceCommandType: string
 
     public function icon(): string
     {
-        return match($this) {
+        return match ($this) {
             self::OPTIMIZE => 'heroicon-o-rocket-launch',
             self::CACHE_CLEAR, self::OPTIMIZE_CLEAR => 'heroicon-o-arrow-path',
             self::MIGRATE, self::MIGRATE_ROLLBACK => 'heroicon-o-circle-stack',

@@ -29,7 +29,7 @@ class ArtisanController extends Controller
         // Verify command is allowed
         $commandType = MaintenanceCommandType::tryFrom($command);
 
-        if (!$commandType) {
+        if (! $commandType) {
             return response()->json([
                 'success' => false,
                 'message' => "Command not allowed: {$command}",
@@ -37,10 +37,10 @@ class ArtisanController extends Controller
         }
 
         try {
-            $buffer = new BufferedOutput();
+            $buffer = new BufferedOutput;
 
             // Block DB-affecting commands in production unless explicitly allowed
-            if (app()->isProduction() && $commandType->requiresForce() && !config('maintenance.allow_db_commands')) {
+            if (app()->isProduction() && $commandType->requiresForce() && ! config('maintenance.allow_db_commands')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Blocked in production. Set ALLOW_DB_COMMANDS=true to enable.',
@@ -75,7 +75,7 @@ class ArtisanController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            $errorMessage = 'Error: ' . $e->getMessage();
+            $errorMessage = 'Error: '.$e->getMessage();
 
             // Audit log (error)
             MaintenanceAction::create([

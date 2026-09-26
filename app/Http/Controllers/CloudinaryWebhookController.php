@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Lesson;
 use App\Services\CloudinaryUploadService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Livewire\Livewire;
 
 /**
@@ -27,12 +27,13 @@ class CloudinaryWebhookController extends Controller
             $payload = $request->all();
 
             // Validate webhook signature
-            $uploadService = new CloudinaryUploadService();
-            if (!$uploadService->validateWebhookSignature(
+            $uploadService = new CloudinaryUploadService;
+            if (! $uploadService->validateWebhookSignature(
                 $payload,
                 $request->header('X-Cldnry-Signature', '')
             )) {
                 \Log::warning('Invalid Cloudinary webhook signature', $payload);
+
                 return response()->json(['error' => 'Invalid signature'], 401);
             }
 
@@ -40,7 +41,7 @@ class CloudinaryWebhookController extends Controller
             $publicId = $payload['public_id'] ?? null;
             $status = $payload['status'] ?? null;
 
-            if (!$publicId) {
+            if (! $publicId) {
                 return response()->json(['error' => 'No public_id'], 400);
             }
 
@@ -55,6 +56,7 @@ class CloudinaryWebhookController extends Controller
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
             \Log::error('Cloudinary webhook error', ['error' => $e->getMessage()]);
+
             return response()->json(['error' => 'Processing failed'], 500);
         }
     }

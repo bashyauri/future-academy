@@ -2,6 +2,7 @@
 
 namespace App\Services\PerformanceBoost;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -14,9 +15,9 @@ class BoostServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton('query-optimizer', fn () => new QueryOptimizer());
-        $this->app->singleton('database-caching', fn () => new DatabaseCaching());
-        $this->app->singleton('lazy-load-helper', fn () => new LazyLoadHelper());
+        $this->app->singleton('query-optimizer', fn () => new QueryOptimizer);
+        $this->app->singleton('database-caching', fn () => new DatabaseCaching);
+        $this->app->singleton('lazy-load-helper', fn () => new LazyLoadHelper);
     }
 
     /**
@@ -26,7 +27,7 @@ class BoostServiceProvider extends ServiceProvider
     {
         // Publish config
         $this->publishes([
-            __DIR__ . '/../../config/boost.php' => config_path('boost.php'),
+            __DIR__.'/../../config/boost.php' => config_path('boost.php'),
         ], 'boost-config');
 
         // Load custom query builder macros if any
@@ -39,7 +40,7 @@ class BoostServiceProvider extends ServiceProvider
     protected function registerMacros(): void
     {
         // Add custom macros to Builder
-        \Illuminate\Database\Eloquent\Builder::macro('optimized', function (
+        Builder::macro('optimized', function (
             array $filters = [],
             array $sorts = [],
             array $fields = [],
@@ -49,7 +50,7 @@ class BoostServiceProvider extends ServiceProvider
         });
 
         // Add caching macro
-        \Illuminate\Database\Eloquent\Builder::macro('rememberFor', function (
+        Builder::macro('rememberFor', function (
             string $key,
             int $minutes = 60
         ) {

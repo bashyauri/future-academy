@@ -2,17 +2,22 @@
 
 namespace App\Livewire\Payment;
 
-use Livewire\Component;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-
+use Livewire\Component;
 
 class Status extends Component
 {
     public $onTrial = false;
+
     public $isSubscribed = false;
+
     public $isGuardian = false;
+
     public $trialDaysLeft = 0;
+
     public $subscriptionEndsAt = null;
+
     public $subscription = null;
 
     public function mount()
@@ -39,7 +44,7 @@ class Status extends Component
                 if ($endsAt) {
                     $endsAt = is_object($endsAt)
                         ? $endsAt
-                        : \Illuminate\Support\Carbon::parse($endsAt);
+                        : Carbon::parse($endsAt);
                     $this->subscriptionEndsAt = $endsAt->format('M d, Y');
                 }
             }

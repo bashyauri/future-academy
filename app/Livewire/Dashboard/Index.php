@@ -4,8 +4,6 @@ namespace App\Livewire\Dashboard;
 
 use App\Enums\QuizType;
 use App\Models\Quiz;
-use App\Models\QuizAttempt;
-use App\Models\Subject;
 use App\Models\Video;
 use App\Models\VideoAnalytics;
 use Livewire\Attributes\Layout;
@@ -15,12 +13,19 @@ use Livewire\Component;
 class Index extends Component
 {
     public $stats = [];
+
     public $recentVideos = [];
+
     public $recentQuizzes = [];
+
     public $mockExamQuizzes = [];
+
     public $recentMockAttempts = [];
+
     public $enrolledSubjects = [];
+
     public $subscriptions = [];
+
     public function mount()
     {
         $user = auth()->user();
@@ -95,10 +100,10 @@ class Index extends Component
             ->latest('published_at');
 
         // Filter by exam types if user has selected any
-        if (!empty($user->exam_types) && is_array($user->exam_types)) {
+        if (! empty($user->exam_types) && is_array($user->exam_types)) {
             $quizQuery->where(function ($q) use ($user) {
                 foreach ($user->exam_types as $examType) {
-                    $q->orWhereJsonContains('exam_type_ids', (int)$examType);
+                    $q->orWhereJsonContains('exam_type_ids', (int) $examType);
                 }
             });
         }
@@ -115,10 +120,10 @@ class Index extends Component
             ->latest('published_at');
 
         // Apply same exam type filtering
-        if (!empty($user->exam_types) && is_array($user->exam_types)) {
+        if (! empty($user->exam_types) && is_array($user->exam_types)) {
             $mockExamQuery->where(function ($q) use ($user) {
                 foreach ($user->exam_types as $examType) {
-                    $q->orWhereJsonContains('exam_type_ids', (int)$examType);
+                    $q->orWhereJsonContains('exam_type_ids', (int) $examType);
                 }
             });
         }

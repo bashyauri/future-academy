@@ -3,6 +3,7 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\ExamType;
+use App\Models\MockGroup;
 use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\Subject;
@@ -15,7 +16,9 @@ use Livewire\Component;
 class MockSetup extends Component
 {
     public ?int $examTypeId = null;
+
     public array $selectedSubjects = [];
+
     public $subjects;
 
     public int $maxSubjects = 4;
@@ -23,8 +26,9 @@ class MockSetup extends Component
     public function mount(): void
     {
         $user = auth()->user();
-        if ($user && $user->isStudent() && !$user->has_completed_onboarding) {
+        if ($user && $user->isStudent() && ! $user->has_completed_onboarding) {
             $this->redirectRoute('onboarding');
+
             return;
         }
 
@@ -45,19 +49,21 @@ class MockSetup extends Component
         $user = Auth::user();
         $selectedSubjectIds = $user?->selected_subjects ?? [];
 
-        if ($user && $user->isStudent() && (empty($selectedSubjectIds) || !$user->has_completed_onboarding)) {
+        if ($user && $user->isStudent() && (empty($selectedSubjectIds) || ! $user->has_completed_onboarding)) {
             $this->redirectRoute('onboarding');
+
             return;
         }
 
-        if (!$this->examTypeId) {
+        if (! $this->examTypeId) {
             $this->subjects = collect();
+
             return;
         }
 
         $this->subjects = Subject::query()
             ->where('is_active', true)
-            ->when(!empty($selectedSubjectIds), fn($q) => $q->whereIn('id', $selectedSubjectIds))
+            ->when(! empty($selectedSubjectIds), fn ($q) => $q->whereIn('id', $selectedSubjectIds))
             ->whereHas('questions', function ($query) {
                 $query->where('exam_type_id', $this->examTypeId)
                     ->where('is_active', true)
@@ -79,7 +85,7 @@ class MockSetup extends Component
     protected function autoGroupMockQuestions(): void
     {
         $examType = ExamType::find($this->examTypeId);
-        if (!$examType) {
+        if (! $examType) {
             return;
         }
 
@@ -96,7 +102,7 @@ class MockSetup extends Component
 
         foreach ($subjectsWithMocks as $subject) {
             // Check if groups already exist
-            $existingGroups = \App\Models\MockGroup::where('subject_id', $subject->id)
+            $existingGroups = MockGroup::where('subject_id', $subject->id)
                 ->where('exam_type_id', $this->examTypeId)
                 ->count();
 
@@ -113,6 +119,7 @@ class MockSetup extends Component
     {
         if (in_array($subjectId, $this->selectedSubjects, true)) {
             $this->selectedSubjects = array_values(array_diff($this->selectedSubjects, [$subjectId]));
+
             return;
         }
 
@@ -124,7 +131,7 @@ class MockSetup extends Component
     public function selectSingleSubject(int $subjectId)
     {
         // For single subject, check if mock groups are available
-        $mockGroups = \App\Models\MockGroup::where('subject_id', $subjectId)
+        $mockGroups = MockGroup::where('subject_id', $subjectId)
             ->where('exam_type_id', $this->examTypeId)
             ->exists();
 
@@ -138,6 +145,7 @@ class MockSetup extends Component
 
         // Fallback: select normally and continue
         $this->selectedSubjects = [$subjectId];
+
         return $this->startMock();
     }
 
@@ -146,7 +154,7 @@ class MockSetup extends Component
 
         $this->validate([
             'examTypeId' => 'required|exists:exam_types,id',
-            'selectedSubjects' => 'required|array|min:1|max:' . $this->maxSubjects,
+            'selectedSubjects' => 'required|array|min:1|max:'.$this->maxSubjects,
         ]);
 
         // Get exam type to determine specifications
@@ -163,7 +171,7 @@ class MockSetup extends Component
 
             [$questionCount, $subjectTime] = $this->getSubjectSpec($examFormat, $subjectName);
             $questionsPerSubject[$subjectId] = $questionCount;
-            if (!is_null($subjectTime)) {
+            if (! is_null($subjectTime)) {
                 $perSubjectTimes[] = $subjectTime;
             }
 
@@ -178,6 +186,7 @@ class MockSetup extends Component
             if ($available < $questionCount) {
                 $name = $subject?->name ?? 'Subject';
                 $this->addError('selectedSubjects', "Not enough mock questions for {$name}. Needed {$questionCount}, available {$available}. Try another subject combination.");
+
                 return;
             }
         }
@@ -286,7 +295,7 @@ class MockSetup extends Component
             return (int) $overall['time_limit'];
         }
 
-        if (!empty($overall['sum_subject_time'])) {
+        if (! empty($overall['sum_subject_time'])) {
             return array_sum(array_map('intval', $perSubjectTimes)) ?: 100;
         }
 

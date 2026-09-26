@@ -73,11 +73,11 @@ class LazyLoadHelper
     ): Builder {
         $query = $query->select($select);
 
-        if (!empty($with)) {
+        if (! empty($with)) {
             $query = $query->with($with);
         }
 
-        if (!empty($withCount)) {
+        if (! empty($withCount)) {
             $query = $query->withCount($withCount);
         }
 
@@ -92,11 +92,11 @@ class LazyLoadHelper
         array $with = [],
         array $withCount = []
     ): Builder {
-        if (!empty($with)) {
+        if (! empty($with)) {
             $query = $query->with($with);
         }
 
-        if (!empty($withCount)) {
+        if (! empty($withCount)) {
             $query = $query->withCount($withCount);
         }
 

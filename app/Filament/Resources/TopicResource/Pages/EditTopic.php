@@ -21,7 +21,7 @@ class EditTopic extends EditRecord
         return [
             DeleteAction::make()
                 ->icon('heroicon-o-trash')
-                ->visible(fn() => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
+                ->visible(fn () => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
         ];
     }
 

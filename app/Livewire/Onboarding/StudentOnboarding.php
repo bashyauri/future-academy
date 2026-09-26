@@ -12,11 +12,17 @@ use Livewire\Component;
 class StudentOnboarding extends Component
 {
     public $step = 1;
+
     public $selectedStream = null;
+
     public $selectedExamTypes = [];
+
     public $selectedSubjects = [];
+
     public $streams;
+
     public $examTypes;
+
     public $subjects;
 
     public function mount()

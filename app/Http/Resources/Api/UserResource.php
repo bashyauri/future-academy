@@ -7,7 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
-
     public function toArray(Request $request): array
     {
 
@@ -15,46 +14,32 @@ class UserResource extends JsonResource
 
             'id' => $this->id,
 
-
             'name' => $this->name,
-
 
             'email' => $this->email,
 
             'email_verified_at' => $this->email_verified_at,
 
-
             'phone' => $this->phone,
-
 
             'avatar' => $this->avatar,
 
-
             'account_type' => $this->account_type,
 
+            'role' => $this->resolveActiveRoleContext(),
 
-  'role' => $this->resolveActiveRoleContext(),
+            'has_completed_onboarding' => $this->has_completed_onboarding,
 
+            'is_active' => $this->is_active,
 
-            'has_completed_onboarding' =>
-                $this->has_completed_onboarding,
-
-
-            'is_active' =>
-                $this->is_active,
-
-
-            'has_active_subscription' =>
-                $this->hasActiveSubscription(),
+            'has_active_subscription' => $this->hasActiveSubscription(),
             'on_trial' => $this->onTrial(),
             'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),
             'subscription_ends_at' => $this->currentSubscription?->ends_at?->toIso8601String(),
 
-            'created_at' =>
-                $this->created_at,
+            'created_at' => $this->created_at,
 
         ];
 
     }
-
 }

@@ -32,7 +32,7 @@ class CreatePermission extends CreateRecord
         Notification::make()
             ->success()
             ->title('Permission created successfully!')
-            ->body("Permission '{$record->name}' has been created and assigned to " . $record->roles()->count() . " role(s).")
+            ->body("Permission '{$record->name}' has been created and assigned to ".$record->roles()->count().' role(s).')
             ->send();
     }
 

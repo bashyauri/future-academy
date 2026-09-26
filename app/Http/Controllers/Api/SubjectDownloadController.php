@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\DownloadJambRequest;
 use App\Http\Requests\Api\DownloadSubjectRequest;
 use App\Http\Resources\Api\QuestionResource;
-use App\Http\Resources\Api\SubjectDownloadResponse;
 use App\Models\Question;
 use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +25,7 @@ class SubjectDownloadController extends Controller
      * Includes all options to prevent N+1 queries.
      *
      * @urlParam id integer required Subject ID. Example: 1
+     *
      * @queryParam year integer Optional year filter. Example: 2024
      *
      * @response {
@@ -142,7 +142,7 @@ class SubjectDownloadController extends Controller
             $subjectData = [];
 
             foreach ($subjectIds as $subjectId) {
-                if (!isset($subjects[$subjectId])) {
+                if (! isset($subjects[$subjectId])) {
                     continue;
                 }
 

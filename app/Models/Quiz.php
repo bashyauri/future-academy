@@ -209,6 +209,11 @@ class Quiz extends Model
 
     public function canUserAccess(User $user): bool
     {
+        // Super-admins have unrestricted access to all content
+        if ($user->hasRole('super-admin')) {
+            return true;
+        }
+
         // Free quizzes are accessible to everyone
         if ($this->is_free) {
             return true;

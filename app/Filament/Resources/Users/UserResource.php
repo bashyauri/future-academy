@@ -48,6 +48,7 @@ class UserResource extends Resource
             //
         ];
     }
+
     // Access control: only admin & super-admin can view resource in nav
     public static function canViewAny(): bool
     {

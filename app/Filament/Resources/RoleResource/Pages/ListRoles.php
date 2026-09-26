@@ -16,7 +16,7 @@ class ListRoles extends ListRecords
             CreateAction::make()
                 ->icon('heroicon-o-plus-circle')
                 ->label('Create New Role')
-                ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
         ];
     }
 

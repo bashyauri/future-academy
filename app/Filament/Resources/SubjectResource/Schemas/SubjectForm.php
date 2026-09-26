@@ -5,8 +5,8 @@ namespace App\Filament\Resources\SubjectResource\Schemas;
 use App\Models\ExamType;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -35,20 +35,20 @@ class SubjectForm
                                     ->helperText('Full name of the subject')
                                     ->columnSpan(1),
 
-                                    TextInput::make('code')
-                                        ->label('Subject Code')
-                                        ->required()
-                                        ->maxLength(50)
-                                        ->helperText('Unique code for this subject (required).')
-                                        ->columnSpan(1),
+                                TextInput::make('code')
+                                    ->label('Subject Code')
+                                    ->required()
+                                    ->maxLength(50)
+                                    ->helperText('Unique code for this subject (required).')
+                                    ->columnSpan(1),
 
-                                    TextInput::make('icon')
-                                        ->label('Icon/Emoji')
-                                        ->maxLength(50)
-                                        ->prefixIcon('heroicon-o-face-smile')
-                                        ->placeholder('📐 or heroicon-o-calculator')
-                                        ->helperText('Emoji or icon class')
-                                        ->columnSpan(1),
+                                TextInput::make('icon')
+                                    ->label('Icon/Emoji')
+                                    ->maxLength(50)
+                                    ->prefixIcon('heroicon-o-face-smile')
+                                    ->placeholder('📐 or heroicon-o-calculator')
+                                    ->helperText('Emoji or icon class')
+                                    ->columnSpan(1),
                             ])
                             ->columns(2),
 
@@ -98,7 +98,7 @@ class SubjectForm
                                 $result = [];
 
                                 foreach ($examTypes as $examType) {
-                                    $result[$examType->id] = $examType->code . ' - ' . ($examType->description ?? 'No description');
+                                    $result[$examType->id] = $examType->code.' - '.($examType->description ?? 'No description');
                                 }
 
                                 return $result;

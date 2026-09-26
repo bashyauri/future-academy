@@ -3,13 +3,14 @@
 namespace App\Filament\Resources\Quizzes\Tables;
 
 use App\Enums\QuizType;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -25,12 +26,13 @@ class QuizzesTable
                 TextColumn::make('title')
                     ->searchable()
                     ->sortable()
-                    ->description(fn($record) => $record->description),
+                    ->description(fn ($record) => $record->description),
 
                 TextColumn::make('type')
                     ->badge()
                     ->color(function ($state): string {
                         $type = $state instanceof QuizType ? $state : QuizType::tryFrom((string) $state);
+
                         return $type?->color() ?? 'gray';
                     })
                     ->formatStateUsing(function ($state): string {
@@ -50,7 +52,7 @@ class QuizzesTable
 
                 TextColumn::make('duration_minutes')
                     ->label('Duration')
-                    ->formatStateUsing(fn($state) => $state ? "{$state} min" : 'Untimed')
+                    ->formatStateUsing(fn ($state) => $state ? "{$state} min" : 'Untimed')
                     ->sortable(),
 
                 TextColumn::make('passing_score')
@@ -73,13 +75,13 @@ class QuizzesTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'published' => 'success',
                         'draft' => 'gray',
                         'archived' => 'warning',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn(string $state): string => ucfirst($state))
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
                     ->sortable(),
 
                 IconColumn::make('is_active')
@@ -142,7 +144,7 @@ class QuizzesTable
                     ->label('Publish')
                     ->icon('heroicon-o-check')
                     ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status !== 'published' && \Filament\Facades\Filament::auth()->user()?->can('publish quizzes'))
+                    ->visible(fn ($record) => $record->status !== 'published' && Filament::auth()->user()?->can('publish quizzes'))
                     ->action(function ($record) {
                         $record->update([
                             'status' => 'published',
@@ -154,7 +156,7 @@ class QuizzesTable
                     ->icon('heroicon-o-x-mark')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === 'published' && \Filament\Facades\Filament::auth()->user()?->can('publish quizzes'))
+                    ->visible(fn ($record) => $record->status === 'published' && Filament::auth()->user()?->can('publish quizzes'))
                     ->action(function ($record) {
                         $record->update([
                             'status' => 'draft',

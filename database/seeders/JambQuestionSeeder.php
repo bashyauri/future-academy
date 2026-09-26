@@ -15,8 +15,9 @@ class JambQuestionSeeder extends Seeder
         $admin = User::first();
         $jambExam = ExamType::where('slug', 'jamb')->first();
 
-        if (!$admin || !$jambExam) {
+        if (! $admin || ! $jambExam) {
             $this->command->error('Admin user or JAMB exam type not found.');
+
             return;
         }
 
@@ -29,7 +30,9 @@ class JambQuestionSeeder extends Seeder
 
         foreach ($subjects as $subjectName => $questions) {
             $subject = Subject::where('name', $subjectName)->first();
-            if (!$subject) continue;
+            if (! $subject) {
+                continue;
+            }
 
             $this->command->info("Seeding {$subjectName} questions...");
             $this->createQuestions($questions, $subject, $jambExam, $admin);

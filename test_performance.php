@@ -1,4 +1,5 @@
 <?php
+
 require 'vendor/autoload.php';
 $app = require_once 'bootstrap/app.php';
 $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
@@ -66,7 +67,7 @@ echo "Expected: 4+ (progress, question, options, individual options)\n";
 echo "\n=== TEST 5: Database Optimization Check ===\n";
 
 // Find a subject with non-mock questions
-$subject = Subject::whereHas('questions', function($q) {
+$subject = Subject::whereHas('questions', function ($q) {
     $q->where('is_mock', false)->where('is_active', true)->where('status', 'approved');
 })->first();
 
@@ -76,11 +77,11 @@ if ($subject) {
         ->where('is_active', true)
         ->where('status', 'approved')
         ->count();
-    
+
     $mockCount = Question::where('subject_id', $subject->id)
         ->where('is_mock', true)
         ->count();
-    
+
     echo "Subject: {$subject->name}\n";
     echo "Non-mock questions (will be used): $nonMockCount\n";
     echo "Mock questions (filtered out): $mockCount\n";

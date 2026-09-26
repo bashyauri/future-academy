@@ -3,8 +3,8 @@
 namespace App\Livewire\Quizzes;
 
 use App\Models\Subject;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -18,13 +18,13 @@ class SubjectsList extends Component
 
         $isStudent = $user && (($user->account_type ?? '') === 'student');
 
-        if ($isStudent && (!$user->has_completed_onboarding || empty($selectedSubjectIds))) {
+        if ($isStudent && (! $user->has_completed_onboarding || empty($selectedSubjectIds))) {
             return redirect()->route('onboarding');
         }
 
         $subjects = Subject::query()
             ->where('is_active', '=', true)
-            ->when(!empty($selectedSubjectIds), fn($q) => $q->whereIn('id', $selectedSubjectIds))
+            ->when(! empty($selectedSubjectIds), fn ($q) => $q->whereIn('id', $selectedSubjectIds))
             ->get()
             ->map(function ($subject) {
                 // Count quizzes that have this subject_id in their subject_ids JSON array
@@ -38,13 +38,13 @@ class SubjectsList extends Component
                         $q->whereNull('available_until')
                             ->orWhere('available_until', '>=', now());
                     })
-                    ->whereRaw("JSON_CONTAINS(subject_ids, ?)", [json_encode([$subject->id])])
+                    ->whereRaw('JSON_CONTAINS(subject_ids, ?)', [json_encode([$subject->id])])
                     ->count();
 
                 // Count topics that have quizzes with this subject
                 $subject->topics_with_quizzes = DB::table('topics')
                     ->where('subject_id', $subject->id)
-                    ->whereExists(function ($query) use ($subject) {
+                    ->whereExists(function ($query) {
                         $query->select(DB::raw(1))
                             ->from('quizzes')
                             ->whereColumn('topics.id', DB::raw('JSON_EXTRACT(quizzes.topic_ids, "$[0]")'))
@@ -54,7 +54,7 @@ class SubjectsList extends Component
 
                 return $subject;
             })
-            ->filter(fn($subject) => $subject->quizzes_count > 0);
+            ->filter(fn ($subject) => $subject->quizzes_count > 0);
 
         return view('livewire.quizzes.subjects-list', [
             'subjects' => $subjects,

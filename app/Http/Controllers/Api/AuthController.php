@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -125,6 +126,34 @@ class AuthController extends Controller
                 'has_completed_onboarding' => $user->has_completed_onboarding ?? false,
             ],
         ], 200);
+    }
+
+    /**
+     * Send Password Reset Link
+     *
+     * Sends a password reset email to the user.
+     *
+     * @bodyParam email string required Registered user email. Example: student@futureacademy.com
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $status = Password::broker()->sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json([
+                'message' => __($status),
+            ], 200);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => [__($status)],
+        ]);
     }
 
     /**

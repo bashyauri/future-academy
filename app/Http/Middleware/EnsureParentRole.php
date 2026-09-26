@@ -17,7 +17,7 @@ class EnsureParentRole
         $user = auth()->user();
 
         // Check both account_type and Spatie role for redundancy
-        if (!$user || (!$user->isParent() && !$user->hasRole('guardian'))) {
+        if (! $user || (! $user->isParent() && ! $user->hasRole('guardian'))) {
             abort(403, 'Only parents/guardians can access this resource.');
         }
 

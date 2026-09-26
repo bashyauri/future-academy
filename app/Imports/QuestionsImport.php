@@ -6,36 +6,38 @@ use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Topic;
+use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithBatchInserts;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Validators\Failure;
 use Throwable;
 
-class QuestionsImport implements
-    ToCollection,
-    WithHeadingRow,
-    WithChunkReading,
-    SkipsOnError,
-    SkipsOnFailure
+class QuestionsImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithChunkReading, WithHeadingRow
 {
     protected $defaultExamTypeId;
+
     protected $defaultSubjectId;
+
     protected $defaultTopicId;
+
     protected $userId;
+
     protected string $batchKey;
+
     protected ?string $batchName;
+
     protected $errors = [];
+
     protected $imported = 0;
+
     protected $skipped = 0;
+
     protected $defaultIsMock = false;
 
     public function __construct($defaultExamTypeId = null, $defaultSubjectId = null, $userId = null, $batchName = null, $defaultTopicId = null, $defaultIsMock = false)
@@ -43,17 +45,17 @@ class QuestionsImport implements
         $this->defaultExamTypeId = $defaultExamTypeId;
         $this->defaultSubjectId = $defaultSubjectId;
         $this->defaultTopicId = $defaultTopicId;
-        $this->userId = $userId ?? \Illuminate\Support\Facades\Auth::id();
-        $this->batchKey = time() . '_' . \Str::random(8);
+        $this->userId = $userId ?? Auth::id();
+        $this->batchKey = time().'_'.\Str::random(8);
         $userName = null;
         if ($this->userId) {
-            $user = \App\Models\User::find($this->userId);
+            $user = User::find($this->userId);
             $userName = $user ? $user->name : null;
         }
         if ($batchName && trim($batchName)) {
             $this->batchName = trim($batchName);
         } else {
-            $this->batchName = 'Imported ' . date('Y-m-d H:i') . ($userName ? ' by ' . $userName : '');
+            $this->batchName = 'Imported '.date('Y-m-d H:i').($userName ? ' by '.$userName : '');
         }
         $this->defaultIsMock = $defaultIsMock;
     }
@@ -67,7 +69,7 @@ class QuestionsImport implements
             try {
                 $this->processRow($row, $index);
             } catch (\Exception $e) {
-                $this->errors[] = "Row " . ($index + 2) . ": " . $e->getMessage();
+                $this->errors[] = 'Row '.($index + 2).': '.$e->getMessage();
                 $this->skipped++;
             }
         }
@@ -83,41 +85,41 @@ class QuestionsImport implements
 
         // Validate required fields
         if (empty($data['question_text']) || empty($data['option_a']) || empty($data['option_b'])) {
-            throw new \Exception("Missing required fields (question, option_a, option_b)");
+            throw new \Exception('Missing required fields (question, option_a, option_b)');
         }
 
         // Resolve Exam Type (accepts ID or name) - now optional
         $examTypeId = $this->resolveExamType($data['exam_type'] ?? $data['exam_type_id'] ?? null);
-        if (!$examTypeId) {
+        if (! $examTypeId) {
             $examTypeId = $this->defaultExamTypeId;
         }
         // examTypeId is now optional, do not throw if missing
 
         // Resolve Subject (accepts ID or name)
         $subjectId = $this->resolveSubject($data['subject'] ?? $data['subject_id'] ?? null);
-        if (!$subjectId) {
+        if (! $subjectId) {
             $subjectId = $this->defaultSubjectId;
         }
-        if (!$subjectId) {
+        if (! $subjectId) {
             throw new \Exception("Invalid or missing subject (use name like 'Mathematics' or ID)");
         }
 
         // Resolve Topic (accepts ID or name) - optional
         $topicId = $this->resolveTopic($data['topic'] ?? $data['topic_id'] ?? null, $subjectId);
-        if (!$topicId) {
+        if (! $topicId) {
             $topicId = $this->defaultTopicId;
         }
 
         // Validate difficulty
         $difficulty = strtolower($data['difficulty'] ?? 'medium');
-        if (!in_array($difficulty, ['easy', 'medium', 'hard'])) {
+        if (! in_array($difficulty, ['easy', 'medium', 'hard'])) {
             $difficulty = 'medium';
         }
 
         // Validate correct answer
         $correctAnswer = strtoupper($data['correct_answer'] ?? 'A');
-        if (!in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E', 'F'])) {
-            throw new \Exception("Invalid correct_answer: must be A, B, C, D, E, or F");
+        if (! in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E', 'F'])) {
+            throw new \Exception('Invalid correct_answer: must be A, B, C, D, E, or F');
         }
 
         // Create question
@@ -152,7 +154,7 @@ class QuestionsImport implements
             ];
 
             foreach ($options as $index => $option) {
-                if (!empty($option['text'])) {
+                if (! empty($option['text'])) {
                     $question->options()->create([
                         'label' => $option['label'],
                         'option_text' => $this->cleanText($option['text']),
@@ -205,11 +207,13 @@ class QuestionsImport implements
         // If numeric, check if ID exists
         if (is_numeric($value)) {
             $examType = ExamType::find($value);
+
             return $examType ? $examType->id : null;
         }
 
         // Try to find by name (case-insensitive)
         $examType = ExamType::whereRaw('LOWER(name) = ?', [strtolower(trim($value))])->first();
+
         return $examType ? $examType->id : null;
     }
 
@@ -225,11 +229,13 @@ class QuestionsImport implements
         // If numeric, check if ID exists
         if (is_numeric($value)) {
             $subject = Subject::find($value);
+
             return $subject ? $subject->id : null;
         }
 
         // Try to find by name (case-insensitive)
         $subject = Subject::whereRaw('LOWER(name) = ?', [strtolower(trim($value))])->first();
+
         return $subject ? $subject->id : null;
     }
 
@@ -245,6 +251,7 @@ class QuestionsImport implements
         // If numeric, check if ID exists
         if (is_numeric($value)) {
             $topic = Topic::where('subject_id', $subjectId)->find($value);
+
             return $topic ? $topic->id : null;
         }
 
@@ -252,6 +259,7 @@ class QuestionsImport implements
         $topic = Topic::where('subject_id', $subjectId)
             ->whereRaw('LOWER(name) = ?', [strtolower(trim($value))])
             ->first();
+
         return $topic ? $topic->id : null;
     }
 
@@ -265,7 +273,7 @@ class QuestionsImport implements
         }
 
         // Convert to UTF-8 if needed
-        if (!mb_check_encoding($text, 'UTF-8')) {
+        if (! mb_check_encoding($text, 'UTF-8')) {
             $text = mb_convert_encoding($text, 'UTF-8', 'auto');
         }
 
@@ -281,8 +289,8 @@ class QuestionsImport implements
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
 
         // Normalize quotes
-        $text = str_replace([chr(0xE2) . chr(0x80) . chr(0x9C), chr(0xE2) . chr(0x80) . chr(0x9D)], '"', $text);
-        $text = str_replace([chr(0xE2) . chr(0x80) . chr(0x98), chr(0xE2) . chr(0x80) . chr(0x99)], "'", $text);
+        $text = str_replace([chr(0xE2).chr(0x80).chr(0x9C), chr(0xE2).chr(0x80).chr(0x9D)], '"', $text);
+        $text = str_replace([chr(0xE2).chr(0x80).chr(0x98), chr(0xE2).chr(0x80).chr(0x99)], "'", $text);
 
         return $text;
     }
@@ -302,7 +310,7 @@ class QuestionsImport implements
     public function onFailure(Failure ...$failures)
     {
         foreach ($failures as $failure) {
-            $this->errors[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+            $this->errors[] = "Row {$failure->row()}: ".implode(', ', $failure->errors());
             $this->skipped++;
         }
     }

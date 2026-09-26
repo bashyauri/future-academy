@@ -12,7 +12,7 @@ class VideoSigningService
      */
     public function getSignedUrl(string $publicId, int $expirationMinutes = 1440): ?string
     {
-        if (!$publicId) {
+        if (! $publicId) {
             return null;
         }
 
@@ -25,7 +25,7 @@ class VideoSigningService
             $publicId = $this->extractPublicId($publicId);
 
             // Build authenticated video URL with token
-            $cloudinary = new \Cloudinary\Cloudinary();
+            $cloudinary = new \Cloudinary\Cloudinary;
 
             $token = $this->generateAuthToken($expirationMinutes);
 
@@ -42,6 +42,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -57,7 +58,7 @@ class VideoSigningService
 
         // Create auth token
         $authString = "end_time={$endTime}&token_start_time={$timestamp}";
-        $authTokenValue = sha1($authString . $secret);
+        $authTokenValue = sha1($authString.$secret);
 
         return base64_encode("{$authString}&auth_token={$authTokenValue}");
     }
@@ -71,11 +72,11 @@ class VideoSigningService
             // Extract just the public ID without extension
             $publicId = $this->extractPublicId($publicId);
 
-            if (!$publicId) {
+            if (! $publicId) {
                 return null;
             }
 
-            $cloudinary = new \Cloudinary\Cloudinary();
+            $cloudinary = new \Cloudinary\Cloudinary;
             $result = $cloudinary->adminApi()->asset($publicId, [
                 'resource_type' => 'video',
             ]);
@@ -86,6 +87,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -100,7 +102,7 @@ class VideoSigningService
             // Extract public ID if it's a full Cloudinary URL
             $publicId = $this->extractPublicId($videoPath);
 
-            if (!$publicId) {
+            if (! $publicId) {
                 return false;
             }
 
@@ -120,6 +122,7 @@ class VideoSigningService
                 'videoPath' => $videoPath,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -133,7 +136,7 @@ class VideoSigningService
         $videoPath = preg_replace('/\.(mp4|mov|avi|mkv|flv|m3u8|mpd)$/i', '', $videoPath);
 
         // If it's already just a public ID (doesn't contain res.cloudinary.com)
-        if (!str_contains($videoPath, 'res.cloudinary.com')) {
+        if (! str_contains($videoPath, 'res.cloudinary.com')) {
             return $videoPath;
         }
 
@@ -153,7 +156,7 @@ class VideoSigningService
     public function moveToFolder(string $publicId, string $newFolder): bool
     {
         try {
-            $newPublicId = $newFolder . '/' . basename($publicId);
+            $newPublicId = $newFolder.'/'.basename($publicId);
 
             Cloudinary::rename($publicId, $newPublicId, ['resource_type' => 'video']);
 
@@ -164,6 +167,7 @@ class VideoSigningService
                 'newFolder' => $newFolder,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -174,7 +178,7 @@ class VideoSigningService
      */
     public function getHlsStreamingUrl(string $publicId): ?string
     {
-        if (!$publicId) {
+        if (! $publicId) {
             return null;
         }
 
@@ -194,6 +198,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -203,7 +208,7 @@ class VideoSigningService
      */
     public function getDashStreamingUrl(string $publicId): ?string
     {
-        if (!$publicId) {
+        if (! $publicId) {
             return null;
         }
 
@@ -223,6 +228,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -232,7 +238,7 @@ class VideoSigningService
      */
     public function getOptimizedUrl(string $publicId): ?string
     {
-        if (!$publicId) {
+        if (! $publicId) {
             return null;
         }
 
@@ -252,6 +258,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -261,7 +268,7 @@ class VideoSigningService
      */
     public function getThumbnail(string $publicId, int $width = 320, int $height = 180): ?string
     {
-        if (!$publicId) {
+        if (! $publicId) {
             return null;
         }
 
@@ -283,6 +290,7 @@ class VideoSigningService
                 'publicId' => $publicId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

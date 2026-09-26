@@ -36,6 +36,7 @@ class CleanupInvalidSubscriptions extends Command
 
         if ($invalidSubscriptions->isEmpty()) {
             $this->info('✅ No invalid subscriptions found. Database is clean!');
+
             return 0;
         }
 
@@ -45,7 +46,7 @@ class CleanupInvalidSubscriptions extends Command
         // Display subscriptions to be deleted
         $this->table(
             ['ID', 'User Email', 'FA Code', 'Created At', 'Status'],
-            $invalidSubscriptions->map(fn($sub) => [
+            $invalidSubscriptions->map(fn ($sub) => [
                 $sub->id,
                 $sub->user?->email ?? 'N/A',
                 $sub->subscription_code,
@@ -58,14 +59,16 @@ class CleanupInvalidSubscriptions extends Command
         $this->warn('⚠️  WARNING: This action will permanently delete these subscriptions!');
         $this->newLine();
 
-        if (!$this->option('force')) {
-            if (!$this->confirm('Do you want to delete these {$invalidSubscriptions->count()} subscription(s)?')) {
+        if (! $this->option('force')) {
+            if (! $this->confirm('Do you want to delete these {$invalidSubscriptions->count()} subscription(s)?')) {
                 $this->info('Cleanup cancelled.');
+
                 return 0;
             }
 
-            if (!$this->confirm('Are you absolutely sure? This cannot be undone!')) {
+            if (! $this->confirm('Are you absolutely sure? This cannot be undone!')) {
                 $this->info('Cleanup cancelled.');
+
                 return 0;
             }
         }

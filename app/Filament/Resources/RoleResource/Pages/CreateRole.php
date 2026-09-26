@@ -32,7 +32,7 @@ class CreateRole extends CreateRecord
         Notification::make()
             ->success()
             ->title('Role created successfully!')
-            ->body("Role '{$record->name}' has been created with " . $record->permissions()->count() . " permissions.")
+            ->body("Role '{$record->name}' has been created with ".$record->permissions()->count().' permissions.')
             ->send();
     }
 

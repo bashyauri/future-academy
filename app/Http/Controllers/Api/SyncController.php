@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SyncRequest;
 use App\Http\Resources\Api\SyncResponse;
+use App\Models\Lesson;
 use App\Models\QuizAttempt;
 use App\Models\UserAnswer;
 use App\Models\UserProgress;
-use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -62,6 +62,7 @@ class SyncController extends Controller
 
                     if ($existingAttempt) {
                         $failedAttempts++;
+
                         continue;
                     }
 
@@ -99,6 +100,7 @@ class SyncController extends Controller
                         'error' => $e->getMessage(),
                     ]);
                     $failedAttempts++;
+
                     continue;
                 }
             }
@@ -109,8 +111,9 @@ class SyncController extends Controller
                     // Find the attempt by UUID
                     $attempt = QuizAttempt::where('uuid', $answerData['attempt_uuid'])->first();
 
-                    if (!$attempt) {
+                    if (! $attempt) {
                         $failedAnswers++;
+
                         continue;
                     }
 
@@ -135,6 +138,7 @@ class SyncController extends Controller
                     $syncedAnswers++;
                 } catch (\Exception $e) {
                     $failedAnswers++;
+
                     continue;
                 }
             }
@@ -145,7 +149,7 @@ class SyncController extends Controller
             try {
                 $lesson = Lesson::find($progressData['lesson_id']);
 
-                if (!$lesson) {
+                if (! $lesson) {
                     continue;
                 }
 
@@ -172,11 +176,12 @@ class SyncController extends Controller
                     'lesson_id' => $progressData['lesson_id'] ?? 'unknown',
                     'error' => $e->getMessage(),
                 ]);
+
                 continue;
             }
         }
 
-        return new \App\Http\Resources\Api\SyncResponse([
+        return new SyncResponse([
             'synced_attempts' => $syncedAttempts,
             'synced_answers' => $syncedAnswers,
             'synced_lesson_progress' => $syncedLessonProgress,

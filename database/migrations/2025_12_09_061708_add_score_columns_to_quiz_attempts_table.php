@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::table('quiz_attempts', function (Blueprint $table) {
             // Add score columns if they don't exist
-            if (!Schema::hasColumn('quiz_attempts', 'score')) {
+            if (! Schema::hasColumn('quiz_attempts', 'score')) {
                 $table->integer('score')->default(0);
             }
-            if (!Schema::hasColumn('quiz_attempts', 'percentage')) {
+            if (! Schema::hasColumn('quiz_attempts', 'percentage')) {
                 $table->decimal('percentage', 5, 2)->default(0);
             }
         });

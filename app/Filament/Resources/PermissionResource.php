@@ -3,12 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PermissionResource\Pages;
+use App\Filament\Resources\PermissionResource\Schemas\PermissionForm;
+use App\Filament\Resources\PermissionResource\Tables\PermissionsTable;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Permission;
 
 class PermissionResource extends Resource
@@ -31,12 +32,12 @@ class PermissionResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\PermissionResource\Schemas\PermissionForm::configure($schema);
+        return PermissionForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\PermissionResource\Tables\PermissionsTable::configure($table);
+        return PermissionsTable::configure($table);
     }
 
     public static function getRelations(): array

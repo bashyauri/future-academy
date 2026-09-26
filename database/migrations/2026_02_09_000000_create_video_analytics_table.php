@@ -35,11 +35,9 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Indexes
-            $table->index('lesson_id');
-            $table->index('bunny_video_id');
-            $table->index('last_synced_at');
-        })->charset('utf8mb4')->collation('utf8mb4_unicode_ci');
+            $table->charset = 'utf8mb4';
+            $table->collation = 'utf8mb4_unicode_ci';
+        });
     }
 
     /**

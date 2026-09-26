@@ -38,6 +38,7 @@ class SyncBunnyVideoStatus extends Command
 
         if ($lessons->isEmpty()) {
             $this->info('No lessons with pending/processing Bunny videos found.');
+
             return self::SUCCESS;
         }
 
@@ -54,9 +55,10 @@ class SyncBunnyVideoStatus extends Command
                 // Fetch video metadata from Bunny API
                 $videoData = $bunnyService->getVideo($lesson->video_url);
 
-                if (!$videoData) {
-                    $this->warn("  ! Video not found on Bunny Stream");
+                if (! $videoData) {
+                    $this->warn('  ! Video not found on Bunny Stream');
                     $failed++;
+
                     continue;
                 }
 

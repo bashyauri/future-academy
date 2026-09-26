@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('quizzes', function (Blueprint $table) {
-            if (!Schema::hasColumn('quizzes', 'is_mock')) {
+            if (! Schema::hasColumn('quizzes', 'is_mock')) {
                 $table->boolean('is_mock')->default(false)->after('status');
             }
         });

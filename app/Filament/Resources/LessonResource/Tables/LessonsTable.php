@@ -10,7 +10,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Support\Colors\Color;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -60,7 +59,7 @@ class LessonsTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'draft' => 'gray',
                         'published' => 'success',
                         'archived' => 'warning',
@@ -105,8 +104,8 @@ class LessonsTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn(Lesson $record) => $record->status !== 'published')
-                    ->action(fn(Lesson $record) => $record->update([
+                    ->visible(fn (Lesson $record) => $record->status !== 'published')
+                    ->action(fn (Lesson $record) => $record->update([
                         'status' => 'published',
                         'published_at' => now(),
                     ])),
@@ -118,7 +117,7 @@ class LessonsTable
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->action(fn($records) => $records->each->update([
+                        ->action(fn ($records) => $records->each->update([
                             'status' => 'published',
                             'published_at' => now(),
                         ])),

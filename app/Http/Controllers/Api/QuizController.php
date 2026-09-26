@@ -8,7 +8,9 @@ use App\Http\Requests\Api\QuizStartRequest;
 use App\Http\Requests\Api\QuizSubmitRequest;
 use App\Models\ExamType;
 use App\Models\Question;
+use App\Models\QuizAttempt;
 use App\Models\Subject;
+use App\Models\UserAnswer;
 use App\Services\QuizService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -148,22 +150,22 @@ class QuizController extends Controller
     }
 
     /**
- * Get quiz attempt results
- */
-public function results(Request $request, int $id): JsonResponse
-{
-    $user = $request->user();
+     * Get quiz attempt results
+     */
+    public function results(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
 
-    $results = $this->quizService->getAttemptResults(
-        $user,
-        $id
-    );
+        $results = $this->quizService->getAttemptResults(
+            $user,
+            $id
+        );
 
-    return response()->json([
-        'message' => 'Quiz results retrieved successfully',
-        'data' => $results,
-    ]);
-}
+        return response()->json([
+            'message' => 'Quiz results retrieved successfully',
+            'data' => $results,
+        ]);
+    }
 
     /**
      * Start a new JAMB session and create the attempt
@@ -215,6 +217,7 @@ public function results(Request $request, int $id): JsonResponse
 
             if ($subjectQuestions->count() < $questionsPerSubject) {
                 $yearText = $selectedYear ?: 'all available years';
+
                 return response()->json([
                     'message' => "Not enough questions for {$subject->name} in {$yearText}. Available: {$subjectQuestions->count()}, Required: {$questionsPerSubject}",
                 ], 422);
@@ -256,7 +259,7 @@ public function results(Request $request, int $id): JsonResponse
             ];
         }
 
-        $attempt = \App\Models\QuizAttempt::create([
+        $attempt = QuizAttempt::create([
             'user_id' => auth()->id(),
             'exam_type_id' => $jambExamType->id,
             'exam_year' => $selectedYear,
@@ -295,15 +298,16 @@ public function results(Request $request, int $id): JsonResponse
      */
     public function loadJambAttempt(int $attemptId): JsonResponse
     {
-        $attempt = \App\Models\QuizAttempt::findOrFail($attemptId);
+        $attempt = QuizAttempt::findOrFail($attemptId);
 
-        if ($attempt->user_id !== auth()->id()) {
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
         $cached = cache()->get("jamb_attempt_{$attempt->id}");
         if ($cached) {
             $cached['elapsed_seconds'] = now()->diffInSeconds($attempt->started_at);
+
             return response()->json([
                 'success' => true,
                 'data' => $cached,
@@ -323,8 +327,8 @@ public function results(Request $request, int $id): JsonResponse
             'user_answers' => 'required|array',
         ]);
 
-        $attempt = \App\Models\QuizAttempt::findOrFail($validated['attempt_id']);
-        if ($attempt->user_id !== auth()->id()) {
+        $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -344,13 +348,13 @@ public function results(Request $request, int $id): JsonResponse
                     $answeredCount++;
                     $question = Question::with('options')->find($questionId);
                     $isCorrect = (bool) ($question?->options->firstWhere('id', $optionId)?->is_correct);
-                    
+
                     if ($isCorrect) {
                         $correctCount++;
                         $subjectScore++;
                     }
 
-                    \App\Models\UserAnswer::updateOrCreate(
+                    UserAnswer::updateOrCreate(
                         [
                             'quiz_attempt_id' => $attempt->id,
                             'question_id' => $questionId,
@@ -390,7 +394,7 @@ public function results(Request $request, int $id): JsonResponse
                 'scores_by_subject' => $scoresBySubject,
                 'total_score' => $correctCount,
                 'percentage' => $percentage,
-            ]
+            ],
         ]);
     }
 
@@ -406,8 +410,8 @@ public function results(Request $request, int $id): JsonResponse
             'current_question_index' => 'required|integer',
         ]);
 
-        $attempt = \App\Models\QuizAttempt::findOrFail($validated['attempt_id']);
-        if ($attempt->user_id !== auth()->id()) {
+        $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -416,7 +420,7 @@ public function results(Request $request, int $id): JsonResponse
             $cached['user_answers'] = $validated['user_answers'];
             $cached['current_subject_index'] = $validated['current_subject_index'];
             $cached['current_question_index'] = $validated['current_question_index'];
-            
+
             cache()->put("jamb_attempt_{$attempt->id}", $cached, now()->addHours(6));
         }
 

@@ -4,18 +4,15 @@ namespace App\Filament\Resources\LessonResource\Schemas;
 
 use App\Models\Topic;
 use App\Services\BunnyStreamService;
-use Filament\Forms\Components\{
-    DateTimePicker,  FileUpload,
-    Hidden,
-    RichEditor,
-    Select,
-    Textarea,
-    TextInput,
-    Toggle,
-
-};
 use Filament\Actions\Action;
-
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -24,7 +21,6 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-
 
 class LessonForm
 {
@@ -61,10 +57,9 @@ class LessonForm
 
                     Select::make('topic_id')
                         ->label('Topic')
-                        ->options(fn (Get $get) =>
-                            Topic::where('subject_id', $get('subject_id'))
-                                ->pluck('name', 'id')
-                                ->toArray()
+                        ->options(fn (Get $get) => Topic::where('subject_id', $get('subject_id'))
+                            ->pluck('name', 'id')
+                            ->toArray()
                         )
                         ->searchable()
                         ->preload()
@@ -96,9 +91,9 @@ class LessonForm
                         ->label('Video Type')
                         ->options([
                             'youtube' => 'YouTube',
-                            'vimeo'   => 'Vimeo',
-                            'bunny'   => 'Bunny Stream',
-                            'local'   => 'Legacy (Cloudinary)',
+                            'vimeo' => 'Vimeo',
+                            'bunny' => 'Bunny Stream',
+                            'local' => 'Legacy (Cloudinary)',
                         ])
                         ->default('bunny')
                         ->required()
@@ -111,25 +106,21 @@ class LessonForm
                     |----------------------------------
                     */
                     TextInput::make('video_url')
-                        ->label(fn (Get $get) =>
-                            in_array($get('video_type'), ['youtube', 'vimeo'])
+                        ->label(fn (Get $get) => in_array($get('video_type'), ['youtube', 'vimeo'])
                                 ? 'Video URL'
                                 : 'Video ID'
                         )
-                        ->visible(fn (Get $get) =>
-                            in_array($get('video_type'), ['youtube', 'vimeo', 'bunny'])
+                        ->visible(fn (Get $get) => in_array($get('video_type'), ['youtube', 'vimeo', 'bunny'])
                         )
-                        ->disabled(fn (Get $get) =>
-                            $get('video_type') === 'bunny' && ! $get('subject_id')
+                        ->disabled(fn (Get $get) => $get('video_type') === 'bunny' && ! $get('subject_id')
                         )
-                        ->required(fn (Get $get) =>
-                            in_array($get('video_type'), ['youtube', 'vimeo', 'bunny'])
+                        ->required(fn (Get $get) => in_array($get('video_type'), ['youtube', 'vimeo', 'bunny'])
                         )
                         ->helperText(fn (Get $get) => match ($get('video_type')) {
                             'youtube' => 'Paste YouTube URL',
-                            'vimeo'   => 'Paste Vimeo URL',
-                            'bunny'   => 'Auto-filled after upload or paste Bunny ID',
-                            default   => null,
+                            'vimeo' => 'Paste Vimeo URL',
+                            'bunny' => 'Auto-filled after upload or paste Bunny ID',
+                            default => null,
                         })
                         ->suffixAction(
                             Action::make('delete_video')
@@ -177,9 +168,8 @@ class LessonForm
                     |----------------------------------
                     */
                     View::make('filament.components.select-subject-first')
-                        ->visible(fn (Get $get) =>
-                            $get('video_type') === 'bunny'
-                            && !filled($get('subject_id'))
+                        ->visible(fn (Get $get) => $get('video_type') === 'bunny'
+                            && ! filled($get('subject_id'))
                         )
                         ->columnSpanFull(),
 
@@ -189,8 +179,7 @@ class LessonForm
                     |----------------------------------
                     */
                     View::make('filament.components.video-chunk-uploader')
-                        ->visible(fn (Get $get) =>
-                            $get('video_type') === 'bunny'
+                        ->visible(fn (Get $get) => $get('video_type') === 'bunny'
                             && filled($get('subject_id'))
                         )
                         ->viewData([
@@ -204,8 +193,7 @@ class LessonForm
                     |----------------------------------
                     */
                     View::make('filament.components.video-preview')
-                        ->visible(fn (Get $get) =>
-                            $get('video_type') === 'bunny'
+                        ->visible(fn (Get $get) => $get('video_type') === 'bunny'
                             && filled($get('video_url'))
                             && ($get('video_status') ?? 'processing') === 'ready'
                         )
@@ -273,9 +261,9 @@ class LessonForm
 
                     Select::make('status')
                         ->options([
-                            'draft'     => 'Draft',
+                            'draft' => 'Draft',
                             'published' => 'Published',
-                            'archived'  => 'Archived',
+                            'archived' => 'Archived',
                         ])
                         ->default('draft')
                         ->required()

@@ -1,17 +1,15 @@
 <?php
 
-use App\Models\User;
-use App\Models\QuizAttempt;
-use App\Models\UserAnswer;
-use App\Models\UserProgress;
 use App\Models\Lesson;
-use App\Models\Subject;
-use App\Models\Question;
 use App\Models\Option;
+use App\Models\Question;
 use App\Models\Quiz;
-use Illuminate\Support\Facades\DB;
+use App\Models\Subject;
+use App\Models\User;
+use App\Models\UserProgress;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->user = User::factory()->create();

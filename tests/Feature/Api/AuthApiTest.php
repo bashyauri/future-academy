@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -157,7 +158,7 @@ test('authenticated user can resend email verification notification', function (
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Verification link sent.');
 
-    Notification::assertSentTo($user, \Illuminate\Auth\Notifications\VerifyEmail::class);
+    Notification::assertSentTo($user, VerifyEmail::class);
 });
 
 test('unauthenticated user cannot access profile endpoint', function () {
@@ -207,4 +208,35 @@ test('invalid token cannot access protected routes', function () {
         ->getJson('/api/v1/user');
 
     $response->assertStatus(401);
+});
+
+test('user can request password reset link via api', function () {
+    Notification::fake();
+
+    $user = User::factory()->create([
+        'email' => 'student@example.com',
+        'is_active' => true,
+    ]);
+
+    $response = $this->postJson('/api/v1/forgot-password', [
+        'email' => 'student@example.com',
+    ]);
+
+    $response->assertStatus(200);
+});
+
+test('forgot password fails with invalid email format', function () {
+    $response = $this->postJson('/api/v1/forgot-password', [
+        'email' => 'not-an-email',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
+});
+
+test('forgot password fails when email is missing', function () {
+    $response = $this->postJson('/api/v1/forgot-password', []);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
 });

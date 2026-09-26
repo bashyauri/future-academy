@@ -3,9 +3,10 @@
 namespace App\Services;
 
 use App\Services\McpServer\McpServer;
-use App\Services\PerformanceBoost\QueryOptimizer;
 use App\Services\PerformanceBoost\DatabaseCaching;
 use App\Services\PerformanceBoost\LazyLoadHelper;
+use App\Services\PerformanceBoost\QueryOptimizer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -68,7 +69,7 @@ class IntegrationService
      */
     public function logEvent(string $event, array $data = []): void
     {
-        $this->mcp->log('Integration: ' . $event, $data);
+        $this->mcp->log('Integration: '.$event, $data);
     }
 
     /**
@@ -80,7 +81,7 @@ class IntegrationService
         $recommendations = [];
 
         // Check performance optimizations
-        if (!$metrics['performance']['cache_enabled']) {
+        if (! $metrics['performance']['cache_enabled']) {
             $recommendations[] = [
                 'priority' => 'high',
                 'category' => 'performance',
@@ -89,7 +90,7 @@ class IntegrationService
             ];
         }
 
-        if (!$metrics['performance']['monitoring_enabled']) {
+        if (! $metrics['performance']['monitoring_enabled']) {
             $recommendations[] = [
                 'priority' => 'medium',
                 'category' => 'monitoring',
@@ -99,7 +100,7 @@ class IntegrationService
         }
 
         // Check MCP configuration
-        if ($metrics['mcp']['enabled'] && !config('mcp-server.security.require_auth')) {
+        if ($metrics['mcp']['enabled'] && ! config('mcp-server.security.require_auth')) {
             $recommendations[] = [
                 'priority' => 'high',
                 'category' => 'security',
@@ -115,7 +116,7 @@ class IntegrationService
      * Example: Optimize a query with caching
      */
     public static function optimizeQueryWithCache(
-        \Illuminate\Database\Eloquent\Builder $query,
+        Builder $query,
         string $cacheKey,
         int $cacheTTL = 3600
     ) {
@@ -128,7 +129,7 @@ class IntegrationService
      * Example: Optimize a query with eager loading
      */
     public static function optimizeQueryWithLoading(
-        \Illuminate\Database\Eloquent\Builder $query,
+        Builder $query,
         array $withRelations = [],
         array $withCountRelations = []
     ) {

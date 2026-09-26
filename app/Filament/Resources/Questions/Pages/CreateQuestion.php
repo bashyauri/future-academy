@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Questions\Pages;
 
 use App\Filament\Resources\Questions\QuestionResource;
+use Filament\Facades\Filament;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateQuestion extends CreateRecord
@@ -11,9 +12,9 @@ class CreateQuestion extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['created_by'] = \Filament\Facades\Filament::auth()->id();
+        $data['created_by'] = Filament::auth()->id();
         $data['status'] = $data['status'] ?? 'pending';
-        $data['upload_batch'] = $data['upload_batch'] ?? 'manual-' . (string) \Str::uuid();
+        $data['upload_batch'] = $data['upload_batch'] ?? 'manual-'.(string) \Str::uuid();
 
         return $data;
     }

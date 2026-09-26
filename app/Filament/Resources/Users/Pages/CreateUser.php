@@ -4,8 +4,8 @@ namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\CreateRecord;
 
 class CreateUser extends CreateRecord
 {
@@ -34,7 +34,7 @@ class CreateUser extends CreateRecord
         // Ensure primary role (account_type) is included in assigned roles
         $primary = $record->account_type ?: 'student';
         $roles = $record->roles()->pluck('name')->all();
-        if (!in_array($primary, $roles, true)) {
+        if (! in_array($primary, $roles, true)) {
             $roles[] = $primary;
         }
         $record->syncRoles(array_values(array_unique($roles)));

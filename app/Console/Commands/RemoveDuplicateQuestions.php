@@ -37,6 +37,7 @@ class RemoveDuplicateQuestions extends Command
 
         if ($duplicates->isEmpty()) {
             $this->info('No duplicate questions found!');
+
             return 0;
         }
 
@@ -56,9 +57,9 @@ class RemoveDuplicateQuestions extends Command
             $keepQuestion = $questions->first();
             $deleteQuestions = $questions->slice(1);
 
-            $this->line("Question: " . substr($duplicate->question_text, 0, 60) . "...");
+            $this->line('Question: '.substr($duplicate->question_text, 0, 60).'...');
             $this->line("  Keeping ID: {$keepQuestion->id}");
-            $this->line("  Deleting IDs: " . $deleteQuestions->pluck('id')->join(', '));
+            $this->line('  Deleting IDs: '.$deleteQuestions->pluck('id')->join(', '));
 
             // Delete user answers associated with duplicate questions
             foreach ($deleteQuestions as $question) {
@@ -70,7 +71,7 @@ class RemoveDuplicateQuestions extends Command
         }
 
         $this->info("Successfully removed {$totalDeleted} duplicate questions!");
-        $this->info('Remaining questions: ' . Question::count());
+        $this->info('Remaining questions: '.Question::count());
 
         return 0;
     }

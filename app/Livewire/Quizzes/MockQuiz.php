@@ -9,7 +9,7 @@ use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\UserAnswer;
-use App\Services\MockGroupService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -18,27 +18,41 @@ use Livewire\Component;
 class MockQuiz extends Component
 {
     public ?int $examTypeId = null;
+
     public ?int $selectedYear = null;
+
     public array $subjectIds = [];
+
     public $subjectsData = [];
+
     public array $questionsBySubject = [];
 
     public int $currentSubjectIndex = 0;
+
     public int $currentQuestionIndex = 0;
+
     public array $userAnswers = [];
 
     public bool $showResults = false;
+
     public bool $showReview = false;
+
     public ?int $quizAttemptId = null;
 
     public int $timeRemaining = 0; // seconds
+
     public int $timeLimit = 180; // minutes
+
     public array $questionsPerSubject = []; // Per-subject question counts
+
     public bool $showAnswersImmediately = false;
+
     public bool $showExplanations = false;
+
     public bool $shuffleQuestions = true;
 
     public ?int $currentMockGroupId = null;
+
     public ?MockGroup $currentMockGroup = null;
 
     public function mount()
@@ -53,7 +67,7 @@ class MockQuiz extends Component
         // Original flow - session-based
         $sessionId = request()->query('session');
 
-        if (!$sessionId) {
+        if (! $sessionId) {
             return $this->redirectToSetup();
         }
 
@@ -63,8 +77,9 @@ class MockQuiz extends Component
             ->where('status', 'active')
             ->first();
 
-        if (!$session || $session->isExpired()) {
+        if (! $session || $session->isExpired()) {
             session()->flash('error', 'Mock session expired or invalid. Please start a new mock.');
+
             return $this->redirectToSetup();
         }
 
@@ -80,7 +95,7 @@ class MockQuiz extends Component
             return $this->redirectToSetup();
         }
 
-        if (!ExamType::where('id', $this->examTypeId)->where('is_active', true)->exists()) {
+        if (! ExamType::where('id', $this->examTypeId)->where('is_active', true)->exists()) {
             return $this->redirectToSetup();
         }
 
@@ -104,6 +119,7 @@ class MockQuiz extends Component
                 'group_id' => $groupId,
             ]);
             session()->flash('error', 'Invalid mock group.');
+
             return redirect()->route('mock.setup');
         }
 
@@ -124,6 +140,7 @@ class MockQuiz extends Component
                     'mock_group_id' => $groupId,
                 ]);
                 session()->flash('error', 'No active questions available in this mock.');
+
                 return redirect()->route('mock.setup');
             }
 
@@ -140,12 +157,13 @@ class MockQuiz extends Component
                 'mock_group_id' => $groupId,
                 'active_questions' => $activeQuestions,
             ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             \Log::warning('MockQuiz: Mock group not found', [
                 'user_id' => auth()->id(),
                 'mock_group_id' => $groupId,
             ]);
             session()->flash('error', 'Mock group not found.');
+
             return redirect()->route('mock.setup');
         } catch (\Exception $e) {
             \Log::error('MockQuiz: Error loading mock group', [
@@ -154,6 +172,7 @@ class MockQuiz extends Component
                 'error' => $e->getMessage(),
             ]);
             session()->flash('error', 'An error occurred. Please try again.');
+
             return redirect()->route('mock.setup');
         }
 
@@ -176,8 +195,8 @@ class MockQuiz extends Component
 
         // Cache key unique to this quiz session
         $cacheKey = $this->currentMockGroupId
-            ? "mock_quiz_group_{$this->currentMockGroupId}_" . auth()->id()
-            : "mock_quiz_" . request()->query('session');
+            ? "mock_quiz_group_{$this->currentMockGroupId}_".auth()->id()
+            : 'mock_quiz_'.request()->query('session');
 
         // Try to load everything from unified cache (single Redis hit)
         $cachedData = cache()->get($cacheKey);
@@ -188,6 +207,7 @@ class MockQuiz extends Component
             $this->userAnswers = $cachedData['answers'];
             $this->currentSubjectIndex = $cachedData['position']['subjectIndex'] ?? 0;
             $this->currentQuestionIndex = $cachedData['position']['questionIndex'] ?? 0;
+
             return;
         }
 
@@ -208,7 +228,7 @@ class MockQuiz extends Component
                 $query = Question::where('exam_type_id', $this->examTypeId)
                     ->where('subject_id', $subjectId)
                     ->where('is_mock', true)
-                    ->when($this->selectedYear, fn($q) => $q->where('exam_year', $this->selectedYear))
+                    ->when($this->selectedYear, fn ($q) => $q->where('exam_year', $this->selectedYear))
                     ->where('is_active', true)
                     ->where('status', 'approved')
                     ->with('options');
@@ -234,6 +254,7 @@ class MockQuiz extends Component
 
                 session()->flash('error', $message);
                 $this->addError('subjects', 'No mock questions available');
+
                 return $this->redirectToSetup();
             }
 
@@ -243,6 +264,7 @@ class MockQuiz extends Component
                 // Also shuffle the answer options for each question
                 $questions = $questions->map(function ($question) {
                     $question->options = $question->options->shuffle();
+
                     return $question;
                 });
             }
@@ -480,12 +502,13 @@ class MockQuiz extends Component
             }
             $scores[$subjectId] = $score;
         }
+
         return $scores;
     }
 
     public function toggleReview(): void
     {
-        $this->showReview = !$this->showReview;
+        $this->showReview = ! $this->showReview;
     }
 
     public function getReviewData(): array

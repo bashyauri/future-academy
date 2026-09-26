@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('quizzes', function (Blueprint $table) {
             // Add subject_id if it doesn't exist
-            if (!Schema::hasColumn('quizzes', 'subject_id')) {
+            if (! Schema::hasColumn('quizzes', 'subject_id')) {
                 $table->foreignId('subject_id')->nullable()->constrained()->nullOnDelete()->after('question_count');
             }
         });

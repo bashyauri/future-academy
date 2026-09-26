@@ -3,12 +3,9 @@
 namespace App\Filament\Resources\LessonResource\Pages;
 
 use App\Filament\Resources\LessonResource;
-use App\Services\BunnyStreamService;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Storage;
+use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class CreateLesson extends CreateRecord
 {
@@ -71,7 +68,7 @@ class CreateLesson extends CreateRecord
         } else {
             Log::info('CreateLesson: afterCreate - skipping status update', [
                 'video_type' => $record->video_type,
-                'has_video_url' => !empty($record->video_url),
+                'has_video_url' => ! empty($record->video_url),
             ]);
         }
     }

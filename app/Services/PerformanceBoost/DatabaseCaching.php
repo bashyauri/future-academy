@@ -2,9 +2,8 @@
 
 namespace App\Services\PerformanceBoost;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Database query caching for performance optimization
@@ -23,9 +22,9 @@ class DatabaseCaching
     public static function remember(
         string $key,
         \Closure $callback,
-        int $ttl = null
+        ?int $ttl = null
     ) {
-        $cacheKey = self::$cacheConfig['prefix'] . $key;
+        $cacheKey = self::$cacheConfig['prefix'].$key;
         $ttl = $ttl ?? self::$cacheConfig['ttl'];
 
         return Cache::remember($cacheKey, $ttl, $callback);
@@ -36,7 +35,8 @@ class DatabaseCaching
      */
     public static function forget(string $key): bool
     {
-        $cacheKey = self::$cacheConfig['prefix'] . $key;
+        $cacheKey = self::$cacheConfig['prefix'].$key;
+
         return Cache::forget($cacheKey);
     }
 
@@ -53,9 +53,10 @@ class DatabaseCaching
     /**
      * Cache model count
      */
-    public static function modelCount(string $modelClass, int $ttl = null): int
+    public static function modelCount(string $modelClass, ?int $ttl = null): int
     {
-        $key = 'count_' . strtolower(class_basename($modelClass));
+        $key = 'count_'.strtolower(class_basename($modelClass));
+
         return self::remember($key, function () use ($modelClass) {
             return $modelClass::count();
         }, $ttl);
@@ -64,9 +65,10 @@ class DatabaseCaching
     /**
      * Cache model all results
      */
-    public static function modelAll(string $modelClass, int $ttl = null): Collection
+    public static function modelAll(string $modelClass, ?int $ttl = null): Collection
     {
-        $key = 'all_' . strtolower(class_basename($modelClass));
+        $key = 'all_'.strtolower(class_basename($modelClass));
+
         return self::remember($key, function () use ($modelClass) {
             return $modelClass::all();
         }, $ttl);

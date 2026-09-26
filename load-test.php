@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Load Testing Script for Future Academy Practice Quiz
  * Tests performance under concurrent user load
@@ -15,8 +16,11 @@ use GuzzleHttp\Promise;
 class LoadTester
 {
     private $client;
+
     private $baseUrl;
+
     private $results = [];
+
     private $errors = [];
 
     public function __construct($baseUrl = 'http://future-academy.test')
@@ -48,11 +52,13 @@ class LoadTester
             $response = $this->client->get('/practice/quiz?shuffle=0&subject=1');
             if ($response->getStatusCode() !== 200) {
                 echo "❌ Failed to load quiz page (Status: {$response->getStatusCode()})\n";
+
                 return false;
             }
             echo "✓ Quiz page loaded (Status 200)\n\n";
-        } catch (\Exception $e) {
-            echo "❌ Error loading quiz page: " . $e->getMessage() . "\n";
+        } catch (Exception $e) {
+            echo '❌ Error loading quiz page: '.$e->getMessage()."\n";
+
             return false;
         }
 
@@ -89,6 +95,7 @@ class LoadTester
                 ])->then(function ($response) use (&$requestCount) {
                     $requestCount++;
                     $this->recordResult($response->getStatusCode(), $response->getHeader('Content-Length')[0] ?? 0);
+
                     return $response;
                 })->otherwise(function ($reason) {
                     $this->recordError($reason);
@@ -96,12 +103,12 @@ class LoadTester
             }
 
             // Wait for all promises to complete with timeout
-            if (!empty($promises)) {
+            if (! empty($promises)) {
                 try {
                     Promise\Utils::settle($promises)->wait();
                     $promises = [];
-                } catch (\Exception $e) {
-                    echo "⚠️  Some requests failed: " . $e->getMessage() . "\n";
+                } catch (Exception $e) {
+                    echo '⚠️  Some requests failed: '.$e->getMessage()."\n";
                 }
             }
         }
@@ -121,7 +128,7 @@ class LoadTester
 
     private function recordResult($statusCode, $contentLength)
     {
-        if (!isset($this->results[$statusCode])) {
+        if (! isset($this->results[$statusCode])) {
             $this->results[$statusCode] = ['count' => 0, 'totalBytes' => 0];
         }
         $this->results[$statusCode]['count']++;
@@ -130,8 +137,8 @@ class LoadTester
 
     private function recordError($reason)
     {
-        $errorMsg = (string)$reason;
-        if (!isset($this->errors[$errorMsg])) {
+        $errorMsg = (string) $reason;
+        if (! isset($this->errors[$errorMsg])) {
             $this->errors[$errorMsg] = 0;
         }
         $this->errors[$errorMsg]++;
@@ -140,17 +147,17 @@ class LoadTester
     private function analyzeResults($totalRequests, $duration)
     {
         echo "✓ Total requests: $totalRequests\n";
-        echo "✓ Duration: " . number_format($duration, 2) . " seconds\n";
-        echo "✓ Requests/second: " . number_format($totalRequests / $duration, 2) . "\n";
+        echo '✓ Duration: '.number_format($duration, 2)." seconds\n";
+        echo '✓ Requests/second: '.number_format($totalRequests / $duration, 2)."\n";
 
         echo "\nStatus Code Distribution:\n";
         foreach ($this->results as $code => $data) {
             $percentage = ($data['count'] / $totalRequests) * 100;
             $size = $data['totalBytes'] / (1024 * 1024); // Convert to MB
-            echo "  $code: {$data['count']} requests (" . number_format($percentage, 1) . "%) - " . number_format($size, 2) . " MB\n";
+            echo "  $code: {$data['count']} requests (".number_format($percentage, 1).'%) - '.number_format($size, 2)." MB\n";
         }
 
-        if (!empty($this->errors)) {
+        if (! empty($this->errors)) {
             echo "\nErrors:\n";
             foreach ($this->errors as $error => $count) {
                 echo "  - $error: $count occurrences\n";
@@ -166,22 +173,22 @@ class LoadTester
             'total_requests' => $totalRequests,
             'duration_seconds' => number_format($duration, 2),
             'requests_per_second' => number_format($totalRequests / $duration, 2),
-            'success_rate' => isset($this->results[200]) ? number_format(($this->results[200]['count'] / $totalRequests) * 100, 2) . '%' : '0%',
+            'success_rate' => isset($this->results[200]) ? number_format(($this->results[200]['count'] / $totalRequests) * 100, 2).'%' : '0%',
             'status_codes' => $this->results,
             'errors' => $this->errors,
         ];
 
-        $filename = 'load-test-results-' . date('Y-m-d-H-i-s') . '.json';
+        $filename = 'load-test-results-'.date('Y-m-d-H-i-s').'.json';
         file_put_contents($filename, json_encode($report, JSON_PRETTY_PRINT));
 
         echo "\n✓ Report saved to: $filename\n";
 
         // Print summary
         echo "\n=== Load Test Summary ===\n";
-        echo "Total Requests: " . $report['total_requests'] . "\n";
-        echo "Duration: " . $report['duration_seconds'] . " seconds\n";
-        echo "Throughput: " . $report['requests_per_second'] . " req/s\n";
-        echo "Success Rate: " . $report['success_rate'] . "\n";
+        echo 'Total Requests: '.$report['total_requests']."\n";
+        echo 'Duration: '.$report['duration_seconds']." seconds\n";
+        echo 'Throughput: '.$report['requests_per_second']." req/s\n";
+        echo 'Success Rate: '.$report['success_rate']."\n";
 
         if ($report['requests_per_second'] > 10) {
             echo "\n✓ Performance: EXCELLENT (>10 req/s)\n";
@@ -194,10 +201,10 @@ class LoadTester
 }
 
 // Main execution
-$concurrentUsers = isset($argv[1]) ? (int)$argv[1] : 10;
-$durationSeconds = isset($argv[2]) ? (int)$argv[2] : 60;
+$concurrentUsers = isset($argv[1]) ? (int) $argv[1] : 10;
+$durationSeconds = isset($argv[2]) ? (int) $argv[2] : 60;
 
-$tester = new LoadTester();
+$tester = new LoadTester;
 $success = $tester->testAnswerSelection($concurrentUsers, $durationSeconds);
 
 exit($success ? 0 : 1);

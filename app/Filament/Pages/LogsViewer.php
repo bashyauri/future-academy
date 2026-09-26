@@ -3,11 +3,11 @@
 namespace App\Filament\Pages;
 
 use BackedEnum;
-use Filament\Pages\Page;
 use Filament\Notifications\Notification;
+use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
-use UnitEnum;
 use Symfony\Component\Finder\Finder;
+use UnitEnum;
 
 class LogsViewer extends Page
 {
@@ -20,10 +20,15 @@ class LogsViewer extends Page
     protected string $view = 'filament.pages.logs-viewer';
 
     public ?string $selectedFile = null;
+
     public ?string $logContent = null;
+
     public array $logFiles = [];
+
     public ?string $searchQuery = null;
+
     public ?string $filterLevel = null;
+
     public int $lineCount = 100;
 
     public static function canAccess(): bool
@@ -40,11 +45,11 @@ class LogsViewer extends Page
     {
         $logsPath = storage_path('logs');
 
-        if (!is_dir($logsPath)) {
+        if (! is_dir($logsPath)) {
             return;
         }
 
-        $finder = new Finder();
+        $finder = new Finder;
         $finder->files()->in($logsPath)->name('*.log')->sortByModifiedTime()->reverseSorting();
 
         $this->logFiles = [];
@@ -60,10 +65,11 @@ class LogsViewer extends Page
         if (empty($this->logFiles)) {
             $this->selectedFile = null;
             $this->logContent = 'No log files found.';
+
             return;
         }
 
-        if (!$this->selectedFile) {
+        if (! $this->selectedFile) {
             $this->selectedFile = $this->logFiles[0]['path'] ?? null;
         }
 
@@ -74,22 +80,25 @@ class LogsViewer extends Page
 
     public function loadLogContent(): void
     {
-        if (!$this->selectedFile) {
+        if (! $this->selectedFile) {
             $this->logContent = 'No log file selected.';
+
             return;
         }
 
         $logsPath = storage_path('logs');
-        $filePath = $logsPath . '/' . $this->selectedFile;
+        $filePath = $logsPath.'/'.$this->selectedFile;
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             $this->logContent = 'Log file not found.';
+
             return;
         }
 
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) {
             $this->logContent = 'Unable to read log file.';
+
             return;
         }
 
@@ -134,21 +143,22 @@ class LogsViewer extends Page
 
     public function clearSelectedLog(): void
     {
-        if (!$this->selectedFile) {
+        if (! $this->selectedFile) {
             Notification::make()
                 ->title('Error')
                 ->body('No log file selected.')
                 ->danger()
                 ->send();
+
             return;
         }
 
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         $logsPath = storage_path('logs');
-        $filePath = $logsPath . '/' . $this->selectedFile;
+        $filePath = $logsPath.'/'.$this->selectedFile;
 
         if (file_exists($filePath)) {
             file_put_contents($filePath, '');
@@ -164,14 +174,14 @@ class LogsViewer extends Page
 
     public function clearAllLogs(): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         $logsPath = storage_path('logs');
 
         if (is_dir($logsPath)) {
-            $finder = new Finder();
+            $finder = new Finder;
             $finder->files()->in($logsPath)->name('*.log');
 
             foreach ($finder as $file) {
@@ -191,24 +201,26 @@ class LogsViewer extends Page
 
     public function downloadLog(): void
     {
-        if (!$this->selectedFile) {
+        if (! $this->selectedFile) {
             Notification::make()
                 ->title('Error')
                 ->body('No log file selected.')
                 ->danger()
                 ->send();
+
             return;
         }
 
         $logsPath = storage_path('logs');
-        $filePath = $logsPath . '/' . $this->selectedFile;
+        $filePath = $logsPath.'/'.$this->selectedFile;
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             Notification::make()
                 ->title('Error')
                 ->body('Log file not found.')
                 ->danger()
                 ->send();
+
             return;
         }
 

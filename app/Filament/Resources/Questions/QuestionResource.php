@@ -9,6 +9,7 @@ use App\Filament\Resources\Questions\Schemas\QuestionForm;
 use App\Filament\Resources\Questions\Tables\QuestionsTable;
 use App\Models\Question;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -72,31 +73,36 @@ class QuestionResource extends Resource
     // Access control
     public static function canViewAny(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && $user->hasAnyPermission(['manage questions', 'create questions', 'upload questions', 'import questions']);
     }
 
     public static function canCreate(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && $user->hasAnyPermission(['create questions', 'upload questions']);
     }
 
     public static function canEdit(Model $record): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && $user->hasPermissionTo('manage questions');
     }
 
     public static function canDelete(Model $record): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && $user->hasPermissionTo('delete questions');
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && $user->hasAnyPermission(['manage questions', 'create questions', 'upload questions', 'import questions']);
     }
 }

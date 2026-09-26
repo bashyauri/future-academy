@@ -7,8 +7,8 @@
  */
 
 // Get the webhook URL
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-$webhookUrl = $protocol . $_SERVER['HTTP_HOST'] . '/webhooks/paystack';
+$protocol = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+$webhookUrl = $protocol.$_SERVER['HTTP_HOST'].'/webhooks/paystack';
 
 ?>
 <!DOCTYPE html>
@@ -69,24 +69,24 @@ $webhookUrl = $protocol . $_SERVER['HTTP_HOST'] . '/webhooks/paystack';
         <p>Check the webhook log file to see if webhooks are being received:</p>
 
         <?php
-        $logFile = __DIR__ . '/storage/logs/webhook-' . date('Y-m-d') . '.log';
+        $logFile = __DIR__.'/storage/logs/webhook-'.date('Y-m-d').'.log';
 
-        if (file_exists($logFile)) {
-            echo '<div class="success">✅ Webhook log file exists!</div>';
+if (file_exists($logFile)) {
+    echo '<div class="success">✅ Webhook log file exists!</div>';
 
-            // Get last 50 lines
-            $lines = file($logFile);
-            $lastLines = array_slice($lines, -50);
+    // Get last 50 lines
+    $lines = file($logFile);
+    $lastLines = array_slice($lines, -50);
 
-            echo '<div class="code" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;">';
-            echo '<strong>Last 50 lines of webhook log:</strong><br><br>';
-            echo htmlspecialchars(implode('', $lastLines));
-            echo '</div>';
-        } else {
-            echo '<div class="error">⚠️ No webhook log file found yet. File will be created when first webhook is received.</div>';
-            echo '<p>Expected location: <code>' . htmlspecialchars($logFile) . '</code></p>';
-        }
-        ?>
+    echo '<div class="code" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;">';
+    echo '<strong>Last 50 lines of webhook log:</strong><br><br>';
+    echo htmlspecialchars(implode('', $lastLines));
+    echo '</div>';
+} else {
+    echo '<div class="error">⚠️ No webhook log file found yet. File will be created when first webhook is received.</div>';
+    echo '<p>Expected location: <code>'.htmlspecialchars($logFile).'</code></p>';
+}
+?>
     </div>
 
     <div class="section">

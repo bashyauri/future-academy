@@ -126,7 +126,7 @@ it('requires the linked quiz to be completed before marking a lesson complete', 
     $service = app(LessonService::class);
 
     expect(fn (): mixed => $service->markAsCompleted($fixture['user'], $fixture['lesson']->id))
-        ->toThrow(\Exception::class, 'Please complete the lesson quiz before marking this lesson as complete.');
+        ->toThrow(Exception::class, 'Please complete the lesson quiz before marking this lesson as complete.');
 
     QuizAttempt::forceCreate([
         'user_id' => $fixture['user']->id,
@@ -163,6 +163,3 @@ it('returns quiz details with lesson alignment and html payloads', function (): 
     expect($details['questions'][0]['explanation_html'])->not->toBeEmpty();
     expect($details['questions'][0]['options'][0]['option_text_html'])->not->toBeEmpty();
 });
-
-
-

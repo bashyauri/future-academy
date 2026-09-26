@@ -127,8 +127,8 @@ class PracticeQuizApiController extends Controller
     {
         $attempt = QuizAttempt::findOrFail($attemptId);
 
-        // Verify ownership
-        if ($attempt->user_id !== auth()->id()) {
+        // Verify ownership (super-admin can access any attempt)
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -295,8 +295,8 @@ class PracticeQuizApiController extends Controller
 
         $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
 
-        // Verify ownership
-        if ($attempt->user_id !== auth()->id()) {
+        // Verify ownership (super-admin can access any attempt)
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -339,8 +339,8 @@ class PracticeQuizApiController extends Controller
 
         $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
 
-        // Verify ownership
-        if ($attempt->user_id !== auth()->id()) {
+        // Verify ownership (super-admin can access any attempt)
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -419,8 +419,8 @@ class PracticeQuizApiController extends Controller
 
         $attempt = QuizAttempt::findOrFail($validated['attempt_id']);
 
-        // Verify ownership
-        if ($attempt->user_id !== auth()->id()) {
+        // Verify ownership (super-admin can access any attempt)
+        if ($attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 

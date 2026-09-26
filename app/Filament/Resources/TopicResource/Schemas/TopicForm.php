@@ -2,10 +2,9 @@
 
 namespace App\Filament\Resources\TopicResource\Schemas;
 
-use App\Models\Subject;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;

@@ -79,7 +79,7 @@ class PracticeQuiz extends Component
     {
         // Save current position and answers to cache before exiting
         if (Auth::check() && $this->quizAttempt) {
-            if ($this->quizAttempt->user_id !== Auth::id()) {
+            if ($this->quizAttempt->user_id !== Auth::id() && ! Auth::user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized');
             }
 
@@ -130,8 +130,8 @@ class PracticeQuiz extends Component
         if (Auth::check()) {
             $attemptFromQuery = $this->attempt ? QuizAttempt::find($this->attempt) : null;
 
-            // Verify ownership
-            if ($attemptFromQuery && $attemptFromQuery->user_id !== Auth::id()) {
+            // Verify ownership (super-admin can view any attempt)
+            if ($attemptFromQuery && $attemptFromQuery->user_id !== Auth::id() && ! Auth::user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized attempt access');
             }
 
@@ -683,7 +683,7 @@ class PracticeQuiz extends Component
     public function submitQuiz()
     {
         if (Auth::check() && $this->quizAttempt) {
-            if ($this->quizAttempt->user_id !== Auth::id()) {
+            if ($this->quizAttempt->user_id !== Auth::id() && ! Auth::user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized');
             }
 

@@ -19,7 +19,7 @@ return new class extends Migration
 
         // Add indexes to questions table for mock group queries
         Schema::table('questions', function (Blueprint $table) {
-            if (!Schema::hasColumn('questions', 'mock_group_id')) {
+            if (! Schema::hasColumn('questions', 'mock_group_id')) {
                 return; // Column might not exist yet
             }
             $table->index('mock_group_id', 'idx_questions_mock_group');
@@ -39,6 +39,7 @@ return new class extends Migration
 
         Schema::table('questions', function (Blueprint $table) {
             $table->dropIndex('idx_questions_mock_group');
-            $table->dropIndex('idx_questions_mock_status');        });
+            $table->dropIndex('idx_questions_mock_status');
+        });
     }
 };

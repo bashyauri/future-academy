@@ -15,6 +15,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class QuestionsRelationManager extends RelationManager
 {
@@ -37,7 +38,7 @@ class QuestionsRelationManager extends RelationManager
                     ->label('Question')
                     ->searchable()
                     ->limit(60)
-                    ->tooltip(fn($record) => $record->question_text),
+                    ->tooltip(fn ($record) => $record->question_text),
 
                 TextColumn::make('subject.name')
                     ->badge()
@@ -50,7 +51,7 @@ class QuestionsRelationManager extends RelationManager
 
                 TextColumn::make('difficulty')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'easy' => 'success',
                         'medium' => 'warning',
                         'hard' => 'danger',
@@ -63,7 +64,7 @@ class QuestionsRelationManager extends RelationManager
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
@@ -92,7 +93,7 @@ class QuestionsRelationManager extends RelationManager
                                 Select::make('subject_id')
                                     ->label('Subject')
                                     ->relationship('subject', 'name')
-                                    ->default(fn() => $this->getOwnerRecord()->subject_id)
+                                    ->default(fn () => $this->getOwnerRecord()->subject_id)
                                     ->required()
                                     ->searchable()
                                     ->preload()
@@ -101,7 +102,7 @@ class QuestionsRelationManager extends RelationManager
                                 Select::make('topic_id')
                                     ->label('Topic')
                                     ->relationship('topic', 'name')
-                                    ->default(fn() => $this->getOwnerRecord()->topic_id)
+                                    ->default(fn () => $this->getOwnerRecord()->topic_id)
                                     ->searchable()
                                     ->preload()
                                     ->columnSpan(1),
@@ -155,7 +156,7 @@ class QuestionsRelationManager extends RelationManager
                                     ->maxItems(6)
                                     ->reorderable()
                                     ->collapsible()
-                                    ->itemLabel(fn(array $state): ?string => $state['option_text'] ?? 'New Option')
+                                    ->itemLabel(fn (array $state): ?string => $state['option_text'] ?? 'New Option')
                                     ->addActionLabel('Add Option')
                                     ->columnSpanFull(),
                             ]),
@@ -175,7 +176,7 @@ class QuestionsRelationManager extends RelationManager
 
                                 TextInput::make('order')
                                     ->numeric()
-                                    ->default(fn() => $this->getOwnerRecord()->questions()->max('order') + 1)
+                                    ->default(fn () => $this->getOwnerRecord()->questions()->max('order') + 1)
                                     ->required()
                                     ->label('Order in Lesson')
                                     ->helperText('Position of this question in the lesson')
@@ -185,14 +186,15 @@ class QuestionsRelationManager extends RelationManager
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['is_active'] = true;
-                        $data['created_by'] = \Illuminate\Support\Facades\Auth::id();
+                        $data['created_by'] = Auth::id();
+
                         return $data;
                     })
                     ->after(function ($record) {
                         // Attach the newly created question to this lesson with the order, only if not already attached
                         $order = request()->input('data.order') ?? $this->getOwnerRecord()->questions()->max('order') + 1;
                         $lesson = $this->getOwnerRecord();
-                        if (!$lesson->questions()->where('questions.id', $record->id)->exists()) {
+                        if (! $lesson->questions()->where('questions.id', $record->id)->exists()) {
                             $lesson->questions()->attach($record->id, ['order' => $order]);
                         }
                     }),
@@ -202,7 +204,7 @@ class QuestionsRelationManager extends RelationManager
                     ->icon('heroicon-o-link')
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(
-                        fn(Builder $query) => $query
+                        fn (Builder $query) => $query
                             ->where('status', 'approved')
                             ->where('is_active', true)
                             // Filter by same subject as the lesson
@@ -213,11 +215,11 @@ class QuestionsRelationManager extends RelationManager
                                     ->orWhereNull('topic_id');
                             })
                     )
-                    ->form(fn(Actions\AttachAction $action): array => [
+                    ->form(fn (Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         TextInput::make('order')
                             ->numeric()
-                            ->default(fn() => $this->getOwnerRecord()->questions()->max('order') + 1)
+                            ->default(fn () => $this->getOwnerRecord()->questions()->max('order') + 1)
                             ->required()
                             ->label('Order'),
                     ])

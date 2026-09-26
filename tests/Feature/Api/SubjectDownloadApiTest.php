@@ -233,12 +233,12 @@ test('download prevents n+1 queries', function () {
 
     $token = $user->createToken('Test Device')->plainTextToken;
 
-    \DB::enableQueryLog();
+    DB::enableQueryLog();
 
     $this->withToken($token)
         ->getJson("/api/v1/subjects/{$subject->id}/download");
 
-    $queryCount = count(\DB::getQueryLog());
+    $queryCount = count(DB::getQueryLog());
 
     // Should be around 3 queries: subject, questions with options, count
     expect($queryCount)->toBeLessThan(10);

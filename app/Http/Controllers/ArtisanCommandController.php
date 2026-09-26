@@ -28,7 +28,7 @@ class ArtisanCommandController extends Controller
             $token = $request->query('token');
             $expectedToken = env('APP_ARTISAN_TOKEN');
 
-            if (!$expectedToken) {
+            if (! $expectedToken) {
                 return response()->json([
                     'success' => false,
                     'message' => 'APP_ARTISAN_TOKEN not configured in environment',
@@ -60,16 +60,16 @@ class ArtisanCommandController extends Controller
             'queue:restart',
         ];
 
-        if (!in_array($command, $allowedCommands)) {
+        if (! in_array($command, $allowedCommands)) {
             return response()->json([
                 'success' => false,
-                'message' => "Command '$command' not allowed. Allowed: " . implode(', ', $allowedCommands),
+                'message' => "Command '$command' not allowed. Allowed: ".implode(', ', $allowedCommands),
             ], 403);
         }
 
         try {
             // Capture output
-            $output = new BufferedOutput();
+            $output = new BufferedOutput;
             // Force flag for DB-affecting commands in production
             $params = [];
             if (in_array($command, ['migrate', 'migrate:rollback', 'db:seed'])) {
@@ -97,6 +97,7 @@ class ArtisanCommandController extends Controller
                 'ip' => $request->ip(),
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'command' => $command,

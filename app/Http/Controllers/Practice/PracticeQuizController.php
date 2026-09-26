@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Practice;
 
 use App\Http\Controllers\Controller;
 use App\Models\QuizAttempt;
-use App\Models\UserAnswer;
 use Illuminate\Http\Request;
 
 class PracticeQuizController extends Controller
@@ -23,7 +22,7 @@ class PracticeQuizController extends Controller
      */
     public function autosave(Request $request)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

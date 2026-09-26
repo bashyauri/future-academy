@@ -6,13 +6,18 @@ use App\Filament\Resources\Questions\QuestionResource;
 use App\Imports\QuestionsImport;
 use App\Models\ExamType;
 use App\Models\Subject;
+use App\Models\Topic;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
-use Filament\Notifications\Notification;
-use Filament\Resources\Pages\ListRecords;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ListQuestions extends ListRecords
@@ -51,7 +56,6 @@ class ListQuestions extends ListRecords
                         ->rows(14)
                         ->columnSpanFull(),
 
-
                     Select::make('default_exam_type_id')
                         ->label('Default Exam Type (Optional)')
                         ->options(ExamType::where('is_active', true)->pluck('name', 'id'))
@@ -72,10 +76,11 @@ class ListQuestions extends ListRecords
                         ->label('Default Topic (Optional)')
                         ->options(function ($get) {
                             $subjectId = $get('default_subject_id');
-                            $query = \App\Models\Topic::query()->where('is_active', true);
+                            $query = Topic::query()->where('is_active', true);
                             if ($subjectId) {
                                 $query->where('subject_id', $subjectId);
                             }
+
                             return $query->pluck('name', 'id');
                         })
                         ->helperText('Used for rows without topic column. Filtered by subject if selected.')
@@ -83,7 +88,7 @@ class ListQuestions extends ListRecords
                         ->prefixIcon('heroicon-o-bookmark')
                         ->columnSpan(1),
 
-                    \Filament\Forms\Components\TextInput::make('batch_name')
+                    TextInput::make('batch_name')
                         ->label('Batch Name (Optional)')
                         ->placeholder('e.g., WAEC 2024 Math, Dec 2025 Import')
                         ->helperText('Give this import batch a memorable name for easy tracking')
@@ -91,7 +96,7 @@ class ListQuestions extends ListRecords
                         ->prefixIcon('heroicon-o-tag')
                         ->columnSpanFull(),
 
-                    \Filament\Forms\Components\Toggle::make('default_is_mock')
+                    Toggle::make('default_is_mock')
                         ->label('Mark All as Mock Questions')
                         ->helperText('If checked, all imported questions will be tagged as mock (overrides is_mock column in file).')
                         ->default(false)
@@ -103,17 +108,18 @@ class ListQuestions extends ListRecords
                 ->action(function (array $data) {
                     try {
                         $storedPath = $data['file'] ?? null;
-                        if (!$storedPath) {
+                        if (! $storedPath) {
                             throw new \Exception('No file provided');
                         }
 
-                        $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($storedPath);
+                        $filePath = Storage::disk('public')->path($storedPath);
 
-                        if (!file_exists($filePath)) {
+                        if (! file_exists($filePath)) {
                             Notification::make()
                                 ->title('File not found')
                                 ->danger()
                                 ->send();
+
                             return;
                         }
 
@@ -121,7 +127,7 @@ class ListQuestions extends ListRecords
                         $import = new QuestionsImport(
                             $data['default_exam_type_id'] ?? null,
                             $data['default_subject_id'] ?? null,
-                            \Filament\Facades\Filament::auth()->id(),
+                            Filament::auth()->id(),
                             $data['batch_name'] ?? null,
                             $data['default_topic_id'] ?? null,
                             $data['default_is_mock'] ?? false
@@ -142,25 +148,25 @@ class ListQuestions extends ListRecords
                         if (count($summary['errors']) > 0) {
                             Notification::make()
                                 ->title('⚠️ Import Completed with Errors')
-                                ->body($message . "\n\n" . count($summary['errors']) . " error(s) found.\nFirst error: " . ($summary['errors'][0] ?? ''))
+                                ->body($message."\n\n".count($summary['errors'])." error(s) found.\nFirst error: ".($summary['errors'][0] ?? ''))
                                 ->warning()
                                 ->duration(15000)
                                 ->send();
                         } else {
                             Notification::make()
                                 ->title('✓ Import Successful!')
-                                ->body($message . " All questions are pending review.")
+                                ->body($message.' All questions are pending review.')
                                 ->success()
                                 ->duration(5000)
                                 ->send();
                         }
 
                         // Clean up uploaded file
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($storedPath);
+                        Storage::disk('public')->delete($storedPath);
                     } catch (\Exception $e) {
                         Notification::make()
                             ->title('❌ Import Failed')
-                            ->body('Error: ' . $e->getMessage())
+                            ->body('Error: '.$e->getMessage())
                             ->danger()
                             ->duration(10000)
                             ->send();

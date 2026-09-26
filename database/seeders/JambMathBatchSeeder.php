@@ -16,8 +16,9 @@ class JambMathBatchSeeder extends Seeder
         $jambExam = ExamType::where('slug', 'jamb')->first();
         $subject = Subject::where('name', 'Mathematics')->first();
 
-        if (!$admin || !$jambExam || !$subject) {
+        if (! $admin || ! $jambExam || ! $subject) {
             $this->command->error('Required data not found.');
+
             return;
         }
 
@@ -80,7 +81,8 @@ class JambMathBatchSeeder extends Seeder
                 ->exists();
 
             if ($exists) {
-                $this->command->warn("Skipping duplicate: " . substr($q['text'], 0, 50) . "...");
+                $this->command->warn('Skipping duplicate: '.substr($q['text'], 0, 50).'...');
+
                 continue;
             }
 

@@ -12,6 +12,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class TopicsTable
 {
@@ -24,7 +25,7 @@ class TopicsTable
                     ->searchable()
                     ->sortable()
                     ->badge()
-                    ->color(fn(Topic $record) => $record->subject->color ?? 'gray')
+                    ->color(fn (Topic $record) => $record->subject->color ?? 'gray')
                     ->icon('heroicon-o-book-open'),
 
                 TextColumn::make('name')
@@ -33,7 +34,7 @@ class TopicsTable
                     ->sortable()
                     ->weight('semibold')
                     ->icon('heroicon-o-list-bullet')
-                    ->description(fn(Topic $record): ?string => $record->description ? \Illuminate\Support\Str::limit($record->description, 50) : null),
+                    ->description(fn (Topic $record): ?string => $record->description ? Str::limit($record->description, 50) : null),
 
                 TextColumn::make('subject.examTypes.code')
                     ->label('Exam Types')
@@ -88,12 +89,12 @@ class TopicsTable
                     ->icon('heroicon-o-pencil-square'),
                 DeleteAction::make()
                     ->icon('heroicon-o-trash')
-                    ->visible(fn() => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn() => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
                 ]),
             ])
             ->defaultSort('subject.name', 'asc')

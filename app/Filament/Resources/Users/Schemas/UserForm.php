@@ -2,16 +2,18 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Filament\Resources\Users\Pages\CreateUser;
+use App\Filament\Resources\Users\Pages\EditUser;
 use App\Models\User;
-use Filament\Schemas\Schema;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
-use Illuminate\Support\Facades\Hash;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class UserForm
 {
@@ -66,13 +68,13 @@ class UserForm
                         TextInput::make('password')
                             ->label('Password')
                             ->password()
-                            ->required(fn($livewire) => $livewire instanceof \App\Filament\Resources\Users\Pages\CreateUser)
-                            ->dehydrateStateUsing(fn($state) => filled($state) ? Hash::make($state) : null)
-                            ->dehydrated(fn($state) => filled($state))
+                            ->required(fn ($livewire) => $livewire instanceof CreateUser)
+                            ->dehydrateStateUsing(fn ($state) => filled($state) ? Hash::make($state) : null)
+                            ->dehydrated(fn ($state) => filled($state))
                             ->revealable()
                             ->prefixIcon('heroicon-o-key')
                             ->placeholder('••••••••')
-                            ->helperText(fn($livewire) => $livewire instanceof \App\Filament\Resources\Users\Pages\EditUser ? 'Leave blank to keep current password.' : 'Minimum 8 characters recommended.')
+                            ->helperText(fn ($livewire) => $livewire instanceof EditUser ? 'Leave blank to keep current password.' : 'Minimum 8 characters recommended.')
                             ->minLength(6),
                     ])
                     ->collapsible()
@@ -157,7 +159,7 @@ class UserForm
                                     ->label('Trial Ends At')
                                     ->type('datetime-local')
                                     ->nullable()
-                                    ->default(fn() => now()->startOfDay()->format('Y-m-d\TH:i'))
+                                    ->default(fn () => now()->startOfDay()->format('Y-m-d\TH:i'))
                                     ->prefixIcon('heroicon-o-calendar')
                                     ->helperText('Set when the user\'s trial period expires. Leave empty to cancel trial.')
                                     ->columnSpan(2),
@@ -166,7 +168,7 @@ class UserForm
                     ])
                     ->collapsible()
                     ->columnSpanFull()
-                    ->visible(fn() => Auth::user()?->hasRole('super-admin') ?? false),
+                    ->visible(fn () => Auth::user()?->hasRole('super-admin') ?? false),
 
             ]);
     }

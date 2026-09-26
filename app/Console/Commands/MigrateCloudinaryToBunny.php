@@ -35,7 +35,7 @@ class MigrateCloudinaryToBunny extends Command
         $deleteFromCloudinary = $this->option('delete');
         $lessonId = $this->option('lesson-id');
 
-        if (!$confirm) {
+        if (! $confirm) {
             $this->warn('DRY RUN MODE: No changes will be made. Use --confirm to actually migrate.');
             $this->newLine();
         }
@@ -52,11 +52,12 @@ class MigrateCloudinaryToBunny extends Command
 
         if ($lessons->isEmpty()) {
             $this->info('No Cloudinary videos found to migrate.');
+
             return self::SUCCESS;
         }
 
         $this->info("Found {$lessons->count()} video(s) to migrate");
-        if (!$confirm) {
+        if (! $confirm) {
             $this->newLine();
         }
 
@@ -72,9 +73,10 @@ class MigrateCloudinaryToBunny extends Command
                 $cloudinaryUrl = $videoService->getOptimizedUrl($lesson->video_url);
                 $this->line("  Original URL: {$cloudinaryUrl}");
 
-                if (!$confirm) {
+                if (! $confirm) {
                     $this->line('  [DRY RUN] Would upload to Bunny...');
                     $migrated++;
+
                     continue;
                 }
 
@@ -83,7 +85,7 @@ class MigrateCloudinaryToBunny extends Command
                 $videoData = $bunnyService->createVideo($lesson->title);
                 $videoId = $videoData['guid'] ?? $videoData['videoId'] ?? $videoData['id'] ?? null;
 
-                if (!$videoId) {
+                if (! $videoId) {
                     throw new \Exception('No video ID returned from Bunny');
                 }
 
@@ -97,7 +99,7 @@ class MigrateCloudinaryToBunny extends Command
                     $this->line('  Upload initiated on Bunny (processing in background)');
                 } catch (\Exception $uploadEx) {
                     // If fetch fails, throw error
-                    throw new \Exception('Upload to Bunny failed: ' . $uploadEx->getMessage());
+                    throw new \Exception('Upload to Bunny failed: '.$uploadEx->getMessage());
                 }
 
                 // Update lesson to use Bunny
@@ -108,7 +110,7 @@ class MigrateCloudinaryToBunny extends Command
                     'video_processed_at' => null,
                 ]);
 
-                $this->info("  ✓ Updated lesson to use Bunny");
+                $this->info('  ✓ Updated lesson to use Bunny');
 
                 // Optionally delete from Cloudinary
                 if ($deleteFromCloudinary) {
@@ -116,7 +118,7 @@ class MigrateCloudinaryToBunny extends Command
                         $videoService->delete($lesson->video_url);
                         $this->info('  ✓ Deleted from Cloudinary');
                     } catch (\Exception $deleteEx) {
-                        $this->warn('  ! Could not delete from Cloudinary: ' . $deleteEx->getMessage());
+                        $this->warn('  ! Could not delete from Cloudinary: '.$deleteEx->getMessage());
                     }
                 }
 
@@ -133,7 +135,7 @@ class MigrateCloudinaryToBunny extends Command
         $this->line("  Migrated: {$migrated}");
         $this->line("  Failed: {$failed}");
 
-        if (!$confirm) {
+        if (! $confirm) {
             $this->warn('\n\nRun with --confirm flag to actually perform the migration.');
         }
 

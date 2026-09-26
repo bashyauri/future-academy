@@ -334,7 +334,6 @@ class PaymentController extends Controller
         $authorizationCode = $data['authorization']['authorization_code'] ?? null;
         $customerCode = $data['customer']['customer_code'] ?? null;
 
-
         DB::transaction(function () use ($user, $reference, $plan, $type, $amount, $data, $subscriptionCode, $authorizationCode, $planCodeFromSession, $customerCode, $studentIdFromSession) {
             // Clear any active trial
             if ($user->trial_ends_at) {

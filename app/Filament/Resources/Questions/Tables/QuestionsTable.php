@@ -3,21 +3,22 @@
 namespace App\Filament\Resources\Questions\Tables;
 
 use App\Models\Question;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Select as FormSelect;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select as FormSelect;
-use Filament\Forms\Components\TextInput;
 
 class QuestionsTable
 {
@@ -38,25 +39,23 @@ class QuestionsTable
 
                         // Truncate if too long
                         if (strlen($text) > 60) {
-                            $text = substr($text, 0, 60) . '...';
+                            $text = substr($text, 0, 60).'...';
                         }
 
                         return "{$prefix}: {$text}";
                     })
-                    ->description(fn(Question $record): string =>
-                        $record->subject?->name . ($record->topic ? " › {$record->topic->name}" : '')
+                    ->description(fn (Question $record): string => $record->subject?->name.($record->topic ? " › {$record->topic->name}" : '')
                     )
                     ->searchable()
                     ->weight('medium')
                     ->wrap()
-                    ->tooltip(fn(Question $record): string =>
-                        "Q#{$record->id}\n\n{$record->question_text}"
+                    ->tooltip(fn (Question $record): string => "Q#{$record->id}\n\n{$record->question_text}"
                     ),
 
                 TextColumn::make('examType.name')
                     ->label('Exam')
                     ->badge()
-                    ->color(fn(Question $record) => $record->examType?->color ?? 'gray')
+                    ->color(fn (Question $record) => $record->examType?->color ?? 'gray')
                     ->searchable()
                     ->sortable(),
 
@@ -76,7 +75,7 @@ class QuestionsTable
                 TextColumn::make('difficulty')
                     ->label('Difficulty')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'easy' => 'success',
                         'medium' => 'warning',
                         'hard' => 'danger',
@@ -93,7 +92,7 @@ class QuestionsTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
@@ -149,14 +148,14 @@ class QuestionsTable
                         // Fallback to formatted upload_batch if no batch_name
                         if ($record->upload_batch && strlen($record->upload_batch) >= 10 && is_numeric(substr($record->upload_batch, 0, 10))) {
                             $timestamp = substr($record->upload_batch, 0, 10);
-                            $date = date('M d, Y H:i', (int)$timestamp);
+                            $date = date('M d, Y H:i', (int) $timestamp);
+
                             return $date;
                         }
 
                         return null;
                     })
-                    ->description(fn(Question $record): ?string =>
-                        $record->upload_batch ? "ID: ···" . substr($record->upload_batch, -8) : null
+                    ->description(fn (Question $record): ?string => $record->upload_batch ? 'ID: ···'.substr($record->upload_batch, -8) : null
                     )
                     ->searchable()
                     ->sortable()
@@ -227,6 +226,7 @@ class QuestionsTable
                         for ($y = date('Y'); $y >= 2000; $y--) {
                             $years[$y] = (string) $y;
                         }
+
                         return $years;
                     })
                     ->multiple(),
@@ -238,11 +238,11 @@ class QuestionsTable
                             ->select('batch_name', 'upload_batch', 'created_at')
                             ->where(function ($query) {
                                 $query->whereNotNull('batch_name')
-                                      ->orWhereNotNull('upload_batch');
+                                    ->orWhereNotNull('upload_batch');
                             })
                             ->orderByDesc('created_at')
                             ->get()
-                            ->unique(fn($q) => $q->batch_name ?: $q->upload_batch)
+                            ->unique(fn ($q) => $q->batch_name ?: $q->upload_batch)
                             ->mapWithKeys(function ($question) {
                                 if ($question->batch_name) {
                                     return [$question->batch_name => $question->batch_name];
@@ -251,7 +251,8 @@ class QuestionsTable
                                 // Fallback for old records without batch_name
                                 if ($question->upload_batch && strlen($question->upload_batch) >= 10 && is_numeric(substr($question->upload_batch, 0, 10))) {
                                     $timestamp = substr($question->upload_batch, 0, 10);
-                                    $date = date('M d, Y H:i', (int)$timestamp);
+                                    $date = date('M d, Y H:i', (int) $timestamp);
+
                                     return [$question->upload_batch => $date];
                                 }
 
@@ -285,21 +286,21 @@ class QuestionsTable
                     ->label('✓ Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn(Question $record) => $record->status === 'pending' && (\Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false))
+                    ->visible(fn (Question $record) => $record->status === 'pending' && (Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false))
                     ->requiresConfirmation()
                     ->modalHeading('✓ Approve This Question?')
                     ->modalDescription('This will mark the question as approved and make it available for use in quizzes.')
                     ->modalIcon('heroicon-o-check-circle')
                     ->modalIconColor('success')
                     ->action(function (Question $record) {
-                        $record->approve(\Filament\Facades\Filament::auth()->user());
+                        $record->approve(Filament::auth()->user());
                     }),
 
                 Action::make('reject')
                     ->label('✗ Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn(Question $record) => $record->status === 'pending' && (\Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false))
+                    ->visible(fn (Question $record) => $record->status === 'pending' && (Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false))
                     ->form([
                         Textarea::make('rejection_reason')
                             ->label('Why are you rejecting this question?')
@@ -312,7 +313,7 @@ class QuestionsTable
                     ->modalIcon('heroicon-o-x-circle')
                     ->modalIconColor('danger')
                     ->action(function (Question $record, array $data) {
-                        $record->reject(\Filament\Facades\Filament::auth()->user(), $data['rejection_reason']);
+                        $record->reject(Filament::auth()->user(), $data['rejection_reason']);
                     }),
 
                 DeleteAction::make()
@@ -320,7 +321,7 @@ class QuestionsTable
                     ->modalHeading('Delete Question Permanently?')
                     ->modalDescription('This action cannot be undone. The question and all its options will be permanently deleted.')
                     ->icon('heroicon-o-trash')
-                    ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasRole('super-admin') ?? false),
+                    ->visible(fn () => Filament::auth()->user()?->hasRole('super-admin') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -328,7 +329,7 @@ class QuestionsTable
                         ->label('✓ Approve Selected')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
+                        ->visible(fn () => Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
                         ->requiresConfirmation()
                         ->modalHeading('Approve Multiple Questions')
                         ->modalDescription('This will approve all selected pending questions.')
@@ -337,7 +338,7 @@ class QuestionsTable
                         ->action(function ($records) {
                             foreach ($records as $record) {
                                 if ($record->status === 'pending') {
-                                    $record->approve(\Filament\Facades\Filament::auth()->user());
+                                    $record->approve(Filament::auth()->user());
                                 }
                             }
                         })
@@ -345,13 +346,13 @@ class QuestionsTable
                         ->deselectRecordsAfterCompletion(),
 
                     DeleteBulkAction::make()
-                        ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasRole('super-admin') ?? false),
+                        ->visible(fn () => Filament::auth()->user()?->hasRole('super-admin') ?? false),
 
                     Action::make('approveBatch')
                         ->label('Approve Batch')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
+                        ->visible(fn () => Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
                         ->form([
                             TextInput::make('upload_batch')
                                 ->label('Upload Batch')
@@ -367,14 +368,15 @@ class QuestionsTable
                         ->action(function (array $data) {
                             $batch = trim($data['upload_batch'] ?? '');
                             if ($batch === '') {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->danger()
                                     ->title('Batch ID is required')
                                     ->send();
+
                                 return;
                             }
 
-                            $user = \Filament\Facades\Filament::auth()->user();
+                            $user = Filament::auth()->user();
                             $query = Question::query()
                                 ->where('upload_batch', $batch)
                                 ->where('status', 'pending');
@@ -382,16 +384,17 @@ class QuestionsTable
                             $count = $query->count();
 
                             if ($count === 0) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->danger()
                                     ->title('No pending questions found for this batch')
                                     ->send();
+
                                 return;
                             }
 
-                            $query->each(fn(Question $question) => $question->approve($user));
+                            $query->each(fn (Question $question) => $question->approve($user));
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Batch approved')
                                 ->body("Approved {$count} pending questions in batch {$batch}.")
@@ -403,7 +406,7 @@ class QuestionsTable
                         ->label('Reject Batch')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
+                        ->visible(fn () => Filament::auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false)
                         ->form([
                             TextInput::make('upload_batch')
                                 ->label('Upload Batch')
@@ -425,14 +428,15 @@ class QuestionsTable
                         ->action(function (array $data) {
                             $batch = trim($data['upload_batch'] ?? '');
                             if ($batch === '') {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->danger()
                                     ->title('Batch ID is required')
                                     ->send();
+
                                 return;
                             }
 
-                            $user = \Filament\Facades\Filament::auth()->user();
+                            $user = Filament::auth()->user();
                             $query = Question::query()
                                 ->where('upload_batch', $batch)
                                 ->where('status', 'pending');
@@ -440,16 +444,17 @@ class QuestionsTable
                             $count = $query->count();
 
                             if ($count === 0) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->danger()
                                     ->title('No pending questions found for this batch')
                                     ->send();
+
                                 return;
                             }
 
-                            $query->each(fn(Question $question) => $question->reject($user, $data['rejection_reason']));
+                            $query->each(fn (Question $question) => $question->reject($user, $data['rejection_reason']));
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Batch rejected')
                                 ->body("Rejected {$count} pending questions in batch {$batch}.")
@@ -461,7 +466,7 @@ class QuestionsTable
                         ->label('Bulk Delete by Criteria')
                         ->icon('heroicon-o-trash')
                         ->color('danger')
-                        ->visible(fn() => \Filament\Facades\Filament::auth()->user()?->hasRole('super-admin') ?? false)
+                        ->visible(fn () => Filament::auth()->user()?->hasRole('super-admin') ?? false)
                         ->form([
                             FormSelect::make('exam_type_id')
                                 ->label('Exam Type')
@@ -509,6 +514,7 @@ class QuestionsTable
                                     for ($y = date('Y'); $y >= 2000; $y--) {
                                         $years[$y] = (string) $y;
                                     }
+
                                     return $years;
                                 })
                                 ->placeholder('Any'),
@@ -526,7 +532,7 @@ class QuestionsTable
                             $query = Question::query();
 
                             foreach (['exam_type_id', 'subject_id', 'topic_id', 'difficulty', 'status', 'year', 'upload_batch'] as $field) {
-                                if (!empty($data[$field])) {
+                                if (! empty($data[$field])) {
                                     $query->where($field, $data[$field]);
                                 }
                             }
@@ -534,16 +540,17 @@ class QuestionsTable
                             $count = $query->count();
 
                             if ($count === 0) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->danger()
                                     ->title('No questions matched the criteria')
                                     ->send();
+
                                 return;
                             }
 
                             $query->delete();
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Questions deleted')
                                 ->body("Deleted {$count} questions matching the criteria.")

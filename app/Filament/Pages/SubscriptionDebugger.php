@@ -40,9 +40,13 @@ class SubscriptionDebugger extends Page
     }
 
     public ?string $filterType = 'all';
+
     public ?string $selectedCode = null;
+
     public ?string $debugOutput = null;
+
     public array $subscriptions = [];
+
     public array $stats = [];
 
     public static function canAccess(): bool
@@ -65,7 +69,7 @@ class SubscriptionDebugger extends Page
         } elseif ($this->filterType === 'inactive') {
             $query->where(function ($q) {
                 $q->where('status', '!=', 'active')
-                  ->orWhere('is_active', false);
+                    ->orWhere('is_active', false);
             });
         }
 
@@ -89,12 +93,12 @@ class SubscriptionDebugger extends Page
 
     public function syncSubscriptions(): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         try {
-            $buffer = new BufferedOutput();
+            $buffer = new BufferedOutput;
             Artisan::call('subscriptions:sync-codes', ['--force' => true], $buffer);
             $output = $buffer->fetch();
 
@@ -106,7 +110,7 @@ class SubscriptionDebugger extends Page
                 ->success()
                 ->send();
         } catch (\Throwable $e) {
-            $this->debugOutput = 'Error: ' . $e->getMessage();
+            $this->debugOutput = 'Error: '.$e->getMessage();
 
             Notification::make()
                 ->title('Sync Failed')
@@ -122,12 +126,13 @@ class SubscriptionDebugger extends Page
     {
         $subscription = Subscription::where('subscription_code', $code)->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             $this->debugOutput = "❌ Subscription not found with code: {$code}";
+
             return;
         }
 
-        $studentName = $subscription->student?->name ?? ($subscription->student_id ? 'Unknown (ID: ' . $subscription->student_id . ')' : 'None');
+        $studentName = $subscription->student?->name ?? ($subscription->student_id ? 'Unknown (ID: '.$subscription->student_id.')' : 'None');
 
         $this->debugOutput = json_encode([
             'id' => $subscription->id,
@@ -148,19 +153,20 @@ class SubscriptionDebugger extends Page
 
     public function activateSubscription(int $id): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         /** @var Subscription|null $subscription */
         $subscription = Subscription::find($id);
 
-        if (!$subscription) {
+        if (! $subscription) {
             Notification::make()
                 ->title('Not Found')
                 ->body('Subscription not found.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -184,19 +190,20 @@ class SubscriptionDebugger extends Page
 
     public function deleteSubscription(int $id): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         /** @var Subscription|null $subscription */
         $subscription = Subscription::find($id);
 
-        if (!$subscription) {
+        if (! $subscription) {
             Notification::make()
                 ->title('Not Found')
                 ->body('Subscription not found.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -217,19 +224,20 @@ class SubscriptionDebugger extends Page
 
     public function cancelSubscription(int $id): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403);
         }
 
         /** @var Subscription|null $subscription */
         $subscription = Subscription::find($id);
 
-        if (!$subscription) {
+        if (! $subscription) {
             Notification::make()
                 ->title('Not Found')
                 ->body('Subscription not found.')
                 ->danger()
                 ->send();
+
             return;
         }
 

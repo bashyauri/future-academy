@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Subject;
 use App\Models\Topic;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -55,7 +54,7 @@ class TopicSeeder extends Seeder
 
         foreach ($topics as $subjectSlug => $topicNames) {
             $subject = Subject::where('slug', $subjectSlug)->first();
-            
+
             if ($subject) {
                 foreach ($topicNames as $index => $topicName) {
                     Topic::updateOrCreate(

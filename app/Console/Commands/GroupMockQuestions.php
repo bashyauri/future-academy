@@ -38,6 +38,7 @@ class GroupMockQuestions extends Command
 
         if ($subjects->isEmpty() || $examTypes->isEmpty()) {
             $this->warn('No subjects or exam types found.');
+
             return;
         }
 
@@ -58,4 +59,3 @@ class GroupMockQuestions extends Command
         $this->info("✓ Successfully grouped {$totalGrouped} mock questions!");
     }
 }
-

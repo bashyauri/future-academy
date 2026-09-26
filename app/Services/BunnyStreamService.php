@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Log;
 class BunnyStreamService
 {
     private string $baseUrl;
+
     private string $libraryId;
+
     private string $apiKey;
+
     private string $embedBaseUrl;
+
     private ?string $embedTokenKey;
 
     public function __construct()
@@ -39,7 +43,7 @@ class BunnyStreamService
             'thumbnailTime' => $thumbnailTime,
         ], fn ($value) => $value !== null);
 
-        $url = $this->baseUrl . "/library/{$this->libraryId}/videos";
+        $url = $this->baseUrl."/library/{$this->libraryId}/videos";
         Log::info('BunnyStreamService: API Request', ['url' => $url, 'payload' => $payload]);
 
         $response = Http::withHeaders([
@@ -53,12 +57,12 @@ class BunnyStreamService
             'body' => $response->body(),
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::error('BunnyStreamService: Create video failed', [
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
-            throw new \RuntimeException('Bunny Stream create video failed: ' . $response->body());
+            throw new \RuntimeException('Bunny Stream create video failed: '.$response->body());
         }
 
         $result = (array) $response->json();
@@ -85,7 +89,7 @@ class BunnyStreamService
         $contents = file_get_contents($file->getRealPath());
         Log::info('BunnyStreamService: File contents read', ['content_length' => strlen($contents)]);
 
-        $url = $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}";
+        $url = $this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}";
         $mimeType = $file->getMimeType() ?: 'application/octet-stream';
 
         Log::info('BunnyStreamService: Uploading to Bunny', [
@@ -106,13 +110,13 @@ class BunnyStreamService
             'body' => $response->body(),
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::error('BunnyStreamService: Upload failed', [
                 'video_id' => $videoId,
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
-            throw new \RuntimeException('Bunny Stream upload failed: ' . $response->body());
+            throw new \RuntimeException('Bunny Stream upload failed: '.$response->body());
         }
 
         Log::info('BunnyStreamService: Video uploaded successfully', ['video_id' => $videoId]);
@@ -130,10 +134,10 @@ class BunnyStreamService
         $response = Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->post($this->baseUrl . "/library/{$this->libraryId}/videos/fetch", $payload);
+        ])->post($this->baseUrl."/library/{$this->libraryId}/videos/fetch", $payload);
 
-        if (!$response->successful()) {
-            throw new \RuntimeException('Bunny Stream fetch failed: ' . $response->body());
+        if (! $response->successful()) {
+            throw new \RuntimeException('Bunny Stream fetch failed: '.$response->body());
         }
 
         return (array) $response->json();
@@ -146,9 +150,9 @@ class BunnyStreamService
         $response = Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->get($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}");
+        ])->get($this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}");
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
@@ -158,10 +162,10 @@ class BunnyStreamService
     public function getEmbedUrl(string $videoId, ?int $expiresSeconds = null): string
     {
         $base = rtrim($this->embedBaseUrl, '/');
-        $url = $base . "/{$this->libraryId}/{$videoId}";
+        $url = $base."/{$this->libraryId}/{$videoId}";
 
         if ($this->embedTokenKey && $expiresSeconds) {
-            $token = hash('sha256', $this->embedTokenKey . $videoId . $expiresSeconds);
+            $token = hash('sha256', $this->embedTokenKey.$videoId.$expiresSeconds);
             $url .= "?token={$token}&expires={$expiresSeconds}";
         }
 
@@ -173,7 +177,7 @@ class BunnyStreamService
      */
     public function getThumbnailUrl(string $videoId): string
     {
-        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/thumbnail.jpg";
+        return $this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}/thumbnail.jpg";
     }
 
     /**
@@ -181,7 +185,7 @@ class BunnyStreamService
      */
     public function getPreviewAnimationUrl(string $videoId): string
     {
-        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/preview.webp";
+        return $this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}/preview.webp";
     }
 
     /**
@@ -189,7 +193,7 @@ class BunnyStreamService
      */
     public function getDirectPlayUrl(string $videoId): string
     {
-        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/play.mp4";
+        return $this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}/play.mp4";
     }
 
     /**
@@ -197,7 +201,7 @@ class BunnyStreamService
      */
     public function getHlsPlaylistUrl(string $videoId): string
     {
-        return $this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/playlist.m3u8";
+        return $this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}/playlist.m3u8";
     }
 
     public function deleteVideo(string $videoId): void
@@ -207,7 +211,7 @@ class BunnyStreamService
         Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->delete($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}");
+        ])->delete($this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}");
     }
 
     /**
@@ -222,13 +226,14 @@ class BunnyStreamService
         $response = Http::withHeaders([
             'AccessKey' => $this->apiKey,
             'Accept' => 'application/json',
-        ])->get($this->baseUrl . "/library/{$this->libraryId}/videos/{$videoId}/statistics");
+        ])->get($this->baseUrl."/library/{$this->libraryId}/videos/{$videoId}/statistics");
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             \Log::warning('Failed to fetch Bunny video stats', [
                 'video_id' => $videoId,
                 'status' => $response->status(),
             ]);
+
             return null;
         }
 
@@ -242,9 +247,11 @@ class BunnyStreamService
     {
         try {
             $stats = $this->getVideoStats($videoId);
+
             return $stats['views'] ?? $stats['viewCount'] ?? 0;
         } catch (\Exception $e) {
             \Log::error('Error fetching video view count', ['error' => $e->getMessage()]);
+
             return 0;
         }
     }
@@ -268,6 +275,7 @@ class BunnyStreamService
                 'input' => $videoInput,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -293,7 +301,7 @@ class BunnyStreamService
 
     private function assertConfigured(): void
     {
-        if (!$this->libraryId || !$this->apiKey) {
+        if (! $this->libraryId || ! $this->apiKey) {
             throw new \RuntimeException('Bunny Stream is not configured. Set BUNNY_STREAM_LIBRARY_ID and BUNNY_STREAM_API_KEY.');
         }
     }

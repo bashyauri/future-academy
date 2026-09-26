@@ -16,7 +16,7 @@ class ListUsers extends ListRecords
             CreateAction::make()
                 ->icon('heroicon-o-plus-circle')
                 ->label('Add New User')
-                ->visible(fn() => auth()->user()?->can('manage users') ?? false),
+                ->visible(fn () => auth()->user()?->can('manage users') ?? false),
         ];
     }
 

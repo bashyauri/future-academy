@@ -23,7 +23,7 @@ class EditRole extends EditRecord
 
     public function getSubheading(): ?string
     {
-        return "Update role permissions and settings.";
+        return 'Update role permissions and settings.';
     }
 
     protected function getHeaderActions(): array
@@ -35,8 +35,9 @@ class EditRole extends EditRecord
                 ->icon('heroicon-o-trash')
                 ->visible(function (): bool {
                     $protectedRoles = ['super-admin', 'admin', 'teacher', 'uploader', 'guardian', 'student'];
+
                     return auth()->user()?->hasRole('super-admin')
-                        && !in_array($this->record->name, $protectedRoles);
+                        && ! in_array($this->record->name, $protectedRoles);
                 })
                 ->requiresConfirmation()
                 ->modalDescription('Are you sure you want to delete this role? Users with this role will lose their permissions.'),
@@ -50,7 +51,7 @@ class EditRole extends EditRecord
         Notification::make()
             ->success()
             ->title('Role updated successfully!')
-            ->body("Changes to '{$record->name}' have been saved. It now has " . $record->permissions()->count() . " permissions.")
+            ->body("Changes to '{$record->name}' have been saved. It now has ".$record->permissions()->count().' permissions.')
             ->send();
     }
 

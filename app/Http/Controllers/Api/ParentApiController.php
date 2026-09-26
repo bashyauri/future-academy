@@ -2,20 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\QuizType;
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Quiz;
+use App\Models\Subject;
+use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoAnalytics;
-use App\Models\Subscription;
-use App\Models\Subject;
-use App\Enums\QuizType;
-use Illuminate\Http\Request;
+use App\Services\AnalyticsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class ParentApiController extends Controller
 {
@@ -26,7 +25,7 @@ class ParentApiController extends Controller
     {
         $parent = $request->user();
 
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized. Parent account required.'], 403);
         }
 
@@ -79,28 +78,28 @@ class ParentApiController extends Controller
 
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
             $totalVideos = Video::where('is_published', true)->count();
-            
+
             $quizzesTaken = $child->quizAttempts()->where('status', 'completed')->count();
             $totalQuizzes = Quiz::where('status', 'published')->count();
-            
+
             $childAvgScore = $child->quizAttempts()
                 ->where('status', 'completed')
                 ->avg('score_percentage') ?? 0;
-                
+
             $mockExamsTaken = $child->quizAttempts()
                 ->whereHas('quiz', function ($query) {
                     $query->where('type', QuizType::Mock->value);
                 })
                 ->where('status', 'completed')
                 ->count();
-                
+
             $bestMock = $child->quizAttempts()
                 ->whereHas('quiz', function ($query) {
                     $query->where('type', QuizType::Mock->value);
                 })
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
-                
+
             $subjectsEnrolled = $child->enrolledSubjects()->count();
             $hasActiveSubscription = $child->hasActiveSubscription();
 
@@ -154,8 +153,8 @@ class ParentApiController extends Controller
                 'id' => $child->id,
                 'name' => $child->name,
                 'email' => $child->email,
-                'has_completed_onboarding' => (bool)$child->has_completed_onboarding,
-                'email_verified' => !is_null($child->email_verified_at),
+                'has_completed_onboarding' => (bool) $child->has_completed_onboarding,
+                'email_verified' => ! is_null($child->email_verified_at),
                 'enrolled_subjects_count' => $subjectsEnrolled,
                 'has_active_subscription' => $hasActiveSubscription,
                 'parent_paid' => $parentPaidForStudent,
@@ -230,7 +229,7 @@ class ParentApiController extends Controller
                 'stats' => $combinedStats,
                 'children' => $childrenStats,
                 'subscriptions' => $formattedSubscriptions,
-                'unassigned_subscriptions' => $unassignedSubscriptions->map(fn($sub) => [
+                'unassigned_subscriptions' => $unassignedSubscriptions->map(fn ($sub) => [
                     'id' => $sub->id,
                     'plan' => $sub->plan,
                     'amount' => $sub->amount,
@@ -248,7 +247,7 @@ class ParentApiController extends Controller
     {
         $parent = $request->user();
 
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized. Parent account required.'], 403);
         }
 
@@ -262,7 +261,7 @@ class ParentApiController extends Controller
 
         $student = User::where('email', $request->email)->first();
 
-        if (!$student || !$student->isStudent()) {
+        if (! $student || ! $student->isStudent()) {
             return response()->json(['message' => 'Student not found.'], 404);
         }
 
@@ -303,7 +302,7 @@ class ParentApiController extends Controller
     {
         $parent = $request->user();
 
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized. Parent account required.'], 403);
         }
 
@@ -355,13 +354,13 @@ class ParentApiController extends Controller
     {
         $parent = $request->user();
 
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized. Parent account required.'], 403);
         }
 
         $student = $parent->children()->where('users.id', $studentId)->first();
 
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Student not found or not linked.'], 404);
         }
 
@@ -374,7 +373,7 @@ class ParentApiController extends Controller
         );
 
         return response()->json([
-            'message' => 'Invitation email resent to ' . $student->email,
+            'message' => 'Invitation email resent to '.$student->email,
         ]);
     }
 
@@ -384,7 +383,7 @@ class ParentApiController extends Controller
     private function checkChildAccess(User $parent, $studentId): ?User
     {
         $student = $parent->children()->where('users.id', $studentId)->first();
-        if (!$student) {
+        if (! $student) {
             return null;
         }
 
@@ -396,7 +395,7 @@ class ParentApiController extends Controller
 
         $showProgressMetrics = $parent->hasAnyRole(['super-admin', 'admin']);
 
-        if (!$showProgressMetrics && !$parentPaidForStudent) {
+        if (! $showProgressMetrics && ! $parentPaidForStudent) {
             return null;
         }
 
@@ -406,16 +405,16 @@ class ParentApiController extends Controller
     public function studentOverview(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $this->checkChildAccess($parent, $studentId);
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Unauthorized or payment required.'], 403);
         }
 
-        $overview = app(\App\Services\AnalyticsService::class)->getUserOverview($student);
+        $overview = app(AnalyticsService::class)->getUserOverview($student);
 
         return response()->json([
             'message' => 'Analytics overview retrieved successfully',
@@ -426,16 +425,16 @@ class ParentApiController extends Controller
     public function studentSubjectPerformance(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $this->checkChildAccess($parent, $studentId);
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Unauthorized or payment required.'], 403);
         }
 
-        $performance = app(\App\Services\AnalyticsService::class)->getSubjectPerformance($student);
+        $performance = app(AnalyticsService::class)->getSubjectPerformance($student);
 
         return response()->json([
             'message' => 'Subject performance retrieved successfully',
@@ -446,17 +445,17 @@ class ParentApiController extends Controller
     public function studentQuizHistory(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $this->checkChildAccess($parent, $studentId);
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Unauthorized or payment required.'], 403);
         }
 
         $limit = $request->get('limit', 10);
-        $history = app(\App\Services\AnalyticsService::class)->getQuizHistory($student, $limit);
+        $history = app(AnalyticsService::class)->getQuizHistory($student, $limit);
 
         return response()->json([
             'message' => 'Quiz history retrieved successfully',
@@ -467,16 +466,16 @@ class ParentApiController extends Controller
     public function studentStudyStreak(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $this->checkChildAccess($parent, $studentId);
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Unauthorized or payment required.'], 403);
         }
 
-        $streak = app(\App\Services\AnalyticsService::class)->calculateStudyStreak($student);
+        $streak = app(AnalyticsService::class)->calculateStudyStreak($student);
 
         return response()->json([
             'message' => 'Study streak retrieved successfully',
@@ -493,18 +492,19 @@ class ParentApiController extends Controller
     public function studentSubjects(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $parent->children()->where('users.id', $studentId)->first();
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Student not found.'], 404);
         }
 
         // Get all active subjects
-        $subjects = Subject::where('is_active', true)->get()->map(function($subject) use ($student) {
+        $subjects = Subject::where('is_active', true)->get()->map(function ($subject) use ($student) {
             $isEnrolled = $student->enrolledSubjects()->where('subjects.id', $subject->id)->exists();
+
             return [
                 'id' => $subject->id,
                 'name' => $subject->name,
@@ -526,12 +526,12 @@ class ParentApiController extends Controller
     public function studentUpdateEnrollment(Request $request, $studentId): JsonResponse
     {
         $parent = $request->user();
-        if (!$parent->isParent()) {
+        if (! $parent->isParent()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $student = $parent->children()->where('users.id', $studentId)->first();
-        if (!$student) {
+        if (! $student) {
             return response()->json(['message' => 'Student not found.'], 404);
         }
 

@@ -9,6 +9,7 @@ use App\Filament\Resources\Quizzes\Schemas\QuizForm;
 use App\Filament\Resources\Quizzes\Tables\QuizzesTable;
 use App\Models\Quiz;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -30,7 +31,8 @@ class QuizResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return (bool) $user?->hasAnyPermission([
             'view quizzes',
             'create quizzes',
@@ -40,22 +42,22 @@ class QuizResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('view quizzes') ?? false;
+        return Filament::auth()->user()?->can('view quizzes') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('create quizzes') ?? false;
+        return Filament::auth()->user()?->can('create quizzes') ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('edit quizzes') ?? false;
+        return Filament::auth()->user()?->can('edit quizzes') ?? false;
     }
 
     public static function canDelete($record): bool
     {
-        return \Filament\Facades\Filament::auth()->user()?->can('delete quizzes') ?? false;
+        return Filament::auth()->user()?->can('delete quizzes') ?? false;
     }
 
     public static function form(Schema $schema): Schema

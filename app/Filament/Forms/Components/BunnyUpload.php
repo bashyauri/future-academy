@@ -21,4 +21,3 @@ class BunnyUpload extends Field
         return [];
     }
 }
-

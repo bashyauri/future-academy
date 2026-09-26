@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -15,81 +15,81 @@ return new class extends Migration
         // Add indexes to questions table for faster filtering
         try {
             DB::statement('ALTER TABLE questions ADD INDEX idx_subject_id (subject_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE questions ADD INDEX idx_is_active (is_active)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE questions ADD INDEX idx_status (status)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE questions ADD INDEX idx_is_mock (is_mock)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE questions ADD INDEX idx_subject_active_status_mock (subject_id, is_active, status, is_mock)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         // Add indexes to user_answers table for faster lookups
         try {
             DB::statement('ALTER TABLE user_answers ADD INDEX idx_qa_attempt (quiz_attempt_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE user_answers ADD INDEX idx_question_id (question_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE user_answers ADD INDEX idx_user_id (user_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE user_answers ADD INDEX idx_qa_attempt_question (quiz_attempt_id, question_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         // Add indexes to quiz_attempts table
         try {
             DB::statement('ALTER TABLE quiz_attempts ADD INDEX idx_user_id (user_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE quiz_attempts ADD INDEX idx_exam_type_id (exam_type_id)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE quiz_attempts ADD INDEX idx_status (status)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
 
         try {
             DB::statement('ALTER TABLE quiz_attempts ADD INDEX idx_user_status (user_id, status)');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index already exists
         }
     }

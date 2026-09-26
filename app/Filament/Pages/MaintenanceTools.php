@@ -3,13 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Enums\MaintenanceCommandType;
-use App\Models\MaintenanceAction;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Console\Output\BufferedOutput;
+use Illuminate\Support\Facades\Http;
 
 class MaintenanceTools extends Page
 {
@@ -32,6 +30,7 @@ class MaintenanceTools extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+
         return $user && $user->hasRole('super-admin');
     }
 
@@ -41,6 +40,7 @@ class MaintenanceTools extends Page
         foreach (MaintenanceCommandType::cases() as $commandType) {
             $commands[$commandType->value] = $commandType->label();
         }
+
         return $commands;
     }
 
@@ -60,6 +60,7 @@ class MaintenanceTools extends Page
 
         if (! $commandType) {
             $this->output = "Command not allowed: {$command}";
+
             return;
         }
 
@@ -68,10 +69,10 @@ class MaintenanceTools extends Page
         try {
             // Use HTTP request for shared hosting compatibility
             $token = config('app.artisan_token');
-            $url = route('artisan.execute', ['command' => $command]) . '?token=' . $token;
+            $url = route('artisan.execute', ['command' => $command]).'?token='.$token;
 
             // Make HTTP request to execute command
-            $response = \Illuminate\Support\Facades\Http::timeout(120)->get($url);
+            $response = Http::timeout(120)->get($url);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -85,8 +86,8 @@ class MaintenanceTools extends Page
                     ->send();
             } else {
                 $data = $response->json();
-                $errorMessage = $data['error'] ?? $data['message'] ?? 'Command failed with status: ' . $response->status();
-                $this->output = "Status: {$response->status()}\n\n{$errorMessage}\n\nResponse:\n" . json_encode($data, JSON_PRETTY_PRINT);
+                $errorMessage = $data['error'] ?? $data['message'] ?? 'Command failed with status: '.$response->status();
+                $this->output = "Status: {$response->status()}\n\n{$errorMessage}\n\nResponse:\n".json_encode($data, JSON_PRETTY_PRINT);
                 $this->lastRunAt = now()->toDateTimeString();
 
                 Notification::make()
@@ -96,7 +97,7 @@ class MaintenanceTools extends Page
                     ->send();
             }
         } catch (\Throwable $e) {
-            $this->output = 'Error: ' . $e->getMessage() . "\n\nTrace:\n" . $e->getTraceAsString();
+            $this->output = 'Error: '.$e->getMessage()."\n\nTrace:\n".$e->getTraceAsString();
             $this->lastRunAt = now()->toDateTimeString();
 
             Notification::make()

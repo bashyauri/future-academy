@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 class SyncBunnyVideoAnalytics extends Command
 {
     protected $signature = 'bunny:sync-analytics {--lesson-id= : Sync specific lesson, or all if not provided} {--force : Force sync even if recently synced}';
+
     protected $description = 'Sync video analytics data from Bunny Stream API to local video_analytics table';
 
     protected BunnyStreamService $bunnyService;
@@ -41,6 +42,7 @@ class SyncBunnyVideoAnalytics extends Command
 
             if ($lessons->isEmpty()) {
                 $this->warn('No Bunny videos found to sync');
+
                 return 0;
             }
 
@@ -56,9 +58,10 @@ class SyncBunnyVideoAnalytics extends Command
                         ->where('last_synced_at', '>', now()->subHour())
                         ->first();
 
-                    if ($existingAnalytics && !$force) {
+                    if ($existingAnalytics && ! $force) {
                         $this->line("⊘ Skipped (recently synced): {$lesson->title}");
                         $skippedCount++;
+
                         continue;
                     }
 
@@ -66,14 +69,16 @@ class SyncBunnyVideoAnalytics extends Command
                     $syncedCount++;
                     $this->line("✓ Synced: {$lesson->title}");
                 } catch (\Exception $e) {
-                    $this->error("✗ Failed to sync {$lesson->title}: " . $e->getMessage());
+                    $this->error("✗ Failed to sync {$lesson->title}: ".$e->getMessage());
                 }
             }
 
             $this->info("\n✅ Completed! Synced {$syncedCount} video(s), Skipped {$skippedCount}");
+
             return 0;
         } catch (\Exception $e) {
-            $this->error('Error: ' . $e->getMessage());
+            $this->error('Error: '.$e->getMessage());
+
             return 1;
         }
     }
@@ -86,8 +91,9 @@ class SyncBunnyVideoAnalytics extends Command
         // Get video stats from Bunny using their API
         $stats = $this->bunnyService->getVideoStats($lesson->video_url);
 
-        if (!$stats) {
+        if (! $stats) {
             \Log::warning('Could not fetch Bunny stats', ['video_id' => $lesson->video_url]);
+
             return;
         }
 

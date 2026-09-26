@@ -47,7 +47,7 @@ class EnsureAdminAccess
         }
 
         // Grant if user has ANY of the qualifying admin perms
-        $hasAccess = collect($this->adminPermissions)->contains(fn($perm) => $user->hasPermissionTo($perm));
+        $hasAccess = collect($this->adminPermissions)->contains(fn ($perm) => $user->hasPermissionTo($perm));
 
         if (! $hasAccess) {
             // Redirect to appropriate dashboard instead of showing 403

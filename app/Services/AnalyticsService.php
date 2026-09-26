@@ -29,32 +29,32 @@ class AnalyticsService
      */
     public function getSubjectPerformance(User $user): array
     {
-       $performance = QuizAttempt::where('user_id', $user->id)
-    ->whereNotNull('subject_id')
-    ->selectRaw('
+        $performance = QuizAttempt::where('user_id', $user->id)
+            ->whereNotNull('subject_id')
+            ->selectRaw('
         subject_id,
         COUNT(*) as total_attempts,
         AVG(score_percentage) as avg_score,
         MAX(score_percentage) as best_score,
         SUM(time_taken_seconds) as total_time
     ')
-    ->groupBy('subject_id')
-    ->get();
+            ->groupBy('subject_id')
+            ->get();
 
-return $performance->map(function ($item) {
+        return $performance->map(function ($item) {
 
-    $subject = Subject::find($item->subject_id);
+            $subject = Subject::find($item->subject_id);
 
-    return [
-        'subject_id' => $item->subject_id,
-        'subject_name' => $subject?->name,
-        'subject_code' => $subject?->code,
-        'total_attempts' => (int) $item->total_attempts,
-        'average_score' => round($item->avg_score ?? 0, 2),
-        'best_score' => round($item->best_score ?? 0, 2),
-        'total_time_spent_seconds' => (int) $item->total_time,
-    ];
-})->toArray();
+            return [
+                'subject_id' => $item->subject_id,
+                'subject_name' => $subject?->name,
+                'subject_code' => $subject?->code,
+                'total_attempts' => (int) $item->total_attempts,
+                'average_score' => round($item->avg_score ?? 0, 2),
+                'best_score' => round($item->best_score ?? 0, 2),
+                'total_time_spent_seconds' => (int) $item->total_time,
+            ];
+        })->toArray();
     }
 
     /**
@@ -62,23 +62,23 @@ return $performance->map(function ($item) {
      */
     public function getQuizHistory(User $user, int $limit = 10): array
     {
-       return QuizAttempt::where('user_id', $user->id)
-    ->with(['subject', 'quiz'])
-    ->latest()
-    ->limit($limit)
-    ->get()
-    ->map(function ($attempt) {
+        return QuizAttempt::where('user_id', $user->id)
+            ->with(['subject', 'quiz'])
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->map(function ($attempt) {
 
-        return [
-            'id' => $attempt->id,
-            'quiz_type' => $attempt->quiz?->title ?? 'Quiz',
-            'subject_name' => $attempt->subject?->name,
-            'score' => $attempt->score_percentage,
-            'total_questions' => $attempt->total_questions ?? 0,
-            'completed_at' => $attempt->completed_at?->toIso8601String(),
-        ];
-    })
-    ->toArray();
+                return [
+                    'id' => $attempt->id,
+                    'quiz_type' => $attempt->quiz?->title ?? 'Quiz',
+                    'subject_name' => $attempt->subject?->name,
+                    'score' => $attempt->score_percentage,
+                    'total_questions' => $attempt->total_questions ?? 0,
+                    'completed_at' => $attempt->completed_at?->toIso8601String(),
+                ];
+            })
+            ->toArray();
     }
 
     /**

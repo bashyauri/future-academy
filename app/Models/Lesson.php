@@ -99,6 +99,11 @@ class Lesson extends Model
 
     public function canUserAccess(User $user): bool
     {
+        // Super-admins have unrestricted access to all content
+        if ($user->hasRole('super-admin')) {
+            return true;
+        }
+
         if ($this->is_free) {
             return true;
         }

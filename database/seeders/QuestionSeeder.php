@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\ExamType;
 use App\Models\Question;
 use App\Models\Subject;
-use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -19,13 +18,15 @@ class QuestionSeeder extends Seeder
         // Check if questions already exist
         if (Question::count() > 0) {
             $this->command->info('Questions already exist. Skipping QuestionSeeder.');
+
             return;
         }
 
         $admin = User::first();
 
-        if (!$admin) {
+        if (! $admin) {
             $this->command->error('No admin user found. Run RolePermissionSeeder first.');
+
             return;
         }
 
@@ -39,8 +40,9 @@ class QuestionSeeder extends Seeder
         $jambExam = ExamType::where('name', 'JAMB UTME')->first();
         $waecExam = ExamType::where('name', 'WAEC')->first();
 
-        if (!$mathSubject || !$jambExam) {
+        if (! $mathSubject || ! $jambExam) {
             $this->command->error('Required subjects or exam types not found. Run SubjectTopicSeeder first.');
+
             return;
         }
 

@@ -15,25 +15,45 @@ use Livewire\Component;
 class JambQuiz extends Component
 {
     public $year = null;
+
     public $subjects = null;
+
     public $subjectIds = [];
+
     public $subjectsData = [];
+
     public $questionsBySubject = [];
+
     public $currentSubjectIndex = 0;
+
     public $currentQuestionIndex = 0;
+
     public $userAnswers = [];
+
     public $showResults = false;
+
     public $quizAttemptId = null;
+
     public $timeRemaining;
+
     public $timeLimit = null;
+
     public $timerStartedAt;
+
     public $questionsPerSubject = 40;
+
     public $showAnswersImmediately = false;
+
     public $showExplanations = false;
+
     public $shuffleQuestions = true;
+
     public $showReview = false;
+
     public ?QuizAttempt $attempt = null;
+
     public array $questionOrder = [];
+
     public bool $positionCacheDebounce = false;
 
     public function mount()
@@ -48,7 +68,7 @@ class JambQuiz extends Component
         } else {
             $this->timeLimit = null;
         }
-        $this->questionsPerSubject = (int)(request()->query('questionsPerSubject') ?? 40);
+        $this->questionsPerSubject = (int) (request()->query('questionsPerSubject') ?? 40);
         $this->shuffleQuestions = request()->query('shuffle') === '1';
         $this->showResults = request()->boolean('results', false);
         $this->quizAttemptId = request()->query('attempt');
@@ -61,7 +81,7 @@ class JambQuiz extends Component
             $attemptFromQuery = QuizAttempt::find($this->quizAttemptId);
             if ($attemptFromQuery && $attemptFromQuery->user_id === auth()->id()) {
                 $order = $attemptFromQuery->question_order ?? [];
-                if (!empty($order)) {
+                if (! empty($order)) {
                     $this->subjectIds = array_map('intval', array_keys($order));
                 }
             }
@@ -75,17 +95,18 @@ class JambQuiz extends Component
         $validSubjects = Subject::whereIn('id', $this->subjectIds)->where('is_active', true)->pluck('id')->toArray();
         if (count($validSubjects) !== count($this->subjectIds)) {
             session()->flash('error', 'One or more selected subjects are not available.');
+
             return redirect()->route('practice.jamb.setup');
         }
 
         // Initialize timer defaults
-        if ($this->timeLimit && !$this->timerStartedAt) {
+        if ($this->timeLimit && ! $this->timerStartedAt) {
             $this->timerStartedAt = now();
         }
         if ($this->timeLimit && $this->timeRemaining === null) {
             $this->timeRemaining = $this->timeLimit * 60; // Convert to seconds
         }
-        if (!$this->timeLimit) {
+        if (! $this->timeLimit) {
             $this->timerStartedAt = null;
             $this->timeRemaining = null;
         }
@@ -96,8 +117,8 @@ class JambQuiz extends Component
         if (auth()->check()) {
             $attemptFromQuery = $this->quizAttemptId ? QuizAttempt::find($this->quizAttemptId) : null;
 
-            // Security: Verify attempt ownership
-            if ($attemptFromQuery && $attemptFromQuery->user_id !== auth()->id()) {
+            // Security: Verify attempt ownership (super-admin can access any attempt)
+            if ($attemptFromQuery && $attemptFromQuery->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized attempt access');
             }
 
@@ -113,21 +134,24 @@ class JambQuiz extends Component
 
             if ($attemptFromQuery && $attemptFromQuery->status === 'in_progress') {
                 $this->hydrateFromAttempt($attemptFromQuery);
+
                 return;
             }
 
             if ($activeAttempt && ($this->showResults || $this->attemptMatchesContext($activeAttempt))) {
                 $this->hydrateFromAttempt($activeAttempt);
+
                 return;
             }
 
             // Only start new attempt if we're NOT showing results
-            if (!$this->showResults) {
+            if (! $this->showResults) {
                 $this->startNewAttempt($examType);
             } else {
                 // If showing results but no valid attempt, redirect back to setup
                 return redirect()->route('practice.jamb.setup');
             }
+
             return;
         }
 
@@ -161,13 +185,13 @@ class JambQuiz extends Component
 
     public function selectAnswer($optionId)
     {
-        // Security: Verify user owns this attempt and is authenticated
-        if (auth()->check() && (!$this->attempt || $this->attempt->user_id !== auth()->id())) {
+        // Security: Verify user owns this attempt and is authenticated (super-admin exempt)
+        if (auth()->check() && (! $this->attempt || ($this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')))) {
             abort(403, 'Unauthorized');
         }
 
         // Validate option ID
-        if (!is_numeric($optionId)) {
+        if (! is_numeric($optionId)) {
             abort(400, 'Invalid option ID');
         }
 
@@ -179,7 +203,7 @@ class JambQuiz extends Component
             $question = $this->getCurrentQuestion();
             if ($question) {
                 $validOption = $question->options->firstWhere('id', $optionId);
-                if (!$validOption) {
+                if (! $validOption) {
                     abort(400, 'Invalid option for this question');
                 }
 
@@ -200,8 +224,8 @@ class JambQuiz extends Component
 
     public function nextQuestion()
     {
-        // Security check
-        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+        // Security check (super-admin exempt)
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -217,8 +241,8 @@ class JambQuiz extends Component
 
     public function previousQuestion()
     {
-        // Security check
-        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+        // Security check (super-admin exempt)
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
@@ -234,13 +258,13 @@ class JambQuiz extends Component
 
     public function jumpToQuestion($subjectIndex, $questionIndex)
     {
-        // Security check
-        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id()) {
+        // Security check (super-admin exempt)
+        if (auth()->check() && $this->attempt && $this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Unauthorized');
         }
 
         // Validate indices
-        if (!is_numeric($subjectIndex) || !is_numeric($questionIndex)) {
+        if (! is_numeric($subjectIndex) || ! is_numeric($questionIndex)) {
             abort(400, 'Invalid question indices');
         }
 
@@ -262,7 +286,7 @@ class JambQuiz extends Component
     public function exitQuiz()
     {
         if (auth()->check() && $this->attempt) {
-            if ($this->attempt->user_id !== auth()->id()) {
+            if ($this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized');
             }
 
@@ -277,7 +301,7 @@ class JambQuiz extends Component
      */
     private function saveAnswers(): void
     {
-        if (!$this->attempt) {
+        if (! $this->attempt) {
             return;
         }
 
@@ -297,7 +321,7 @@ class JambQuiz extends Component
         }
 
         foreach ($this->subjectIds as $subjectId) {
-            if (!isset($questionsBySubject[$subjectId])) {
+            if (! isset($questionsBySubject[$subjectId])) {
                 continue;
             }
 
@@ -313,7 +337,7 @@ class JambQuiz extends Component
                         $questionId = $question->id ?? null;
                     }
 
-                    if (!$questionId) {
+                    if (! $questionId) {
                         continue;
                     }
 
@@ -352,8 +376,8 @@ class JambQuiz extends Component
     {
         // Persist attempt and then redirect to results route to avoid morph issues
         if (auth()->check()) {
-            // Security: Verify user owns this attempt
-            if ($this->attempt && $this->attempt->user_id !== auth()->id()) {
+            // Security: Verify user owns this attempt (super-admin exempt)
+            if ($this->attempt && $this->attempt->user_id !== auth()->id() && ! auth()->user()->hasRole('super-admin')) {
                 abort(403, 'Unauthorized');
             }
 
@@ -392,16 +416,16 @@ class JambQuiz extends Component
 
     public function saveAttempt()
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return;
         }
 
         // Ensure we have an attempt to finalize
-        if (!$this->attempt) {
+        if (! $this->attempt) {
             $this->startNewAttempt(ExamType::where('slug', 'jamb')->first());
         }
 
-        if (!$this->attempt) {
+        if (! $this->attempt) {
             return;
         }
 
@@ -441,7 +465,7 @@ class JambQuiz extends Component
 
     public function toggleReview()
     {
-        $this->showReview = !$this->showReview;
+        $this->showReview = ! $this->showReview;
     }
 
     public function getScoresBySubject()
@@ -462,6 +486,7 @@ class JambQuiz extends Component
                     $scores[$subjectId]++;
                 }
             }
+
             return $scores;
         }
 
@@ -481,32 +506,35 @@ class JambQuiz extends Component
             }
             $scores[$subjectId] = $score;
         }
+
         return $scores;
     }
 
     private function computeTimeSpent(): int
     {
-        if (!$this->timerStartedAt || !$this->timeLimit) {
+        if (! $this->timerStartedAt || ! $this->timeLimit) {
             return 0;
         }
 
         $elapsed = now()->diffInSeconds($this->timerStartedAt);
+
         return max(0, min($elapsed, $this->timeLimit * 60));
     }
 
     private function computeRemainingTime(): ?int
     {
-        if (!$this->timeLimit) {
+        if (! $this->timeLimit) {
             return null;
         }
 
         $durationSeconds = $this->timeLimit * 60;
+
         return max(0, $durationSeconds - $this->computeTimeSpent());
     }
 
     private function findActiveAttempt(?ExamType $examType): ?QuizAttempt
     {
-        if (!$examType) {
+        if (! $examType) {
             return null;
         }
 
@@ -554,7 +582,7 @@ class JambQuiz extends Component
         $this->quizAttemptId = $attempt->id;
         $this->questionOrder = $attempt->question_order ?? [];
         $this->subjectIds = array_map('intval', array_keys($this->questionOrder));
-        if (!empty($this->questionOrder)) {
+        if (! empty($this->questionOrder)) {
             $firstSubjectQuestions = reset($this->questionOrder);
             if (is_array($firstSubjectQuestions)) {
                 $this->questionsPerSubject = count($firstSubjectQuestions);
@@ -597,13 +625,13 @@ class JambQuiz extends Component
         foreach ($answers as $answer) {
             $questionId = $answer->question_id;
             $subjectId = $answer->question?->subject_id;
-            if (!$subjectId || !isset($this->questionOrder[$subjectId])) {
+            if (! $subjectId || ! isset($this->questionOrder[$subjectId])) {
                 continue;
             }
 
             $index = array_search($questionId, $this->questionOrder[$subjectId], true);
             if ($index !== false) {
-                if (!isset($this->userAnswers[$subjectId])) {
+                if (! isset($this->userAnswers[$subjectId])) {
                     $this->userAnswers[$subjectId] = array_fill(0, count($this->questionOrder[$subjectId]), null);
                 }
                 if ($this->userAnswers[$subjectId][$index] === null) {
@@ -613,7 +641,7 @@ class JambQuiz extends Component
         }
 
         // Cache the unified state
-        if (!empty($this->questionsBySubject)) {
+        if (! empty($this->questionsBySubject)) {
             cache()->put($cacheKey, [
                 'questions' => $this->questionsBySubject,
                 'answers' => $this->userAnswers,
@@ -682,6 +710,7 @@ class JambQuiz extends Component
 
                 $this->questionsBySubject[$subjectId] = $questions;
                 $this->questionOrder[$subjectId] = $questionIds;
+
                 continue;
             }
 
@@ -724,7 +753,7 @@ class JambQuiz extends Component
 
     private function persistAnswer(int $questionId, int $optionId, ?bool $isCorrect = null): void
     {
-        if (!$this->attempt) {
+        if (! $this->attempt) {
             return;
         }
 
@@ -792,4 +821,3 @@ class JambQuiz extends Component
         return view('livewire.practice.jamb-quiz');
     }
 }
-

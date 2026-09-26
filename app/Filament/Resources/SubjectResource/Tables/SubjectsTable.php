@@ -23,7 +23,7 @@ class SubjectsTable
             ->columns([
                 TextColumn::make('icon')
                     ->label('')
-                    ->formatStateUsing(fn(?string $state): string => $state ?? '📚'),
+                    ->formatStateUsing(fn (?string $state): string => $state ?? '📚'),
 
                 TextColumn::make('name')
                     ->label('Subject Name')
@@ -36,7 +36,7 @@ class SubjectsTable
                     ->label('Exam Types')
                     ->badge()
                     ->separator(', ')
-                    ->color(fn($state, Subject $record) => $record->examTypes->firstWhere('code', $state)?->color ?? 'gray')
+                    ->color(fn ($state, Subject $record) => $record->examTypes->firstWhere('code', $state)?->color ?? 'gray')
                     ->searchable()
                     ->toggleable(),
 
@@ -101,12 +101,12 @@ class SubjectsTable
                     ->icon('heroicon-o-pencil-square'),
                 DeleteAction::make()
                     ->icon('heroicon-o-trash')
-                    ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                        ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
                 ]),
             ])
             ->defaultSort('sort_order', 'asc')

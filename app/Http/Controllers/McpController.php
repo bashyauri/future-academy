@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\McpServer\McpServer;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class McpController extends Controller
 {
@@ -138,14 +139,14 @@ class McpController extends Controller
     /**
      * Get documentation
      */
-    protected function getDocumentation(string $query = null): array
+    protected function getDocumentation(?string $query = null): array
     {
-        $files = \Illuminate\Support\Facades\File::glob(base_path('*.md'));
+        $files = File::glob(base_path('*.md'));
         $docs = [];
 
         foreach ($files as $file) {
             $filename = basename($file);
-            if (!$query || stripos($filename, $query) !== false) {
+            if (! $query || stripos($filename, $query) !== false) {
                 $docs[] = [
                     'file' => $filename,
                     'size' => filesize($file),
@@ -159,7 +160,7 @@ class McpController extends Controller
     /**
      * Get code samples
      */
-    protected function getCodeSamples(string $query = null): array
+    protected function getCodeSamples(?string $query = null): array
     {
         $samples = [];
         $paths = [
@@ -170,11 +171,11 @@ class McpController extends Controller
 
         foreach ($paths as $path) {
             $fullPath = app_path(str_replace('app', '', $path));
-            if (\Illuminate\Support\Facades\File::exists($fullPath)) {
-                $files = \Illuminate\Support\Facades\File::files($fullPath);
+            if (File::exists($fullPath)) {
+                $files = File::files($fullPath);
                 foreach ($files as $file) {
                     if ($file->getExtension() === 'php') {
-                        if (!$query || stripos($file->getFilenameWithoutExtension(), $query) !== false) {
+                        if (! $query || stripos($file->getFilenameWithoutExtension(), $query) !== false) {
                             $samples[] = [
                                 'path' => str_replace(base_path(), '', $file->getRealPath()),
                                 'name' => $file->getFilenameWithoutExtension(),

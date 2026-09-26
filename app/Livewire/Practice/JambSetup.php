@@ -3,24 +3,34 @@
 namespace App\Livewire\Practice;
 
 use App\Models\ExamType;
+use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
-use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app')]
 class JambSetup extends Component
 {
     public $examType = 'jamb';
+
     public $selectedYear = null;
+
     public $selectedSubjects = [];
+
     public $subjects = [];
+
     public $years = [];
+
     public $shuffleQuestions = false;
+
     public $maxSubjects = 4;
+
     public $questionsPerSubject = null; // null means all available
+
     public $timeLimit = null; // null means no time limit
+
     public $resumeAttempts = [];
 
     public function mount()
@@ -42,7 +52,7 @@ class JambSetup extends Component
                 ->get();
 
             // Get available years for JAMB
-            $this->years = \App\Models\Question::where('exam_type_id', $jambExamType->id)
+            $this->years = Question::where('exam_type_id', $jambExamType->id)
                 ->where('is_active', true)
                 ->where('status', 'approved')
                 ->distinct()
@@ -62,7 +72,7 @@ class JambSetup extends Component
                 ->get()
                 ->filter(function ($attempt) use ($jambExamType) {
                     $order = $attempt->question_order ?? [];
-                    $isAssoc = !empty($order) && array_keys($order) !== range(0, count($order) - 1);
+                    $isAssoc = ! empty($order) && array_keys($order) !== range(0, count($order) - 1);
                     $subjectCount = $isAssoc ? count($order) : 1;
                     if ($subjectCount !== 4 && (int) $attempt->exam_type_id !== (int) $jambExamType->id) {
                         return false;
@@ -74,6 +84,7 @@ class JambSetup extends Component
                             return false;
                         }
                     }
+
                     return true;
                 })
                 ->values();
@@ -98,15 +109,15 @@ class JambSetup extends Component
         $timeLimit = $this->timeLimit; // Can be null for unlimited time
 
         $this->validate([
-            'selectedSubjects' => 'required|array|size:' . $this->maxSubjects,
+            'selectedSubjects' => 'required|array|size:'.$this->maxSubjects,
         ], [
             'selectedSubjects.required' => 'Please select subjects',
-            'selectedSubjects.size' => 'You must select exactly ' . $this->maxSubjects . ' subjects for JAMB',
+            'selectedSubjects.size' => 'You must select exactly '.$this->maxSubjects.' subjects for JAMB',
         ]);
 
         // Verify that each selected subject has enough questions
         foreach ($this->selectedSubjects as $subjectId) {
-            $query = \App\Models\Question::where('exam_type_id', $this->examType)
+            $query = Question::where('exam_type_id', $this->examType)
                 ->where('subject_id', $subjectId)
                 ->where('is_active', true)
                 ->where('status', 'approved');
@@ -123,6 +134,7 @@ class JambSetup extends Component
                 $yearText = $this->selectedYear ? $this->selectedYear : 'all available years';
                 $this->addError('selectedSubjects',
                     "Not enough questions for {$subject->name} in {$yearText}. Available: {$questionCount}, Required: {$questionsPerSubject}");
+
                 return;
             }
         }
@@ -146,7 +158,7 @@ class JambSetup extends Component
         if ($attempt) {
             $attempt->delete();
             $this->resumeAttempts = collect($this->resumeAttempts)
-                ->filter(fn($a) => $a->id !== $attemptId)
+                ->filter(fn ($a) => $a->id !== $attemptId)
                 ->values()
                 ->all();
         }
@@ -157,4 +169,3 @@ class JambSetup extends Component
         return view('livewire.practice.jamb-setup');
     }
 }
-

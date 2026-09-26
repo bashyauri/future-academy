@@ -38,7 +38,8 @@ class LessonsList extends Component
             }
 
             $this->viewingStudent = $student;
-            $this->isParentViewing = $this->viewingStudent->id !== $authenticatedUser->id;
+            $this->isParentViewing = $this->viewingStudent->id !== $authenticatedUser->id
+                && ! $authenticatedUser->hasRole('super-admin');
         }
 
         if ($this->isParentViewing) {

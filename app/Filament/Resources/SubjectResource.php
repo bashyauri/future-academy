@@ -3,6 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SubjectResource\Pages;
+use App\Filament\Resources\SubjectResource\RelationManagers\TopicsRelationManager;
+use App\Filament\Resources\SubjectResource\Schemas\SubjectForm;
+use App\Filament\Resources\SubjectResource\Tables\SubjectsTable;
 use App\Models\Subject;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -30,18 +33,18 @@ class SubjectResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\SubjectResource\Schemas\SubjectForm::configure($schema);
+        return SubjectForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\SubjectResource\Tables\SubjectsTable::configure($table);
+        return SubjectsTable::configure($table);
     }
 
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Resources\SubjectResource\RelationManagers\TopicsRelationManager::class,
+            TopicsRelationManager::class,
         ];
     }
 

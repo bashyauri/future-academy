@@ -5,9 +5,10 @@ namespace App\Filament\Resources\Quizzes\Pages;
 use App\Enums\QuizType;
 use App\Filament\Resources\Quizzes\QuizResource;
 use App\Models\ExamType;
+use App\Models\Question;
 use App\Models\Subject;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Facades\Filament;
+use Filament\Resources\Pages\CreateRecord;
 
 class CreateQuiz extends CreateRecord
 {
@@ -33,12 +34,12 @@ class CreateQuiz extends CreateRecord
             // JAMB English = 70 questions, all others = 50
             $totalQuestions = 0;
 
-            if (!empty($data['subject_ids']) && is_array($data['subject_ids'])) {
+            if (! empty($data['subject_ids']) && is_array($data['subject_ids'])) {
                 // Check if this is a JAMB exam
                 $examTypeIds = $data['exam_type_ids'] ?? [];
                 $isJamb = false;
 
-                if (!empty($examTypeIds)) {
+                if (! empty($examTypeIds)) {
                     $jambExamType = ExamType::whereIn('id', $examTypeIds)
                         ->where('name', 'LIKE', '%JAMB%')
                         ->first();
@@ -75,13 +76,14 @@ class CreateQuiz extends CreateRecord
     {
         $quiz = $this->record;
         $manualQuestions = collect($this->data['questions'] ?? [])
-            ->filter(fn($q) => !empty($q['question_id']))
-            ->mapWithKeys(fn($q, $i) => [
+            ->filter(fn ($q) => ! empty($q['question_id']))
+            ->mapWithKeys(fn ($q, $i) => [
                 $q['question_id'] => ['order' => $i + 1],
             ]);
 
         if ($manualQuestions->isNotEmpty()) {
             $quiz->questions()->sync($manualQuestions);
+
             return;
         }
 
@@ -94,20 +96,20 @@ class CreateQuiz extends CreateRecord
             'years' => $this->data['years'] ?? [],
         ];
 
-        $query = \App\Models\Question::query()->approved()->active();
-        if (!empty($criteria['subject_ids'])) {
+        $query = Question::query()->approved()->active();
+        if (! empty($criteria['subject_ids'])) {
             $query->whereIn('subject_id', $criteria['subject_ids']);
         }
-        if (!empty($criteria['topic_ids'])) {
+        if (! empty($criteria['topic_ids'])) {
             $query->whereIn('topic_id', $criteria['topic_ids']);
         }
-        if (!empty($criteria['exam_type_ids'])) {
+        if (! empty($criteria['exam_type_ids'])) {
             $query->whereIn('exam_type_id', $criteria['exam_type_ids']);
         }
-        if (!empty($criteria['difficulty_levels'])) {
+        if (! empty($criteria['difficulty_levels'])) {
             $query->whereIn('difficulty', $criteria['difficulty_levels']);
         }
-        if (!empty($criteria['years'])) {
+        if (! empty($criteria['years'])) {
             $query->whereIn('year', $criteria['years']);
         }
 
@@ -120,8 +122,8 @@ class CreateQuiz extends CreateRecord
         }
 
         $criteriaQuestions = $query->get();
-        $syncData = $criteriaQuestions->mapWithKeys(fn($q, $i) => [
-            $q->id => ['order' => ((int)$i) + 1],
+        $syncData = $criteriaQuestions->mapWithKeys(fn ($q, $i) => [
+            $q->id => ['order' => ((int) $i) + 1],
         ]);
         $quiz->questions()->sync($syncData);
     }

@@ -14,6 +14,7 @@ class SubjectTopicSeeder extends Seeder
         // Check if data already exists
         if (ExamType::count() > 0) {
             $this->command->info('Exam types already exist. Skipping SubjectTopicSeeder.');
+
             return;
         }
 
@@ -194,6 +195,6 @@ class SubjectTopicSeeder extends Seeder
         $this->command->info("📚 Created {$waec->subjects()->count()} subjects for WAEC");
         $this->command->info("📚 Created {$neco->subjects()->count()} subjects for NECO");
         $this->command->info("📚 Created {$jamb->subjects()->count()} subjects for JAMB");
-        $this->command->info("📋 Total topics: " . Topic::count());
+        $this->command->info('📋 Total topics: '.Topic::count());
     }
 }

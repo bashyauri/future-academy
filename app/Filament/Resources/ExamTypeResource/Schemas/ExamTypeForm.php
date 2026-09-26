@@ -3,12 +3,13 @@
 namespace App\Filament\Resources\ExamTypeResource\Schemas;
 
 use Filament\Forms\Components\ColorPicker;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class ExamTypeForm
 {
@@ -34,10 +35,10 @@ class ExamTypeForm
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, callable $set, $get) {
                                         if (empty($get('slug'))) {
-                                            $set('slug', \Illuminate\Support\Str::slug($state));
+                                            $set('slug', Str::slug($state));
                                         }
                                         if (empty($get('code'))) {
-                                            $set('code', strtoupper(substr(\Illuminate\Support\Str::slug($state), 0, 10)));
+                                            $set('code', strtoupper(substr(Str::slug($state), 0, 10)));
                                         }
                                     })
                                     ->columnSpan(1),

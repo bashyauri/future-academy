@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\ExamType;
-use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\Subject;
 use App\Models\User;
@@ -19,13 +18,15 @@ class QuizSeeder extends Seeder
         // Check if quizzes already exist
         if (Quiz::count() > 0) {
             $this->command->info('Quizzes already exist. Skipping QuizSeeder.');
+
             return;
         }
 
         $admin = User::first();
 
-        if (!$admin) {
+        if (! $admin) {
             $this->command->error('No admin user found. Run RolePermissionSeeder first.');
+
             return;
         }
 
@@ -35,6 +36,7 @@ class QuizSeeder extends Seeder
 
         if (empty($subjects) || empty($examTypes)) {
             $this->command->error('No subjects or exam types found. Run SubjectTopicSeeder first.');
+
             return;
         }
 

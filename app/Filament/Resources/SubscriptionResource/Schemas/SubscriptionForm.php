@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SubscriptionResource\Schemas;
 
+use App\Filament\Resources\SubscriptionResource\Pages\EditSubscription;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 
@@ -34,8 +35,7 @@ class SubscriptionForm
                 ->required(),
             Forms\Components\TextInput::make('reference')
                 ->required()
-                ->disabled(fn ($livewire) => $livewire instanceof
-                    \App\Filament\Resources\SubscriptionResource\Pages\EditSubscription
+                ->disabled(fn ($livewire) => $livewire instanceof EditSubscription
                 ),
             Forms\Components\TextInput::make('amount')->numeric()->required(),
             Forms\Components\DateTimePicker::make('starts_at')->required(),

@@ -3,12 +3,11 @@
 namespace App\Livewire\Subscription;
 
 use Livewire\Component;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 
 class Cancel extends Component
 {
     public $successMessage;
+
     public $errorMessage;
 
     protected $listeners = ['refreshComponent' => '$refresh'];

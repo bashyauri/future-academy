@@ -9,12 +9,9 @@ use App\Http\Resources\Api\MockGroupResource;
 use App\Http\Resources\Api\MockSessionResource;
 use App\Http\Resources\Api\QuestionResource;
 use App\Models\ExamType;
-use App\Models\MockGroup;
-use App\Models\Question;
 use App\Models\Subject;
 use App\Services\MockGroupService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class MockExamController extends Controller
@@ -25,9 +22,6 @@ class MockExamController extends Controller
 
     /**
      * Get all mock groups for a subject and exam type.
-     *
-     * @param MockGroupRequest $request
-     * @return JsonResponse
      */
     public function index(MockGroupRequest $request): JsonResponse
     {
@@ -56,10 +50,6 @@ class MockExamController extends Controller
 
     /**
      * Get a specific mock group by batch number.
-     *
-     * @param MockGroupRequest $request
-     * @param int $batchNumber
-     * @return JsonResponse
      */
     public function show(MockGroupRequest $request, int $batchNumber): JsonResponse
     {
@@ -73,7 +63,7 @@ class MockExamController extends Controller
                 $batchNumber
             );
 
-            if (!$mockGroup) {
+            if (! $mockGroup) {
                 return response()->json([
                     'message' => 'Mock group not found',
                 ], 404);
@@ -99,10 +89,6 @@ class MockExamController extends Controller
 
     /**
      * Download questions for a specific mock group.
-     *
-     * @param MockGroupRequest $request
-     * @param int $batchNumber
-     * @return JsonResponse
      */
     public function download(MockGroupRequest $request, int $batchNumber): JsonResponse
     {
@@ -116,7 +102,7 @@ class MockExamController extends Controller
                 $batchNumber
             );
 
-            if (!$mockGroup) {
+            if (! $mockGroup) {
                 return response()->json([
                     'message' => 'Mock group not found',
                 ], 404);
@@ -147,9 +133,6 @@ class MockExamController extends Controller
 
     /**
      * Initialize a multi-subject mock session.
-     *
-     * @param MockSessionRequest $request
-     * @return JsonResponse
      */
     public function initializeSession(MockSessionRequest $request): JsonResponse
     {

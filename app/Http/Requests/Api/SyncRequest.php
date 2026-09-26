@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Api;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\ValidationException;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 
 class SyncRequest extends FormRequest
@@ -70,13 +71,13 @@ class SyncRequest extends FormRequest
             'attempts.*.correct_answers.required' => 'Correct answers count is required.',
             'attempts.*.correct_answers.max' => 'Correct answers cannot exceed total questions.',
             'attempts.*.status.in' => 'Status must be either in_progress or completed.',
-            
+
             'answers.*.attempt_uuid.required' => 'Attempt UUID is required.',
             'answers.*.question_id.required' => 'Question ID is required.',
             'answers.*.question_id.exists' => 'Question does not exist.',
             'answers.*.option_id.exists' => 'Option does not exist.',
             'answers.*.is_correct.required' => 'is_correct field is required.',
-            
+
             'lesson_progress.*.user_id.required' => 'User ID is required.',
             'lesson_progress.*.user_id.exists' => 'User does not exist.',
             'lesson_progress.*.lesson_id.required' => 'Lesson ID is required.',
@@ -85,7 +86,7 @@ class SyncRequest extends FormRequest
         ];
     }
 
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    protected function failedValidation(Validator $validator)
     {
         $response = new JsonResponse([
             'message' => 'Validation failed',

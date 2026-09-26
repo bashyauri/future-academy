@@ -25,12 +25,12 @@ class ExamTypesTable
                     ->sortable()
                     ->weight('semibold')
                     ->icon('heroicon-o-academic-cap')
-                    ->description(fn(ExamType $record): string => $record->code),
+                    ->description(fn (ExamType $record): string => $record->code),
 
                 TextColumn::make('code')
                     ->label('Code')
                     ->badge()
-                    ->color(fn(ExamType $record): string => $record->color)
+                    ->color(fn (ExamType $record): string => $record->color)
                     ->searchable()
                     ->sortable(),
 
@@ -86,12 +86,12 @@ class ExamTypesTable
                     ->icon('heroicon-o-pencil-square'),
                 DeleteAction::make()
                     ->icon('heroicon-o-trash')
-                    ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn() => auth()->user()?->hasRole('super-admin') ?? false),
+                        ->visible(fn () => auth()->user()?->hasRole('super-admin') ?? false),
                 ]),
             ])
             ->defaultSort('sort_order', 'asc')

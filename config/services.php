@@ -13,7 +13,7 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
-       // Paystack
+    // Paystack
     'paystack' => [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
@@ -21,7 +21,7 @@ return [
         'merchant_email' => env('PAYSTACK_MERCHANT_EMAIL'),
         'plans' => [
             'monthly' => env('PAYSTACK_PLAN_MONTHLY', 'PLN_abc123monthly'),
-            'yearly'  => env('PAYSTACK_PLAN_YEARLY', 'PLN_def456yearly'),
+            'yearly' => env('PAYSTACK_PLAN_YEARLY', 'PLN_def456yearly'),
         ],
     ],
 

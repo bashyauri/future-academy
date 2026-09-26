@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Quiz;
 use App\Models\Question;
+use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -111,6 +111,7 @@ class QuizGeneratorService
                 'time_spent_seconds' => $attempt->quiz->duration_minutes * 60,
             ]);
             $attempt->calculateScore();
+
             return true;
         }
 

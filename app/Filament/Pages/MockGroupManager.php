@@ -6,6 +6,7 @@ use App\Models\ExamType;
 use App\Models\Subject;
 use App\Services\MockGroupService;
 use BackedEnum;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -29,7 +30,8 @@ class MockGroupManager extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && ($user->hasRole(['super-admin', 'admin']) ||
             $user->hasAnyPermission([
                 'manage questions',
@@ -40,7 +42,8 @@ class MockGroupManager extends Page
 
     public static function canAccess(): bool
     {
-        $user = \Filament\Facades\Filament::auth()->user();
+        $user = Filament::auth()->user();
+
         return $user && ($user->hasRole(['super-admin', 'admin']) ||
             $user->hasAnyPermission([
                 'manage questions',
@@ -51,11 +54,12 @@ class MockGroupManager extends Page
 
     public function groupQuestions(): void
     {
-        if (!$this->exam_type_id) {
+        if (! $this->exam_type_id) {
             Notification::make()
                 ->danger()
                 ->title('Please select an exam type')
                 ->send();
+
             return;
         }
 

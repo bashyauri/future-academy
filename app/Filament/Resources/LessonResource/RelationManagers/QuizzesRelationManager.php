@@ -13,6 +13,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class QuizzesRelationManager extends RelationManager
@@ -30,7 +31,7 @@ class QuizzesRelationManager extends RelationManager
                 TextColumn::make('title')
                     ->searchable()
                     ->sortable()
-                    ->description(fn($record) => $record->description)
+                    ->description(fn ($record) => $record->description)
                     ->wrap(),
 
                 TextColumn::make('type')
@@ -52,13 +53,13 @@ class QuizzesRelationManager extends RelationManager
 
                 TextColumn::make('duration_minutes')
                     ->label('Duration')
-                    ->formatStateUsing(fn($state) => $state ? "{$state} min" : 'Untimed')
+                    ->formatStateUsing(fn ($state) => $state ? "{$state} min" : 'Untimed')
                     ->sortable(),
 
                 TextColumn::make('status')
                     ->badge()
                     ->sortable()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'published' => 'success',
                         'draft' => 'gray',
                         'archived' => 'warning',
@@ -90,7 +91,7 @@ class QuizzesRelationManager extends RelationManager
                             ->label('Quiz')
                             ->searchable()
                             ->preload()
-                            ->options(fn() => Quiz::query()
+                            ->options(fn () => Quiz::query()
                                 ->whereNull('lesson_id')
                                 ->orderBy('title')
                                 ->pluck('title', 'id'))
@@ -114,7 +115,7 @@ class QuizzesRelationManager extends RelationManager
                 Action::make('createQuiz')
                     ->label('Create Quiz')
                     ->icon('heroicon-o-plus-circle')
-                    ->url(fn() => QuizResource::getUrl('create', [
+                    ->url(fn () => QuizResource::getUrl('create', [
                         'lesson_id' => $this->getOwnerRecord()->id,
                     ]))
                     ->openUrlInNewTab(),
@@ -123,7 +124,7 @@ class QuizzesRelationManager extends RelationManager
                 Action::make('edit')
                     ->label('Open')
                     ->icon('heroicon-o-pencil-square')
-                    ->url(fn($record) => QuizResource::getUrl('edit', [
+                    ->url(fn ($record) => QuizResource::getUrl('edit', [
                         'record' => $record,
                     ]))
                     ->openUrlInNewTab(),
@@ -133,7 +134,7 @@ class QuizzesRelationManager extends RelationManager
                     ->icon('heroicon-o-x-mark')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->action(fn($record) => $record->update(['lesson_id' => null])),
+                    ->action(fn ($record) => $record->update(['lesson_id' => null])),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -143,7 +144,7 @@ class QuizzesRelationManager extends RelationManager
                         ->color('warning')
                         ->requiresConfirmation()
                         ->action(function ($records) {
-                            /** @var \Illuminate\Support\Collection $records */
+                            /** @var Collection $records */
                             $records->each->update(['lesson_id' => null]);
                         }),
                 ]),

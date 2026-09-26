@@ -265,6 +265,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
      */
     public function hasActiveSubscription(): bool
     {
+        if ($this->hasAnyRole(['super-admin', 'admin'])) {
+            return true;
+        }
+
         $subscription = $this->currentSubscription;
 
         return $subscription

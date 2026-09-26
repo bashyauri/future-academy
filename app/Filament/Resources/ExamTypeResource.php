@@ -3,21 +3,25 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ExamTypeResource\Pages;
+use App\Filament\Resources\ExamTypeResource\Schemas\ExamTypeForm;
+use App\Filament\Resources\ExamTypeResource\Tables\ExamTypesTable;
 use App\Models\ExamType;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class ExamTypeResource extends Resource
 {
     // Show all exam types (active and inactive) in Filament admin.
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery();
     }
+
     protected static ?string $model = ExamType::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::AcademicCap;
@@ -36,12 +40,12 @@ class ExamTypeResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\ExamTypeResource\Schemas\ExamTypeForm::configure($schema);
+        return ExamTypeForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\ExamTypeResource\Tables\ExamTypesTable::configure($table);
+        return ExamTypesTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -50,7 +54,6 @@ class ExamTypeResource extends Resource
             //
         ];
     }
-
 
     public static function canViewAny(): bool
     {

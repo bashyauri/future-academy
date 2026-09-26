@@ -1,10 +1,10 @@
 <?php
 
 use App\Providers\Filament\AdminPanelProvider;
-use App\Providers\Filament\StaffPanelProvider;
-use App\Providers\Filament\TeacherPanelProvider;
 use App\Providers\Filament\ParentPanelProvider;
+use App\Providers\Filament\StaffPanelProvider;
 use App\Providers\Filament\StudentPanelProvider;
+use App\Providers\Filament\TeacherPanelProvider;
 
 return [
     'panel_providers' => [

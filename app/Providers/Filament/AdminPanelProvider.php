@@ -28,7 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->brandName("FA LMS Admin")
+            ->brandName('FA LMS Admin')
             ->login()
             ->passwordReset()
 

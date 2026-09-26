@@ -3,6 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TopicResource\Pages;
+use App\Filament\Resources\TopicResource\Schemas\TopicForm;
+use App\Filament\Resources\TopicResource\Tables\TopicsTable;
 use App\Models\Topic;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -30,12 +32,12 @@ class TopicResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return \App\Filament\Resources\TopicResource\Schemas\TopicForm::configure($schema);
+        return TopicForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\TopicResource\Tables\TopicsTable::configure($table);
+        return TopicsTable::configure($table);
     }
 
     public static function getRelations(): array
