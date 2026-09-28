@@ -26,6 +26,9 @@ class EnsureSubscriptionOrTrial
             return $this->respondForApi($request, 'Unauthenticated', 401);
         }
 
+        // PAYWALL DISABLED FOR TESTING - Allow all authenticated users to access all features
+        // Uncomment the code below to re-enable the paywall
+        /*
         if ($user->hasAnyRole(['super-admin', 'admin'])) {
             return $next($request);
         }
@@ -117,6 +120,10 @@ class EnsureSubscriptionOrTrial
         }
 
         return $this->respondForApi($request, 'Please subscribe to access all features.', 403);
+        */
+
+        // Allow all authenticated users to access all features
+        return $next($request);
     }
 
     /**

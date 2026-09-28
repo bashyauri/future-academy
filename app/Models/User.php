@@ -265,6 +265,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
      */
     public function hasActiveSubscription(): bool
     {
+        // PAYWALL DISABLED FOR TESTING - Allow all authenticated users to access all features
+        // Uncomment the code below to re-enable the paywall
+        return true;
+
+        /*
         if ($this->hasAnyRole(['super-admin', 'admin'])) {
             return true;
         }
@@ -275,6 +280,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             && $subscription->student_id === null
             && $subscription->ends_at
             && now()->lt($subscription->ends_at);
+        */
     }
 
     /**
