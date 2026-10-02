@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class UserAnswer extends Model
 {
     protected $fillable = [
+        'user_id',
         'quiz_attempt_id',
         'question_id',
         'option_id',

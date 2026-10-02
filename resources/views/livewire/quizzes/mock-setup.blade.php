@@ -9,7 +9,12 @@
         <div class="space-y-2">
             <flux:heading size="xl" level="1" class="leading-tight">Start a Mock Exam</flux:heading>
             <flux:text class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-                Choose your exam type and select up to 4 subjects.
+                Choose your exam type and
+                @if($maxSubjects)
+                    select up to {{ $maxSubjects }} subjects.
+                @else
+                    select the subjects you need.
+                @endif
                 Exam specifications will automatically follow your exam format configuration.
             </flux:text>
         </div>
@@ -44,14 +49,21 @@
 
                 <div class="space-y-3 sm:space-y-4">
                     <div class="flex items-center justify-between gap-3 flex-wrap">
-                        <flux:heading size="lg" level="2">Choose Subjects (max {{ $maxSubjects }})</flux:heading>
-                        <flux:badge color="blue">{{ count($selectedSubjects) }}/{{ $maxSubjects }}</flux:badge>
+                        <flux:heading size="lg" level="2">
+                            Choose Subjects
+                            @if($maxSubjects)
+                                (max {{ $maxSubjects }})
+                            @endif
+                        </flux:heading>
+                        <flux:badge color="blue">
+                            {{ count($selectedSubjects) }}{{ $maxSubjects ? '/'.$maxSubjects : ' selected' }}
+                        </flux:badge>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         @foreach($subjects as $subject)
                             @php
                                 $isSelected = in_array($subject->id, $selectedSubjects);
-                                $canSelect = count($selectedSubjects) < $maxSubjects || $isSelected;
+                                $canSelect = $maxSubjects === null || count($selectedSubjects) < $maxSubjects || $isSelected;
                                 $spec = $subjectSpecs[$subject->id] ?? ['questions' => 50, 'time' => null];
                                 $questionCount = $spec['questions'];
                                 $subjectTime = $spec['time'];

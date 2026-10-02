@@ -12,35 +12,71 @@ class MockGroupService
     const DEFAULT_BATCH_SIZE = 40;
 
     /**
-     * Get batch size from config based on exam type and subject
+     * Resolve the configured mock question count and time for a subject.
+     *
+     * @return array{questions: int, time: int|null}
      */
-    protected function getBatchSizeFromConfig(ExamType $examType, Subject $subject): int
+    public function getSubjectMockSpecification(ExamType $examType, Subject $subject): array
     {
         $examTypeFormat = strtolower($examType->exam_format ?? 'default');
         $subjectName = strtolower($subject->name);
 
-        // Get the format config for this exam type
         $formats = config('mock.formats', []);
-        $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? null;
+        $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? [];
+        $default = $formatConfig['default'] ?? [
+            'questions' => self::DEFAULT_BATCH_SIZE,
+            'time' => null,
+        ];
+        $specification = $default;
 
-        if (! $formatConfig) {
-            return self::DEFAULT_BATCH_SIZE;
-        }
-
-        // Check per_subject rules
-        if (isset($formatConfig['per_subject'])) {
-            foreach ($formatConfig['per_subject'] as $rule) {
-                $matches = $rule['match'] ?? [];
-                foreach ($matches as $pattern) {
-                    if (str_contains($subjectName, strtolower($pattern))) {
-                        return $rule['questions'] ?? self::DEFAULT_BATCH_SIZE;
-                    }
+        foreach (($formatConfig['per_subject'] ?? []) as $rule) {
+            foreach (($rule['match'] ?? []) as $pattern) {
+                if ($pattern && str_contains($subjectName, strtolower($pattern))) {
+                    $specification = [
+                        'questions' => $rule['questions'] ?? $default['questions'] ?? self::DEFAULT_BATCH_SIZE,
+                        'time' => $rule['time'] ?? $default['time'] ?? null,
+                    ];
+                    break 2;
                 }
             }
         }
 
-        // Fall back to default for this exam type
-        return $formatConfig['default']['questions'] ?? self::DEFAULT_BATCH_SIZE;
+        return [
+            'questions' => (int) ($specification['questions'] ?? self::DEFAULT_BATCH_SIZE),
+            'time' => isset($specification['time']) ? (int) $specification['time'] : null,
+        ];
+    }
+
+    /**
+     * Resolve the overall duration for a full mock from the configured format.
+     *
+     * @param  iterable<Subject>  $subjects
+     */
+    public function getFullMockDuration(ExamType $examType, iterable $subjects): int
+    {
+        $formats = config('mock.formats', []);
+        $examTypeFormat = strtolower($examType->exam_format ?? 'default');
+        $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? [];
+        $overall = $formatConfig['overall'] ?? [];
+
+        if (isset($overall['time_limit'])) {
+            return (int) $overall['time_limit'];
+        }
+
+        if (! empty($overall['sum_subject_time'])) {
+            $subjectTimes = [];
+
+            foreach ($subjects as $subject) {
+                $time = $this->getSubjectMockSpecification($examType, $subject)['time'];
+                if ($time !== null) {
+                    $subjectTimes[] = $time;
+                }
+            }
+
+            return array_sum($subjectTimes) ?: 100;
+        }
+
+        return 100;
     }
 
     /**
@@ -52,11 +88,14 @@ class MockGroupService
         ?int $batchSize = null
     ): void {
         // Use config-based batch size if not explicitly provided
-        $batchSize = $batchSize ?? $this->getBatchSizeFromConfig($examType, $subject);
+        $batchSize = $batchSize ?? $this->getSubjectMockSpecification($examType, $subject)['questions'];
         // Get all mock questions for this subject and exam type, ordered by ID
         $mockQuestions = Question::where('subject_id', $subject->id)
             ->where('exam_type_id', $examType->id)
             ->where('is_mock', true)
+            ->where('is_active', true)
+            ->where('status', 'approved')
+            ->whereHas('options')
             ->orderBy('id')
             ->get();
 
@@ -125,6 +164,10 @@ class MockGroupService
     public function getGroupQuestions(MockGroup $mockGroup): mixed
     {
         return $mockGroup->questions()
+            ->where('is_mock', true)
+            ->where('is_active', true)
+            ->where('status', 'approved')
+            ->whereHas('options')
             ->with('subject', 'examType', 'options')
             ->get();
     }

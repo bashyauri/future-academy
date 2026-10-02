@@ -21,7 +21,7 @@ class MockSetup extends Component
 
     public $subjects;
 
-    public int $maxSubjects = 4;
+    public ?int $maxSubjects = null;
 
     public function mount(): void
     {
@@ -41,7 +41,14 @@ class MockSetup extends Component
     public function updatedExamTypeId(): void
     {
         $this->selectedSubjects = [];
+        $examType = $this->examTypeId ? ExamType::find($this->examTypeId) : null;
+        $this->maxSubjects = self::subjectLimitForFormat($examType?->exam_format);
         $this->loadOptions();
+    }
+
+    public static function subjectLimitForFormat(?string $examFormat): ?int
+    {
+        return strtolower((string) $examFormat) === 'jamb' ? 4 : null;
     }
 
     public function loadOptions(): void
@@ -89,7 +96,6 @@ class MockSetup extends Component
             return;
         }
 
-        $examFormat = $examType->exam_format ?? 'default';
         $mockGroupService = app(MockGroupService::class);
 
         // Get all subjects that have mock questions for this exam type
@@ -109,8 +115,8 @@ class MockSetup extends Component
             // Only group if no groups exist
             if ($existingGroups === 0) {
                 // Get batch size from config for this subject
-                [$batchSize] = $this->getSubjectSpec($examFormat, strtolower($subject->name));
-                $mockGroupService->groupMockQuestions($subject, $examType, $batchSize);
+                $specification = $mockGroupService->getSubjectMockSpecification($examType, $subject);
+                $mockGroupService->groupMockQuestions($subject, $examType, $specification['questions']);
             }
         }
     }
@@ -123,7 +129,7 @@ class MockSetup extends Component
             return;
         }
 
-        if (count($this->selectedSubjects) < $this->maxSubjects) {
+        if ($this->maxSubjects === null || count($this->selectedSubjects) < $this->maxSubjects) {
             $this->selectedSubjects[] = $subjectId;
         }
     }
@@ -152,28 +158,30 @@ class MockSetup extends Component
     public function startMock()
     {
 
+        $subjectRules = ['required', 'array', 'min:1'];
+        if ($this->maxSubjects !== null) {
+            $subjectRules[] = 'max:'.$this->maxSubjects;
+        }
+
         $this->validate([
             'examTypeId' => 'required|exists:exam_types,id',
-            'selectedSubjects' => 'required|array|min:1|max:'.$this->maxSubjects,
+            'selectedSubjects' => $subjectRules,
         ]);
 
         // Get exam type to determine specifications
         $examType = ExamType::find($this->examTypeId);
-        $examFormat = $examType?->exam_format ?? 'default';
 
         // Config-driven question counts and time limits
         $questionsPerSubject = [];
-        $perSubjectTimes = [];
+        $mockGroupService = app(MockGroupService::class);
 
         foreach ($this->selectedSubjects as $subjectId) {
             $subject = Subject::find($subjectId);
-            $subjectName = strtolower($subject?->name ?? '');
-
-            [$questionCount, $subjectTime] = $this->getSubjectSpec($examFormat, $subjectName);
+            $specification = $examType && $subject
+                ? $mockGroupService->getSubjectMockSpecification($examType, $subject)
+                : ['questions' => 50, 'time' => null];
+            $questionCount = $specification['questions'];
             $questionsPerSubject[$subjectId] = $questionCount;
-            if (! is_null($subjectTime)) {
-                $perSubjectTimes[] = $subjectTime;
-            }
 
             // Verify availability of mock questions only
             $available = Question::where('exam_type_id', $this->examTypeId)
@@ -191,8 +199,13 @@ class MockSetup extends Component
             }
         }
 
-        // Compute time limit from config
-        $timeLimit = $this->computeTimeLimit($examFormat, $perSubjectTimes);
+        // Compute time limit from the same format resolver used by the API.
+        $timeLimit = $examType
+            ? $mockGroupService->getFullMockDuration(
+                $examType,
+                Subject::whereIn('id', $this->selectedSubjects)->get()
+            )
+            : 100;
 
         // Create secure mock session in database
         $session = MockSession::create([
@@ -226,10 +239,12 @@ class MockSetup extends Component
         $subjectSpecs = [];
         if ($this->subjects && count($this->subjects) > 0) {
             foreach ($this->subjects as $subject) {
-                [$questionCount, $subjectTime] = $this->getSubjectSpec($examFormat, strtolower($subject->name));
+                $specification = $currentExamType
+                    ? app(MockGroupService::class)->getSubjectMockSpecification($currentExamType, $subject)
+                    : ['questions' => 50, 'time' => null];
                 $subjectSpecs[$subject->id] = [
-                    'questions' => $questionCount,
-                    'time' => $subjectTime,
+                    'questions' => $specification['questions'],
+                    'time' => $specification['time'],
                 ];
             }
         }
@@ -251,54 +266,5 @@ class MockSetup extends Component
             'subjectSpecs' => $subjectSpecs,
             'configSpecs' => $configSpecs,
         ]);
-    }
-
-    /**
-     * Resolve per-subject question counts and time from config.
-     */
-    protected function getSubjectSpec(string $examFormat, string $subjectName): array
-    {
-        $formats = config('mock.formats', []);
-        $format = $formats[$examFormat] ?? $formats['default'] ?? [];
-
-        $default = $format['default'] ?? ['questions' => 50, 'time' => null];
-        $spec = $default;
-
-        foreach (($format['per_subject'] ?? []) as $rule) {
-            foreach (($rule['match'] ?? []) as $needle) {
-                if ($needle && str_contains($subjectName, strtolower($needle))) {
-                    $spec = [
-                        'questions' => $rule['questions'] ?? $default['questions'],
-                        'time' => $rule['time'] ?? $default['time'],
-                    ];
-                    break 2;
-                }
-            }
-        }
-
-        return [
-            (int) ($spec['questions'] ?? 50),
-            $spec['time'] ?? null,
-        ];
-    }
-
-    /**
-     * Compute overall time limit for the mock from config.
-     */
-    protected function computeTimeLimit(string $examFormat, array $perSubjectTimes): int
-    {
-        $formats = config('mock.formats', []);
-        $format = $formats[$examFormat] ?? $formats['default'] ?? [];
-        $overall = $format['overall'] ?? [];
-
-        if (isset($overall['time_limit'])) {
-            return (int) $overall['time_limit'];
-        }
-
-        if (! empty($overall['sum_subject_time'])) {
-            return array_sum(array_map('intval', $perSubjectTimes)) ?: 100;
-        }
-
-        return 100; // fallback
     }
 }

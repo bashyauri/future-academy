@@ -16,6 +16,8 @@ class MockSessionResource extends JsonResource
     {
         return [
             'session_id' => $this->resource['session_id'] ?? null,
+            'mode' => $this->resource['mode'] ?? 'full',
+            'mock_group_id' => $this->resource['mock_group_id'] ?? null,
             'exam_type' => [
                 'id' => $this->resource['exam_type']['id'],
                 'name' => $this->resource['exam_type']['name'],
