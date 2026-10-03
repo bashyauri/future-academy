@@ -86,7 +86,7 @@ test('mock session uses configured JAMB counts and duration instead of client du
         ->assertJsonPath('data.total_questions', 120)
         ->assertJsonPath('data.subjects.0.question_count', 70)
         ->assertJsonPath('data.subjects.0.time_limit_minutes', null)
-        ->assertJsonPath('data.subjects.0.first_group.total_questions', 70)
+        ->assertJsonMissingPath('data.subjects.0.first_group')
         ->assertJsonPath('data.subjects.1.question_count', 50);
 });
 

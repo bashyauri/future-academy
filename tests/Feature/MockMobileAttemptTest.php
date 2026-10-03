@@ -170,6 +170,85 @@ test('full mock sessions hide answers, save progress without restoring it, and s
         ->assertJsonPath("data.questions_by_subject.{$subject->id}.0.options.0.is_correct", fn ($value) => is_bool($value));
 });
 
+test('active mock session question batches preserve the server question order', function () {
+    config(['mock.formats.default.default.questions' => 12]);
+
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    createMobileSessionQuestions($subject, $examType, 13);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $attempt = MockSession::query()->findOrFail($sessionId)->quizAttempt;
+    $this->assertDatabaseMissing('mock_groups', [
+        'subject_id' => $subject->id,
+        'exam_type_id' => $examType->id,
+    ]);
+
+    $firstBatch = $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}")
+        ->assertSuccessful()
+        ->assertJsonPath('data.loaded_question_count', 5)
+        ->json("data.questions_by_subject.{$subject->id}");
+
+    $secondBatch = $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}/subjects/{$subject->id}/questions/5")
+        ->assertSuccessful()
+        ->assertJsonPath('data.question_offset', 5)
+        ->assertJsonPath('data.loaded_question_count', 5)
+        ->json("data.questions_by_subject.{$subject->id}");
+
+    $lastBatch = $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}/subjects/{$subject->id}/questions/10")
+        ->assertSuccessful()
+        ->assertJsonPath('data.loaded_question_count', 2)
+        ->json("data.questions_by_subject.{$subject->id}");
+
+    $reloadedFirstBatch = $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}/subjects/{$subject->id}/questions/0")
+        ->assertSuccessful()
+        ->json("data.questions_by_subject.{$subject->id}");
+
+    expect(array_column(array_merge($firstBatch, $secondBatch, $lastBatch), 'id'))
+        ->toBe($attempt->question_order)
+        ->and(array_column($reloadedFirstBatch[0]['options'], 'id'))
+        ->toBe(array_column($firstBatch[0]['options'], 'id'));
+});
+
+test('mock question batches can load a later subject directly', function () {
+    config(['mock.formats.default.default.questions' => 6]);
+
+    $examType = createMobileSessionExamType();
+    $firstSubject = createMobileSessionSubject('First Subject', 1);
+    $secondSubject = createMobileSessionSubject('Second Subject', 2);
+    createMobileSessionQuestions($firstSubject, $examType, 6);
+    createMobileSessionQuestions($secondSubject, $examType, 6);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$firstSubject->id, $secondSubject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $attempt = MockSession::query()->findOrFail($sessionId)->quizAttempt;
+    $secondSubjectBatch = $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}/subjects/{$secondSubject->id}/questions/0")
+        ->assertSuccessful()
+        ->assertJsonPath("data.questions_by_subject.{$firstSubject->id}", [])
+        ->json("data.questions_by_subject.{$secondSubject->id}");
+
+    expect(array_column($secondSubjectBatch, 'id'))
+        ->toBe(array_slice($attempt->question_order, 6, 5));
+});
+
 test('batch sessions use the selected group and report completion and best score', function () {
     $examType = createMobileSessionExamType();
     $subject = createMobileSessionSubject();

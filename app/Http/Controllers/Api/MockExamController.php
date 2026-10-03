@@ -405,27 +405,35 @@ class MockExamController extends Controller
 
                 }
 
-                $batchQuestions = $this->mockGroupService->getGroupQuestions($mockGroup)->shuffle()->values();
+                $batchQuestionIds = Question::query()
 
-                if ($batchQuestions->isEmpty()) {
+                    ->where('mock_group_id', $mockGroup->id)
+
+                    ->where('is_mock', true)
+
+                    ->where('is_active', true)
+
+                    ->where('status', 'approved')
+
+                    ->whereHas('options')
+
+                    ->pluck('id')
+
+                    ->map(fn ($id): int => (int) $id)
+
+                    ->all();
+
+                if ($batchQuestionIds === []) {
 
                     return response()->json(['message' => 'No approved mock questions are available in this batch.'], 422);
 
                 }
 
-                $questionIdsBySubject[$subjectIds[0]] = $batchQuestions->pluck('id')->map(fn ($id): int => (int) $id)->all();
+                shuffle($batchQuestionIds);
 
-                $questionsPerSubject[$subjectIds[0]] = $batchQuestions->count();
+                $questionIdsBySubject[$subjectIds[0]] = $batchQuestionIds;
 
-                foreach ($batchQuestions as $question) {
-
-                    $optionIds = $question->options->pluck('id')->map(fn ($id): int => (int) $id)->all();
-
-                    shuffle($optionIds);
-
-                    $optionOrder[$question->id] = $optionIds;
-
-                }
+                $questionsPerSubject[$subjectIds[0]] = count($batchQuestionIds);
 
                 $durationMinutes = 60;
 
@@ -437,7 +445,7 @@ class MockExamController extends Controller
 
                 $specification = $this->mockGroupService->getSubjectMockSpecification($examType, $subject);
 
-                $availableQuestionCount = Question::query()
+                $availableQuestionIds = Question::query()
 
                     ->where('exam_type_id', $examType->id)
 
@@ -451,7 +459,13 @@ class MockExamController extends Controller
 
                     ->whereHas('options')
 
-                    ->count();
+                    ->pluck('id')
+
+                    ->map(fn ($id): int => (int) $id)
+
+                    ->all();
+
+                $availableQuestionCount = count($availableQuestionIds);
 
                 if ($availableQuestionCount < $specification['questions']) {
 
@@ -473,37 +487,9 @@ class MockExamController extends Controller
 
                 }
 
-                $mockQuestions = Question::query()
+                shuffle($availableQuestionIds);
 
-                    ->where('exam_type_id', $examType->id)
-
-                    ->where('subject_id', $subject->id)
-
-                    ->where('is_mock', true)
-
-                    ->where('is_active', true)
-
-                    ->where('status', 'approved')
-
-                    ->whereHas('options')
-
-                    ->with('options')
-
-                    ->inRandomOrder()
-
-                    ->limit($specification['questions'])
-
-                    ->get();
-
-                $selectedQuestionIds = $mockQuestions
-
-                    ->shuffle()
-
-                    ->pluck('id')
-
-                    ->map(fn ($id): int => (int) $id)
-
-                    ->all();
+                $selectedQuestionIds = array_slice($availableQuestionIds, 0, $specification['questions']);
 
                 if (count($selectedQuestionIds) !== $specification['questions']) {
 
@@ -519,30 +505,6 @@ class MockExamController extends Controller
 
                 $questionsPerSubject[$subjectId] = count($selectedQuestionIds);
 
-                foreach ($mockQuestions as $question) {
-
-                    $optionIds = $question->options->pluck('id')->map(fn ($id): int => (int) $id)->all();
-
-                    shuffle($optionIds);
-
-                    $optionOrder[$question->id] = $optionIds;
-
-                }
-
-                $mockGroups = $this->mockGroupService->getMockGroups($subject, $examType);
-
-                if ($mockGroups->isEmpty()) {
-
-                    $this->mockGroupService->groupMockQuestions($subject, $examType);
-
-                    $mockGroups = $this->mockGroupService->getMockGroups($subject, $examType);
-
-                }
-
-                $firstGroup = $this->mockGroupService->getFirstGroup($subject, $examType);
-
-                $firstGroupData = $firstGroup ? (new MockGroupResource($firstGroup))->resolve() : null;
-
                 $subjectsData[] = [
 
                     'id' => $subject->id,
@@ -556,10 +518,6 @@ class MockExamController extends Controller
                     'icon' => $subject->icon,
 
                     'color' => $subject->color,
-
-                    'total_groups' => $mockGroups->count(),
-
-                    'first_group' => $firstGroupData,
 
                     'question_count' => $specification['questions'],
 
@@ -808,6 +766,67 @@ class MockExamController extends Controller
 
     }
 
+    public function showQuestionBatch(int $sessionId, int $subjectId, int $offset): JsonResponse
+    {
+        $session = $this->findOwnedSession($sessionId);
+
+        if (! $session) {
+            return response()->json(['message' => 'Mock session not found.'], 404);
+        }
+
+        if ($session->isExpired()) {
+            $session->update(['status' => 'expired']);
+            $session->quizAttempt?->update(['status' => 'expired']);
+
+            return response()->json(['message' => 'Mock session expired. Start a new mock.'], 410);
+        }
+
+        $attempt = $session->quizAttempt;
+
+        if ($session->status !== 'active' || ! $attempt || $attempt->status !== 'in_progress') {
+            return response()->json(['message' => 'Mock session is unavailable.'], 409);
+        }
+
+        $questionIds = array_map('intval', $attempt->question_order ?? []);
+        $subjectIds = array_map('intval', $session->subject_ids ?? []);
+        $subjectIndex = array_search($subjectId, $subjectIds, true);
+
+        if ($subjectIndex === false) {
+            return response()->json(['message' => 'Subject is not part of this mock session.'], 404);
+        }
+
+        $questionsPerSubject = $session->questions_per_subject ?? [];
+        $subjectQuestionCount = (int) ($questionsPerSubject[$subjectId] ?? 0);
+
+        if ($offset >= $subjectQuestionCount) {
+            return response()->json(['message' => 'Question batch is outside this mock session.'], 416);
+        }
+
+        if ($this->remainingSeconds($session, $attempt) <= 0) {
+            $this->completeSession($session);
+            $session->refresh();
+
+            return response()->json(['data' => $this->completedSessionPayload($session)]);
+        }
+
+        $globalOffset = 0;
+
+        foreach (array_slice($subjectIds, 0, $subjectIndex) as $previousSubjectId) {
+            $globalOffset += (int) ($questionsPerSubject[$previousSubjectId] ?? 0);
+        }
+
+        $globalOffset += $offset;
+        $batchQuestionIds = array_slice(
+            $questionIds,
+            $globalOffset,
+            min(5, $subjectQuestionCount - $offset),
+        );
+
+        return response()->json([
+            'data' => $this->activeSessionPayload($session, $globalOffset, $batchQuestionIds),
+        ]);
+    }
+
     public function saveProgress(MockSessionProgressRequest $request, int $sessionId): JsonResponse
     {
 
@@ -1052,14 +1071,16 @@ class MockExamController extends Controller
         $this->mockExamService->complete($session);
     }
 
-    private function activeSessionPayload(MockSession $session): array
+    private function activeSessionPayload(MockSession $session, int $offset = 0, ?array $selectedQuestionIds = null): array
     {
 
         $attempt = $session->quizAttempt;
 
-        $questionsBySubject = $this->sessionQuestions($session, false);
-
         $questionIds = array_map('intval', $attempt->question_order ?? []);
+
+        $batchQuestionIds = $selectedQuestionIds ?? array_slice($questionIds, $offset, 5);
+
+        $questionsBySubject = $this->sessionQuestions($session, false, $batchQuestionIds);
 
         $subjects = Subject::query()->whereIn('id', $session->subject_ids)->get()->keyBy('id');
 
@@ -1081,7 +1102,7 @@ class MockExamController extends Controller
 
                 'name' => $subject?->name ?? '',
 
-                'question_count' => count($questionsBySubject[$subjectId] ?? []),
+                'question_count' => (int) ($session->questions_per_subject[$subjectId] ?? 0),
 
                 'time_limit_minutes' => $session->mock_group_id ? 60 : $specification['time'],
 
@@ -1114,6 +1135,10 @@ class MockExamController extends Controller
             'questions_by_subject' => $questionsBySubject,
 
             'current_question_index' => 0,
+
+            'question_offset' => $offset,
+
+            'loaded_question_count' => count($batchQuestionIds),
 
             'duration_minutes' => $session->time_limit,
 
@@ -1162,12 +1187,12 @@ class MockExamController extends Controller
 
     }
 
-    private function sessionQuestions(MockSession $session, bool $includeCorrectness): array
+    private function sessionQuestions(MockSession $session, bool $includeCorrectness, ?array $selectedQuestionIds = null): array
     {
 
         $attempt = $session->quizAttempt;
 
-        $questionIds = array_map('intval', $attempt?->question_order ?? []);
+        $questionIds = $selectedQuestionIds ?? array_map('intval', $attempt?->question_order ?? []);
 
         if ($questionIds === []) {
 
@@ -1186,6 +1211,8 @@ class MockExamController extends Controller
             ->keyBy('id');
 
         $result = [];
+        $optionOrder = $session->option_order ?? [];
+        $newOptionOrder = [];
 
         foreach ($session->subject_ids as $subjectId) {
 
@@ -1203,7 +1230,15 @@ class MockExamController extends Controller
 
                 $optionsById = $question->options->keyBy('id');
 
-                $optionIds = $session->option_order[$questionId] ?? $question->options->pluck('id')->all();
+                $optionIds = $optionOrder[$questionId] ?? $question->options->pluck('id')->all();
+
+                if (! $includeCorrectness && ! array_key_exists($questionId, $optionOrder)) {
+
+                    shuffle($optionIds);
+
+                    $newOptionOrder[$questionId] = $optionIds;
+
+                }
 
                 $options = [];
 
@@ -1264,6 +1299,16 @@ class MockExamController extends Controller
                 $result[$subjectId][] = $questionData;
 
             }
+
+        }
+
+        if ($newOptionOrder !== []) {
+
+            $session->update([
+
+                'option_order' => array_replace($optionOrder, $newOptionOrder),
+
+            ]);
 
         }
 

@@ -206,6 +206,9 @@ Route::prefix('v1')
                     Route::get('/groups/{batchNumber}', [MockExamController::class, 'show']);
                     Route::get('/groups/{batchNumber}/download', [MockExamController::class, 'download']);
                     Route::post('/sessions', [MockExamController::class, 'initializeSession']);
+                    Route::get('/sessions/{session}/subjects/{subject}/questions/{offset}', [MockExamController::class, 'showQuestionBatch'])
+                        ->whereNumber('subject')
+                        ->whereNumber('offset');
                     Route::get('/sessions/{session}', [MockExamController::class, 'showSession']);
                     Route::put('/sessions/{session}/progress', [MockExamController::class, 'saveProgress']);
                     Route::post('/sessions/{session}/submit', [MockExamController::class, 'submitSession']);
