@@ -206,10 +206,10 @@ Route::prefix('v1')
                     Route::get('/groups/{batchNumber}', [MockExamController::class, 'show']);
                     Route::get('/groups/{batchNumber}/download', [MockExamController::class, 'download']);
                     Route::post('/sessions', [MockExamController::class, 'initializeSession']);
-                    Route::get('/sessions/active', [MockExamController::class, 'activeSession']);
                     Route::get('/sessions/{session}', [MockExamController::class, 'showSession']);
                     Route::put('/sessions/{session}/progress', [MockExamController::class, 'saveProgress']);
                     Route::post('/sessions/{session}/submit', [MockExamController::class, 'submitSession']);
+                    Route::post('/save-web-progress', [MockExamController::class, 'saveWebProgress']);
                 });
             });
         });

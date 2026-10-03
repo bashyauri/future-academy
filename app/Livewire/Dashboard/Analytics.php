@@ -14,14 +14,6 @@ use Livewire\Component;
 
 class Analytics extends Component
 {
-    /**
-     * Defensive no-op for malformed frontend method calls.
-     */
-    public function toJSON(): void
-    {
-        // Intentionally blank.
-    }
-
     #[Layout('components.layouts.app')]
     public function render()
     {

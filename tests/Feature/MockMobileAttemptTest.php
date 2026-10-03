@@ -89,7 +89,7 @@ function createMobileSessionQuestions(Subject $subject, ExamType $examType, int 
     ];
 }
 
-test('full mock sessions hide answers, save progress, resume and submit server-side scores', function () {
+test('full mock sessions hide answers, save progress without restoring it, and submit server-side scores', function () {
     $examType = createMobileSessionExamType();
     $subject = createMobileSessionSubject();
     $fixture = createMobileSessionQuestions($subject, $examType, 3);
@@ -134,11 +134,15 @@ test('full mock sessions hide answers, save progress, resume and submit server-s
     $this->withToken($this->token)
         ->getJson("/api/v1/mock/sessions/{$sessionId}")
         ->assertSuccessful()
-        ->assertJsonPath("data.answers_by_question.{$questionId}", $correctOptionId)
-        ->assertJsonPath('data.current_question_index', 1);
+        ->assertJsonMissingPath('data.answers_by_question')
+        ->assertJsonPath('data.current_question_index', 0);
 
     $submitResponse = $this->withToken($this->token)
-        ->postJson("/api/v1/mock/sessions/{$sessionId}/submit");
+        ->postJson("/api/v1/mock/sessions/{$sessionId}/submit", [
+            'answers' => [
+                $questionId => $correctOptionId,
+            ],
+        ]);
 
     $submitResponse->assertSuccessful()
         ->assertJsonPath('data.status', 'completed')
@@ -243,6 +247,208 @@ test('users cannot load another users mock session', function () {
     $this->actingAs($otherUser, 'sanctum')
         ->getJson("/api/v1/mock/sessions/{$sessionId}")
         ->assertNotFound();
+});
+
+test('web mock autosave persists answers to the database while the session is active', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $session = MockSession::query()->findOrFail($sessionId);
+    $attempt = $session->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $optionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->actingAs($this->user, 'web')
+        ->postJson('/api/v1/mock/save-web-progress', [
+            'session_id' => $sessionId,
+            'questions' => [$subject->id => [
+                ['id' => $questionId],
+            ]],
+            'answers' => [
+                $questionId => $optionId,
+            ],
+            'position' => [
+                'subjectIndex' => 0,
+                'questionIndex' => 0,
+            ],
+        ])
+        ->assertSuccessful();
+
+    $this->assertDatabaseHas('user_answers', [
+        'quiz_attempt_id' => $attempt->id,
+        'question_id' => $questionId,
+        'option_id' => $optionId,
+        'user_id' => $this->user->id,
+    ]);
+});
+
+test('web session users can autosave mock progress without a Sanctum bearer token', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $this->actingAs($this->user, 'web');
+
+    $session = MockSession::query()->findOrFail($sessionId);
+    $attempt = $session->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $optionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->postJson('/api/v1/mock/save-web-progress', [
+        'session_id' => $sessionId,
+        'questions' => [$subject->id => [
+            ['id' => $questionId],
+        ]],
+        'answers' => [
+            $questionId => $optionId,
+        ],
+        'position' => [
+            'subjectIndex' => 0,
+            'questionIndex' => 0,
+        ],
+    ])->assertSuccessful();
+});
+
+test('web route accepts browser autosave without the api prefix', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $this->actingAs($this->user, 'web');
+
+    $session = MockSession::query()->findOrFail($sessionId);
+    $attempt = $session->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $optionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->postJson('/mock/save-web-progress', [
+        'session_id' => $sessionId,
+        'questions' => [$subject->id => [
+            ['id' => $questionId],
+        ]],
+        'answers' => [
+            $questionId => $optionId,
+        ],
+        'position' => [
+            'subjectIndex' => 0,
+            'questionIndex' => 0,
+        ],
+    ])->assertSuccessful();
+});
+
+test('browser-style nested answers are normalized and saved for active mock sessions', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $this->actingAs($this->user, 'web');
+
+    $session = MockSession::query()->findOrFail($sessionId);
+    $attempt = $session->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $optionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->postJson('/mock/save-web-progress', [
+        'session_id' => $sessionId,
+        'questions' => [$subject->id => [['id' => $questionId]]],
+        'answers' => [
+            $subject->id => [$optionId],
+        ],
+        'position' => [
+            'subjectIndex' => 0,
+            'questionIndex' => 0,
+        ],
+    ])->assertSuccessful();
+
+    $this->assertDatabaseHas('user_answers', [
+        'quiz_attempt_id' => $attempt->id,
+        'question_id' => $questionId,
+        'option_id' => $optionId,
+        'user_id' => $this->user->id,
+    ]);
+});
+
+test('object-shaped saved mock questions keep their option list when restored', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $this->actingAs($this->user, 'web');
+
+    $session = MockSession::query()->findOrFail($sessionId);
+    $attempt = $session->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $optionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->postJson('/mock/save-web-progress', [
+        'session_id' => $sessionId,
+        'questions' => [
+            $subject->id => [
+                (object) [
+                    'id' => $questionId,
+                    'options' => [
+                        (object) ['id' => $optionId, 'option_text' => 'Correct Option'],
+                        (object) ['id' => 999999, 'option_text' => 'Wrong Option'],
+                    ],
+                ],
+            ],
+        ],
+        'answers' => [
+            $subject->id => [$optionId],
+        ],
+        'position' => [
+            'subjectIndex' => 0,
+            'questionIndex' => 0,
+        ],
+    ])->assertSuccessful();
+
+    $this->assertDatabaseHas('user_answers', [
+        'quiz_attempt_id' => $attempt->id,
+        'question_id' => $questionId,
+        'option_id' => $optionId,
+        'user_id' => $this->user->id,
+    ]);
 });
 
 test('expired session ignores late answers and submits saved progress', function () {

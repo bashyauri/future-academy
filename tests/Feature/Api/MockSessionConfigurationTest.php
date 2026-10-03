@@ -127,6 +127,49 @@ test('mock session sums configured SSCE subject durations', function () {
         ->assertJsonPath('data.subjects.1.time_limit_minutes', 50);
 });
 
+test('single-subject mock sessions prefer the configured subject time over the overall default', function () {
+    config()->set('mock.formats.ssce', [
+        'overall' => [
+            'time_limit' => 100,
+        ],
+        'per_subject' => [
+            [
+                'match' => ['mathematics'],
+                'questions' => 60,
+                'time' => 50,
+            ],
+        ],
+        'default' => [
+            'questions' => 50,
+            'time' => null,
+        ],
+    ]);
+
+    $examTypeId = DB::table('exam_types')->insertGetId([
+        'name' => 'SSCE',
+        'slug' => 'ssce',
+        'exam_format' => 'ssce',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $examType = ExamType::findOrFail($examTypeId);
+    $mathematics = Subject::query()->create([
+        'name' => 'Mathematics',
+        'code' => 'MTH-001',
+        'is_active' => true,
+    ]);
+
+    addApprovedMockQuestions($mathematics, $examType, 60);
+
+    $this->withToken(createMockSessionToken())
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$mathematics->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.duration_minutes', 50);
+});
+
 test('mock session rejects subject with fewer questions than configured', function () {
     $examTypeId = DB::table('exam_types')->insertGetId([
         'name' => 'JAMB',

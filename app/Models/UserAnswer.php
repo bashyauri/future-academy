@@ -10,6 +10,7 @@ class UserAnswer extends Model
     protected $fillable = [
         'user_id',
         'quiz_attempt_id',
+        'mock_session_id',
         'question_id',
         'option_id',
         'is_correct',

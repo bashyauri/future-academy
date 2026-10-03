@@ -20,6 +20,12 @@ it('shows single-subject jamb attempts in resume visibility rules', function ():
     $singleSubjectJambAttempt->time_taken_seconds = 0;
     $singleSubjectJambAttempt->started_at = Carbon::now()->subMinutes(5);
 
+    $mockAttempt = new QuizAttempt;
+    $mockAttempt->question_order = [101, 102, 103];
+    $mockAttempt->mock_group_id = 25;
+    $mockAttempt->time_taken_seconds = 0;
+    $mockAttempt->started_at = Carbon::now()->subMinutes(5);
+
     $multiSubjectJambAttempt = new QuizAttempt;
     $multiSubjectJambAttempt->question_order = [
         10 => [1, 2],
@@ -31,5 +37,6 @@ it('shows single-subject jamb attempts in resume visibility rules', function ():
     $multiSubjectJambAttempt->started_at = Carbon::now()->subMinutes(5);
 
     expect($method->invoke($component, $singleSubjectJambAttempt))->toBeTrue()
+        ->and($method->invoke($component, $mockAttempt))->toBeFalse()
         ->and($method->invoke($component, $multiSubjectJambAttempt))->toBeFalse();
 });

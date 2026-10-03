@@ -6,6 +6,7 @@ use App\Models\ExamType;
 use App\Models\MockGroup;
 use App\Models\MockSession;
 use App\Models\Question;
+use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Services\MockGroupService;
 use Illuminate\Support\Facades\Auth;
@@ -17,11 +18,15 @@ class MockSetup extends Component
 {
     public ?int $examTypeId = null;
 
+    public ?int $selectedYear = null;
+
     public array $selectedSubjects = [];
 
     public $subjects;
 
     public ?int $maxSubjects = null;
+
+    public bool $shuffle = true;
 
     public function mount(): void
     {
@@ -207,10 +212,53 @@ class MockSetup extends Component
             )
             : 100;
 
-        // Create secure mock session in database
+        // Calculate total questions
+        $totalQuestions = array_sum($questionsPerSubject);
+
+        // Get all question IDs for this session (will be loaded in MockQuiz)
+        // We need to create a flat question order array similar to the API
+        $questionOrder = [];
+        foreach ($this->selectedSubjects as $subjectId) {
+            $query = Question::where('exam_type_id', $this->examTypeId)
+                ->where('subject_id', $subjectId)
+                ->where('is_mock', true)
+                ->when($this->selectedYear, fn ($q) => $q->where('exam_year', $this->selectedYear))
+                ->where('is_active', true)
+                ->where('status', 'approved')
+                ->limit($questionsPerSubject[$subjectId] ?? 40);
+
+            $subjectQuestions = $query->pluck('id')->toArray();
+            if ($this->shuffle) {
+                shuffle($subjectQuestions);
+            }
+            $questionOrder = array_merge($questionOrder, $subjectQuestions);
+        }
+
+        // Create QuizAttempt first (needed for answer storage)
+        $attempt = QuizAttempt::create([
+            'user_id' => auth()->id(),
+            'exam_type_id' => $this->examTypeId,
+            'subject_id' => $this->selectedSubjects[0] ?? null,
+            'mock_group_id' => null,
+            'exam_year' => null,
+            'score' => 0,
+            'total_questions' => $totalQuestions,
+            'correct_answers' => 0,
+            'percentage' => 0,
+            'score_percentage' => 0,
+            'time_taken_seconds' => 0,
+            'started_at' => now(),
+            'status' => 'in_progress',
+            'current_question_index' => 0,
+            'question_order' => $questionOrder,
+        ]);
+
+        // Create secure mock session in database with quiz_attempt_id
         $session = MockSession::create([
             'user_id' => auth()->id(),
             'exam_type_id' => $this->examTypeId,
+            'quiz_attempt_id' => $attempt->id,
+            'mock_group_id' => null,
             'subject_ids' => $this->selectedSubjects,
             'questions_per_subject' => $questionsPerSubject,
             'time_limit' => $timeLimit,

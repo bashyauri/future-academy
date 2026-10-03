@@ -68,6 +68,7 @@ class JambSetup extends Component
             $this->resumeAttempts = QuizAttempt::where('user_id', Auth::id())
                 ->where('status', 'in_progress')
                 ->whereNull('completed_at')
+                ->whereNull('mock_group_id')
                 ->orderByDesc('created_at')
                 ->get()
                 ->filter(function ($attempt) use ($jambExamType) {

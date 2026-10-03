@@ -59,6 +59,7 @@ class PracticeHome extends Component
             $this->allResumeAttempts = QuizAttempt::where('user_id', Auth::id())
                 ->where('status', 'in_progress')
                 ->whereNull('completed_at')
+                ->whereNull('mock_group_id')
                 ->orderByDesc('created_at')
                 ->get()
                 ->filter(fn ($attempt) => $this->shouldDisplayResumeAttempt($attempt))
@@ -68,6 +69,10 @@ class PracticeHome extends Component
 
     private function shouldDisplayResumeAttempt($attempt): bool
     {
+        if (! empty($attempt->mock_group_id)) {
+            return false;
+        }
+
         $order = $attempt->question_order ?? [];
         $isAssoc = ! empty($order) && array_keys($order) !== range(0, count($order) - 1);
         $subjectCount = $isAssoc ? count($order) : 1;
@@ -137,7 +142,8 @@ class PracticeHome extends Component
                 ->where('exam_type_id', $this->selectedExamType)
                 ->where('subject_id', $this->selectedSubject)
                 ->where('status', 'in_progress')
-                ->whereNull('completed_at');
+                ->whereNull('completed_at')
+                ->whereNull('mock_group_id');
             if ($this->selectedYear) {
                 $query->where('exam_year', $this->selectedYear);
             }

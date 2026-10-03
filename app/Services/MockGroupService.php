@@ -58,6 +58,15 @@ class MockGroupService
         $examTypeFormat = strtolower($examType->exam_format ?? 'default');
         $formatConfig = $formats[$examTypeFormat] ?? $formats['default'] ?? [];
         $overall = $formatConfig['overall'] ?? [];
+        $subjectList = is_array($subjects) ? array_values($subjects) : iterator_to_array($subjects);
+
+        if (count($subjectList) === 1 && $subjectList[0] instanceof Subject) {
+            $singleSubjectTime = $this->getSubjectMockSpecification($examType, $subjectList[0])['time'];
+
+            if ($singleSubjectTime !== null) {
+                return (int) $singleSubjectTime;
+            }
+        }
 
         if (isset($overall['time_limit'])) {
             return (int) $overall['time_limit'];
@@ -66,7 +75,7 @@ class MockGroupService
         if (! empty($overall['sum_subject_time'])) {
             $subjectTimes = [];
 
-            foreach ($subjects as $subject) {
+            foreach ($subjectList as $subject) {
                 $time = $this->getSubjectMockSpecification($examType, $subject)['time'];
                 if ($time !== null) {
                     $subjectTimes[] = $time;
