@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
 test('registration screen can be rendered', function () {
     $response = $this->get(route('register'));
 
@@ -60,4 +64,18 @@ test('community users can register', function () {
         ->assertRedirect(route('dashboard', absolute: false));
 
     $this->assertAuthenticated();
+});
+
+test('honeypot field prevents spam registration', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'Spam Bot',
+        'email' => 'spam@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'student',
+        'website' => 'http://spam-site.com',
+    ]);
+
+    $response->assertSessionHasErrors(['website']);
+    $this->assertGuest();
 });

@@ -90,3 +90,18 @@ test('mobile registration validates account type and password confirmation', fun
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['password', 'account_type']);
 });
+
+test('mobile registration rejects honeypot field spam', function () {
+    $response = $this->postJson('/api/v1/register', [
+        'name' => 'Spam Bot',
+        'email' => 'spam@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'account_type' => 'student',
+        'device_name' => 'Test Device',
+        'website' => 'http://spam-site.com',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['website']);
+});

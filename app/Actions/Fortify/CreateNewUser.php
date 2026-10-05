@@ -36,6 +36,7 @@ class CreateNewUser implements CreatesNewUsers
             ],
             'password' => $this->passwordRules(),
             'account_type' => ['required', 'string', 'in:student,guardian,school,community,teacher,uploader'],
+            'website' => ['nullable', 'prohibited'],
         ])->validate();
 
         $accountType = $input['account_type'] ?? 'student';

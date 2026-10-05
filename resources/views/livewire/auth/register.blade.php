@@ -8,6 +8,9 @@
         <form method="POST" action="{{ route('register.store') }}" class="flex flex-col gap-6">
             @csrf
 
+            <!-- Honeypot field for spam prevention -->
+            <input type="text" name="website" style="display: none;" tabindex="-1" autocomplete="off">
+
             <!-- Name -->
             <flux:input
                 name="name"

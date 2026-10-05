@@ -27,6 +27,7 @@ class RegisterRequest extends FormRequest
             'password' => $this->passwordRules(),
             'account_type' => ['required', 'string', 'in:student,guardian,school,community'],
             'device_name' => ['required', 'string', 'max:255'],
+            'website' => ['nullable', 'prohibited'],
         ];
     }
 
