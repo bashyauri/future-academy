@@ -6,6 +6,17 @@ test('registration screen can be rendered', function () {
     $response->assertStatus(200);
 });
 
+test('registration screen displays privacy notice', function () {
+    $response = $this->get(route('register'));
+
+    $response->assertStatus(200)
+        ->assertSee('Data Protection & Privacy Notice')
+        ->assertSee('By creating an account, you agree to the collection and processing of your personal data')
+        ->assertSee('For students: We collect personal information necessary for educational purposes')
+        ->assertSee('For guardians: You may be asked to provide information about students under your care')
+        ->assertSee('Read our full Privacy Policy');
+})->skip('Requires Vite build');
+
 test('new users can register', function () {
     $response = $this->post(route('register.store'), [
         'name' => 'John Doe',

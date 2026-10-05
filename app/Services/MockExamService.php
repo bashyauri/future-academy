@@ -13,6 +13,43 @@ use Illuminate\Validation\ValidationException;
 class MockExamService
 {
     /**
+     * Grade unfinished mocks from their saved answers.
+     *
+     * With $onlyExpired the exam clock must have run out; otherwise every active mock
+     * of the user is closed, which is what starting a new mock does.
+     *
+     * @return int Number of sessions finalized.
+     */
+    public function finalizeUnfinished(?int $userId = null, bool $onlyExpired = true): int
+    {
+        $finalized = 0;
+
+        MockSession::query()
+            ->with('quizAttempt')
+            ->where('status', 'active')
+            ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
+            ->chunkById(100, function ($sessions) use ($onlyExpired, &$finalized): void {
+                foreach ($sessions as $session) {
+                    $startedAt = $session->quizAttempt?->started_at ?? $session->created_at;
+
+                    if ($onlyExpired && $startedAt->copy()->addMinutes((int) $session->time_limit)->isFuture()) {
+                        continue;
+                    }
+
+                    try {
+                        $this->complete($session);
+                        $finalized++;
+                    } catch (ValidationException) {
+                        // A session without a usable attempt can never be graded.
+                        $session->update(['status' => 'expired']);
+                    }
+                }
+            });
+
+        return $finalized;
+    }
+
+    /**
      * Persist the final answer set and calculate the result from server-side data.
      *
      * The question order, available options, correct answers and timer are never
@@ -75,10 +112,9 @@ class MockExamService
                     continue;
                 }
 
-                // Final request state wins; existing DB progress is retained when
-                // a client only submits a partial answer map.
-                $optionId = array_key_exists($questionId, $answers)
-                    ? ($answers[$questionId] === null ? null : (int) $answers[$questionId])
+                // A null means "no choice sent"; it must never erase a saved answer.
+                $optionId = ($answers[$questionId] ?? null) !== null
+                    ? (int) $answers[$questionId]
                     : ($storedAnswers->get($questionId)?->option_id);
 
                 $selectedOption = $optionId !== null

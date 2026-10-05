@@ -567,6 +567,8 @@ class MockExamController extends Controller
 
             $timeLimitPerSubject = intdiv($durationMinutes, $subjects->count());
 
+            $this->mockExamService->finalizeUnfinished($request->user()->id, onlyExpired: false);
+
             $sessionData = DB::transaction(function () use (
 
                 $request,
@@ -886,7 +888,7 @@ class MockExamController extends Controller
         }
 
         if ($session->status === 'completed') {
-            return response()->json(['data' => $this->completedSessionPayload($session)]);
+            return response()->json(['data' => $this->completedSessionPayload($session, withReview: false)]);
         }
 
         $attempt = $session->quizAttempt;
@@ -898,7 +900,7 @@ class MockExamController extends Controller
             $this->mockExamService->complete($session, []);
             $session->refresh();
 
-            return response()->json(['data' => $this->completedSessionPayload($session)]);
+            return response()->json(['data' => $this->completedSessionPayload($session, withReview: false)]);
         }
 
         if ($session->status !== 'active' || $session->isExpired()) {
@@ -915,7 +917,7 @@ class MockExamController extends Controller
         $this->mockExamService->complete($session, $answers);
         $session->refresh();
 
-        return response()->json(['data' => $this->completedSessionPayload($session)]);
+        return response()->json(['data' => $this->completedSessionPayload($session, withReview: false)]);
     }
 
     private function findOwnedSession(int $sessionId): ?MockSession
@@ -1015,6 +1017,12 @@ class MockExamController extends Controller
         DB::transaction(function () use ($attempt, $answers, $currentQuestionIndex, $userId): void {
 
             foreach ($answers as $questionId => $optionId) {
+
+                if ($optionId === null) {
+
+                    continue;
+
+                }
 
                 $existing = UserAnswer::query()
 
@@ -1150,7 +1158,7 @@ class MockExamController extends Controller
 
     }
 
-    private function completedSessionPayload(MockSession $session): array
+    private function completedSessionPayload(MockSession $session, bool $withReview = true): array
     {
 
         $attempt = $session->quizAttempt;
@@ -1161,15 +1169,23 @@ class MockExamController extends Controller
 
         $payload['remaining_seconds'] = 0;
 
-        $payload['questions_by_subject'] = $this->sessionQuestions($session, true);
+        if ($withReview) {
 
-        $payload['answers_by_question'] = UserAnswer::query()
+            $payload['questions_by_subject'] = $this->sessionQuestions($session, true);
 
-            ->where('quiz_attempt_id', $attempt->id)
+            $payload['answers_by_question'] = UserAnswer::query()
 
-            ->pluck('option_id', 'question_id')
+                ->where('quiz_attempt_id', $attempt->id)
 
-            ->all();
+                ->pluck('option_id', 'question_id')
+
+                ->all();
+
+        } else {
+
+            $payload['questions_by_subject'] = [];
+
+        }
 
         $payload['current_question_index'] = (int) ($attempt->current_question_index ?? 0);
 

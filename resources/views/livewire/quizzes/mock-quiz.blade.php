@@ -1043,7 +1043,14 @@
 
                     }
 
-                    window.addEventListener('beforeunload', () => {
+                    window.addEventListener('beforeunload', (event) => {
+
+                        if (!this.$wire.showResults) {
+
+                            event.preventDefault();
+                            event.returnValue = '';
+
+                        }
 
                         if (this.timer) clearInterval(this.timer);
                         if (this.autosaveTimer) clearInterval(this.autosaveTimer);

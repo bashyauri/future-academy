@@ -170,6 +170,141 @@ test('full mock sessions hide answers, save progress without restoring it, and s
         ->assertJsonPath("data.questions_by_subject.{$subject->id}.0.options.0.is_correct", fn ($value) => is_bool($value));
 });
 
+test('a blank submit never erases an answer that was already saved', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', [
+            'subject_ids' => [$subject->id],
+            'exam_type_id' => $examType->id,
+        ])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    $attempt = MockSession::query()->findOrFail($sessionId)->quizAttempt;
+    $questionId = $attempt->question_order[0];
+    $correctOptionId = $fixture['correct_option_ids'][$questionId];
+
+    $this->withToken($this->token)
+        ->putJson("/api/v1/mock/sessions/{$sessionId}/progress", [
+            'answers' => [$questionId => $correctOptionId],
+        ])
+        ->assertSuccessful();
+
+    $this->withToken($this->token)
+        ->putJson("/api/v1/mock/sessions/{$sessionId}/progress", [
+            'answers' => [$questionId => null],
+        ])
+        ->assertSuccessful();
+
+    $this->withToken($this->token)
+        ->postJson("/api/v1/mock/sessions/{$sessionId}/submit", [
+            'answers' => [$questionId => null],
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.score', 1);
+});
+
+test('expired mocks are graded from saved answers by the scheduled command', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $expiredId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', ['subject_ids' => [$subject->id], 'exam_type_id' => $examType->id])
+        ->json('data.session_id');
+    $expiredAttempt = MockSession::query()->findOrFail($expiredId)->quizAttempt;
+    $questionId = $expiredAttempt->question_order[0];
+
+    $this->withToken($this->token)
+        ->putJson("/api/v1/mock/sessions/{$expiredId}/progress", [
+            'answers' => [$questionId => $fixture['correct_option_ids'][$questionId]],
+        ])
+        ->assertSuccessful();
+    $expiredAttempt->update(['started_at' => now()->subMinutes(31)]);
+
+    $this->artisan('mock:finalize-expired')->assertSuccessful();
+
+    expect(MockSession::query()->find($expiredId)->status)->toBe('completed')
+        ->and($expiredAttempt->refresh()->status)->toBe('completed')
+        ->and($expiredAttempt->correct_answers)->toBe(1);
+});
+
+test('a running mock is not touched by the scheduled command', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', ['subject_ids' => [$subject->id], 'exam_type_id' => $examType->id])
+        ->json('data.session_id');
+
+    $this->artisan('mock:finalize-expired')->assertSuccessful();
+
+    expect(MockSession::query()->find($sessionId)->status)->toBe('active');
+});
+
+test('starting a new mock grades the unfinished one first', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $firstId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', ['subject_ids' => [$subject->id], 'exam_type_id' => $examType->id])
+        ->json('data.session_id');
+    $firstAttempt = MockSession::query()->findOrFail($firstId)->quizAttempt;
+    $questionId = $firstAttempt->question_order[0];
+
+    $this->withToken($this->token)
+        ->putJson("/api/v1/mock/sessions/{$firstId}/progress", [
+            'answers' => [$questionId => $fixture['correct_option_ids'][$questionId]],
+        ])
+        ->assertSuccessful();
+
+    $secondId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', ['subject_ids' => [$subject->id], 'exam_type_id' => $examType->id])
+        ->assertSuccessful()
+        ->json('data.session_id');
+
+    expect(MockSession::query()->find($firstId)->status)->toBe('completed')
+        ->and($firstAttempt->refresh()->correct_answers)->toBe(1)
+        ->and(MockSession::query()->find($secondId)->status)->toBe('active');
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$firstId}")
+        ->assertSuccessful()
+        ->assertJsonPath('data.status', 'completed')
+        ->assertJsonPath('data.score', 1);
+});
+
+test('submit returns scores only and the review loads separately', function () {
+    $examType = createMobileSessionExamType();
+    $subject = createMobileSessionSubject();
+    $fixture = createMobileSessionQuestions($subject, $examType, 2);
+
+    $sessionId = $this->withToken($this->token)
+        ->postJson('/api/v1/mock/sessions', ['subject_ids' => [$subject->id], 'exam_type_id' => $examType->id])
+        ->json('data.session_id');
+    $questionId = MockSession::query()->findOrFail($sessionId)->quizAttempt->question_order[0];
+
+    $this->withToken($this->token)
+        ->postJson("/api/v1/mock/sessions/{$sessionId}/submit", [
+            'answers' => [$questionId => $fixture['correct_option_ids'][$questionId]],
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.score', 1)
+        ->assertJsonPath('data.questions_by_subject', [])
+        ->assertJsonMissingPath('data.answers_by_question');
+
+    $this->withToken($this->token)
+        ->getJson("/api/v1/mock/sessions/{$sessionId}")
+        ->assertSuccessful()
+        ->assertJsonPath("data.answers_by_question.{$questionId}", $fixture['correct_option_ids'][$questionId])
+        ->assertJsonCount(2, "data.questions_by_subject.{$subject->id}");
+});
+
 test('active mock session question batches preserve the server question order', function () {
     config(['mock.formats.default.default.questions' => 12]);
 

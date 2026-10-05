@@ -8,6 +8,7 @@ use App\Models\MockSession;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
+use App\Services\MockExamService;
 use App\Services\MockGroupService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -235,6 +236,8 @@ class MockSetup extends Component
         }
 
         // Create QuizAttempt first (needed for answer storage)
+        app(MockExamService::class)->finalizeUnfinished(auth()->id(), onlyExpired: false);
+
         $attempt = QuizAttempt::create([
             'user_id' => auth()->id(),
             'exam_type_id' => $this->examTypeId,
