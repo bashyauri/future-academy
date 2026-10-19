@@ -81,7 +81,7 @@
         <flux:heading size="lg" class="mb-4 md:mb-6 text-base md:text-lg">{{ __('Select Your Practice Test') }}</flux:heading>
 
         {{-- Selection Grid --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
 
             {{-- Subject Selection --}}
             <div class="space-y-2 md:space-y-3">
@@ -132,33 +132,6 @@
                 </div>
                 <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
                     {{ __('e.g., JAMB, NECO, WAEC') }}
-                </flux:text>
-            </div>
-
-            {{-- Year Selection --}}
-            <div class="space-y-2 md:space-y-3">
-                <flux:heading size="sm" class="text-sm md:text-base">{{ __('Exam Year') }}</flux:heading>
-                <div class="relative">
-                    <flux:select
-                        wire:model="selectedYear"
-                        placeholder="{{ __('(Optional) Choose year...') }}"
-                        :disabled="!$selectedExamType || !$selectedSubject"
-                        class="text-sm md:text-base"
-                    >
-                        <option value="">{{ __('(All Years)') }}</option>
-                        @foreach($filteredYears as $year)
-                            <option value="{{ $year }}">{{ $year }}</option>
-                        @endforeach
-                    </flux:select>
-                    <div wire:loading wire:target="selectedSubject,updatedSelectedSubject" class="absolute right-3 top-1/2 -translate-y-1/2">
-                        <svg class="animate-spin h-4 md:h-5 w-4 md:w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                </div>
-                <flux:text class="text-xs text-neutral-500 dark:text-neutral-400">
-                    {{ __('Past exam papers') }}
                 </flux:text>
             </div>
         </div>
@@ -294,7 +267,7 @@
                 <div>
                     <flux:heading size="sm" class="text-blue-900 dark:text-blue-100 text-sm md:text-base">{{ __('How It Works') }}</flux:heading>
                     <flux:text class="mt-1 md:mt-2 text-xs md:text-sm text-blue-800 dark:text-blue-200">
-                        {{ __('Select an exam type, subject, and year. Answer all questions and get instant feedback on your performance.') }}
+                        {{ __('Select an exam type and subject. Answer all questions and get instant feedback on your performance.') }}
                     </flux:text>
                 </div>
             </div>
