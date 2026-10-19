@@ -330,7 +330,6 @@ class MockQuiz extends Component
         }
     }
 
-
     protected function clampPosition(): void
     {
         if (empty($this->subjectsData)) {

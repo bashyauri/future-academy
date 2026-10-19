@@ -207,11 +207,15 @@ Route::prefix('v1')
                     Route::get('/groups/{batchNumber}/download', [MockExamController::class, 'download']);
                     Route::post('/sessions', [MockExamController::class, 'initializeSession']);
                     Route::get('/sessions/{session}/subjects/{subject}/questions/{offset}', [MockExamController::class, 'showQuestionBatch'])
+                        ->whereNumber('session')
                         ->whereNumber('subject')
                         ->whereNumber('offset');
-                    Route::get('/sessions/{session}', [MockExamController::class, 'showSession']);
-                    Route::put('/sessions/{session}/progress', [MockExamController::class, 'saveProgress']);
-                    Route::post('/sessions/{session}/submit', [MockExamController::class, 'submitSession']);
+                    Route::get('/sessions/{session}', [MockExamController::class, 'showSession'])
+                        ->whereNumber('session');
+                    Route::put('/sessions/{session}/progress', [MockExamController::class, 'saveProgress'])
+                        ->whereNumber('session');
+                    Route::post('/sessions/{session}/submit', [MockExamController::class, 'submitSession'])
+                        ->whereNumber('session');
                     Route::post('/save-web-progress', [MockExamController::class, 'saveWebProgress']);
                 });
             });
