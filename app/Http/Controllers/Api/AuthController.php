@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -167,6 +168,33 @@ class AuthController extends Controller
     {
         return response()->json([
             'user' => new UserResource($request->user()),
+        ], 200);
+    }
+
+    /**
+     * Delete Current User Account
+     *
+     * Permanently deletes authenticated user account, tokens, and associated data.
+     *
+     * @authenticated
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        DB::transaction(function () use ($user) {
+            $user->tokens()->delete();
+            $user->delete();
+        });
+
+        return response()->json([
+            'message' => 'Account deleted successfully.',
         ], 200);
     }
 

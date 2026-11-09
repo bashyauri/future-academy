@@ -155,11 +155,21 @@
                     </p>
                 </section>
 
-                <section>
-                    <h2 class="mb-3 text-xl font-semibold text-neutral-900">8. Data Retention</h2>
+                <section id="account-deletion">
+                    <h2 class="mb-3 text-xl font-semibold text-neutral-900">8. Data Retention & Account Deletion</h2>
                     <p class="text-base leading-relaxed">
-                        We retain your personal data for as long as your account is active or as needed to provide services. If you delete your account, we will remove your personal information within a reasonable period, except where retention is required by law.
+                        We retain your personal data for as long as your account is active or as needed to provide our educational services. You have the right to request the permanent deletion of your account and all associated personal data at any time.
                     </p>
+                    <div class="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm leading-relaxed text-neutral-700">
+                        <p class="font-semibold text-neutral-900">How to Delete Your Account:</p>
+                        <ul class="mt-2 list-disc pl-5 space-y-1">
+                            <li><strong>In-App Deletion:</strong> Mobile app users can initiate account deletion at any time by opening the app, going to <strong>Settings</strong>, and selecting <strong>Delete Account</strong> in the danger zone.</li>
+                            <li><strong>Web / Email Request:</strong> You may also request deletion by sending an email with your registered email address to <a href="mailto:futureacademy-rm@gmail.com" class="text-blue-600 underline">futureacademy-rm@gmail.com</a> or via WhatsApp support at +234 707 110 0037.</li>
+                        </ul>
+                        <p class="mt-2 text-xs text-neutral-500">
+                            Upon deletion, your personal details, exam history, quiz attempts, and active tokens will be permanently removed.
+                        </p>
+                    </div>
                 </section>
 
                 <section>

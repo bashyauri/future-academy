@@ -229,6 +229,7 @@ Route::prefix('v1')
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/user', [AuthController::class, 'user']);
+            Route::delete('/user', [AuthController::class, 'deleteAccount']);
 
             Route::post('/logout', [AuthController::class, 'logout']);
 
