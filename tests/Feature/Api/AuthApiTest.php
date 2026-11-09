@@ -240,3 +240,26 @@ test('forgot password fails when email is missing', function () {
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['email']);
 });
+
+test('authenticated user can delete their account', function () {
+    $user = User::factory()->create([
+        'email' => 'delete-me@example.com',
+        'is_active' => true,
+    ]);
+
+    $token = $user->createToken('Test Device')->plainTextToken;
+
+    $response = $this->withToken($token)
+        ->deleteJson('/api/v1/user');
+
+    $response->assertStatus(200)
+        ->assertJsonPath('message', 'Account deleted successfully.');
+
+    expect(User::find($user->id))->toBeNull();
+});
+
+test('unauthenticated user cannot delete account', function () {
+    $response = $this->deleteJson('/api/v1/user');
+
+    $response->assertStatus(401);
+});
