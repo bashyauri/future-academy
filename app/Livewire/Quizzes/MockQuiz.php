@@ -63,6 +63,8 @@ class MockQuiz extends Component
     /** ISO-8601 absolute server expiry used by Alpine for display only. */
     public ?string $expiresAt = null;
 
+    public ?int $sessionId = null;
+
     protected ?MockSession $mockSession = null;
 
     public function mount()
@@ -90,6 +92,7 @@ class MockQuiz extends Component
             return $this->redirectToSetup();
         }
 
+        $this->sessionId = (int) $sessionId;
         $this->mockSession = $session;
         $this->loadSessionConfiguration($session);
 
@@ -527,7 +530,7 @@ class MockQuiz extends Component
 
     protected function saveAttempt(): void
     {
-        $sessionId = request()->query('session');
+        $sessionId = $this->sessionId ?? request()->query('session');
 
         if (! $sessionId) {
             // Legacy group flow has no MockSession to complete.
@@ -621,6 +624,11 @@ class MockQuiz extends Component
         }
 
         return $reviewData;
+    }
+
+    public function toJSON(): array
+    {
+        return [];
     }
 
     public function render()

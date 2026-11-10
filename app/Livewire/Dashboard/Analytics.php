@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Models\Lesson;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\Topic;
@@ -38,43 +39,35 @@ class Analytics extends Component
         $quizScoresOverTime = QuizAttempt::where('user_id', $user->id)
             ->where('status', 'completed')
             ->where('completed_at', '>=', now()->subDays(30))
+            ->with(['quiz', 'subject', 'mockSession.examType'])
             ->orderBy('completed_at')
             ->get()
             ->map(function ($attempt) {
                 return [
-                    'date' => $attempt->completed_at->format('M d'),
-                    'score' => round($attempt->score_percentage, 1),
-                    'title' => $attempt->quiz->title ?? 'Quiz',
+                    'date' => $attempt->completed_at ? $attempt->completed_at->format('M d') : '',
+                    'score' => round($attempt->score_percentage ?? 0, 1),
+                    'title' => $attempt->title ?? $attempt->quiz?->title ?? 'Quiz',
                 ];
             });
 
-        // Subject performance (all time)
-        $subjectPerformance = QuizAttempt::select(
-            'quizzes.subject_ids',
-            DB::raw('AVG(quiz_attempts.score_percentage) as avg_score'),
-            DB::raw('COUNT(*) as total_attempts')
-        )
-            ->join('quizzes', 'quiz_attempts.quiz_id', '=', 'quizzes.id')
-            ->where('quiz_attempts.user_id', $user->id)
-            ->where('quiz_attempts.status', 'completed')
-            ->whereNotNull('quizzes.subject_ids')
-            ->groupBy('quizzes.subject_ids')
+        // Subject performance (all time) - includes both quizzes and mock exams
+        $subjectPerformance = QuizAttempt::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->with(['subject', 'quiz.subject'])
             ->get()
-            ->map(function ($item) {
-                $subjectIds = json_decode($item->subject_ids, true);
-                if (! empty($subjectIds)) {
-                    $subject = Subject::find($subjectIds[0]);
-
-                    return [
-                        'subject' => $subject?->name ?? 'Unknown',
-                        'avg_score' => round($item->avg_score, 1),
-                        'total_attempts' => $item->total_attempts,
-                    ];
-                }
-
-                return null;
+            ->groupBy(function ($attempt) {
+                return $attempt->subject_id ?? $attempt->quiz?->subject_id;
             })
-            ->filter()
+            ->filter(fn ($attempts, $subjectId) => ! empty($subjectId))
+            ->map(function ($attempts, $subjectId) {
+                $subject = $attempts->first()->subject ?? $attempts->first()->quiz?->subject ?? Subject::find($subjectId);
+
+                return [
+                    'subject' => $subject?->name ?? 'Unknown',
+                    'avg_score' => round($attempts->whereNotNull('score_percentage')->avg('score_percentage') ?? 0, 1),
+                    'total_attempts' => $attempts->count(),
+                ];
+            })
             ->values();
 
         // Topic mastery (topics with attempts) - using JSON column
@@ -157,9 +150,28 @@ class Analytics extends Component
             ->where('status', 'completed')
             ->count();
 
+        $mockExamsTaken = QuizAttempt::where('user_id', $user->id)
+            ->mockExams()
+            ->where('status', 'completed')
+            ->count();
+
+        $bestMockScore = QuizAttempt::where('user_id', $user->id)
+            ->mockExams()
+            ->where('status', 'completed')
+            ->max('score_percentage') ?? 0;
+
         $averageScore = QuizAttempt::where('user_id', $user->id)
             ->where('status', 'completed')
+            ->whereNotNull('score_percentage')
             ->avg('score_percentage') ?? 0;
+
+        $videosWatched = $user->videoProgress()
+            ->where('completed', true)
+            ->count();
+
+        $totalVideos = Lesson::where('status', 'published')
+            ->whereNotNull('video_url')
+            ->count();
 
         $totalLessons = UserProgress::where('user_id', $user->id)
             ->where('type', 'lesson')
@@ -178,10 +190,19 @@ class Analytics extends Component
             'currentStreak' => $currentStreak,
             'longestStreak' => $longestStreak,
             'totalQuizzes' => $totalQuizzes,
+            'mockExamsTaken' => $mockExamsTaken,
+            'bestMockScore' => $bestMockScore,
+            'videosWatched' => $videosWatched,
+            'totalVideos' => $totalVideos,
             'averageScore' => round($averageScore, 1),
             'totalLessons' => $totalLessons,
             'totalTimeSpent' => $totalTimeSpent,
         ]);
+    }
+
+    public function toJSON(): array
+    {
+        return [];
     }
 
     private function getMasteryLevel($score)

@@ -2,10 +2,9 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Enums\QuizType;
+use App\Models\Lesson;
 use App\Models\Quiz;
 use App\Models\User;
-use App\Models\Video;
 use App\Models\VideoAnalytics;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -256,22 +255,19 @@ class ParentIndex extends Component
                 continue;
             }
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
-            $totalVideos = Video::where('is_published', true)->count();
+            $totalVideos = Lesson::where('status', 'published')->whereNotNull('video_url')->count();
             $quizzesTaken = $child->quizAttempts()->where('status', 'completed')->count();
             $totalQuizzes = Quiz::where('status', 'published')->count();
             $childAvgScore = $child->quizAttempts()
                 ->where('status', 'completed')
+                ->whereNotNull('score_percentage')
                 ->avg('score_percentage') ?? 0;
             $mockExamsTaken = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->count();
             $bestMock = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
             $subjectsEnrolled = $child->enrolledSubjects()->count();
@@ -354,20 +350,17 @@ class ParentIndex extends Component
 
         foreach ($this->children as $child) {
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
-            $totalVideos = Video::where('is_published', true)->count();
+            $totalVideos = Lesson::where('status', 'published')->whereNotNull('video_url')->count();
             $avgScore = $child->quizAttempts()
                 ->where('status', 'completed')
+                ->whereNotNull('score_percentage')
                 ->avg('score_percentage') ?? 0;
             $mockExamsTaken = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->count();
             $bestMockScore = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
             // Use fresh query to ensure we get the actual count from DB with current is_active status
@@ -456,6 +449,11 @@ class ParentIndex extends Component
         }
 
         return "{$minutes}m";
+    }
+
+    public function toJSON(): array
+    {
+        return [];
     }
 
     public function render()

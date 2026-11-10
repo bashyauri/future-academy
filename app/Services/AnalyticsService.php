@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Lesson;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\User;
@@ -13,14 +14,32 @@ class AnalyticsService
      */
     public function getUserOverview(User $user): array
     {
+        $avgScore = QuizAttempt::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->whereNotNull('score_percentage')
+            ->avg('score_percentage');
+
         return [
-            'total_quizzes' => QuizAttempt::where('user_id', $user->id)->count(),
-            'average_score' => QuizAttempt::where('user_id', $user->id)
-                ->whereNotNull('score_percentage')
-                ->avg('score_percentage'),
-            'total_time_spent' => QuizAttempt::where('user_id', $user->id)
+            'total_quizzes' => QuizAttempt::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->count(),
+            'average_score' => $avgScore !== null ? round((float) $avgScore, 1) : null,
+            'total_time_spent' => (int) QuizAttempt::where('user_id', $user->id)
+                ->where('status', 'completed')
                 ->sum('time_taken_seconds'),
             'study_streak' => $this->calculateStudyStreak($user),
+            'mock_exams_taken' => QuizAttempt::where('user_id', $user->id)
+                ->mockExams()
+                ->where('status', 'completed')
+                ->count(),
+            'best_mock_score' => round((float) (QuizAttempt::where('user_id', $user->id)
+                ->mockExams()
+                ->where('status', 'completed')
+                ->max('score_percentage') ?? 0), 1),
+            'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
+            'total_videos' => Lesson::where('status', 'published')
+                ->whereNotNull('video_url')
+                ->count(),
         ];
     }
 
@@ -30,6 +49,7 @@ class AnalyticsService
     public function getSubjectPerformance(User $user): array
     {
         $performance = QuizAttempt::where('user_id', $user->id)
+            ->where('status', 'completed')
             ->whereNotNull('subject_id')
             ->selectRaw('
         subject_id,
@@ -63,15 +83,16 @@ class AnalyticsService
     public function getQuizHistory(User $user, int $limit = 10): array
     {
         return QuizAttempt::where('user_id', $user->id)
-            ->with(['subject', 'quiz'])
-            ->latest()
+            ->where('status', 'completed')
+            ->with(['subject', 'quiz', 'mockSession.examType'])
+            ->latest('completed_at')
             ->limit($limit)
             ->get()
             ->map(function ($attempt) {
 
                 return [
                     'id' => $attempt->id,
-                    'quiz_type' => $attempt->quiz?->title ?? 'Quiz',
+                    'quiz_type' => $attempt->title ?? $attempt->quiz?->title ?? 'Quiz',
                     'subject_name' => $attempt->subject?->name,
                     'score' => $attempt->score_percentage,
                     'total_questions' => $attempt->total_questions ?? 0,

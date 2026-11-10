@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\QuizType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class QuizAttempt extends Model
 {
@@ -62,10 +64,24 @@ class QuizAttempt extends Model
         return $this->hasMany(UserAnswer::class);
     }
 
+    public function mockSession(): HasOne
+    {
+        return $this->hasOne(MockSession::class);
+    }
+
     // Scopes
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    public function scopeMockExams($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereHas('mockSession')
+                ->orWhereNotNull('mock_group_id')
+                ->orWhereHas('quiz', fn ($sub) => $sub->where('type', QuizType::Mock->value));
+        });
     }
 
     public function scopeInProgress($query)
@@ -147,5 +163,35 @@ class QuizAttempt extends Model
     public function getQuestionIds(): array
     {
         return $this->question_order ?? [];
+    }
+
+    public function getTitleAttribute(): string
+    {
+        if ($this->quiz) {
+            return $this->quiz->title;
+        }
+
+        $mockSession = $this->relationLoaded('mockSession') ? $this->mockSession : $this->mockSession()->with('examType')->first();
+        if ($mockSession) {
+            $examTypeName = $mockSession->examType?->name ?? 'JAMB';
+
+            return "{$examTypeName} Mock Exam";
+        }
+
+        if ($this->mock_group_id) {
+            $subjectName = $this->subject?->name ?? 'Subject';
+
+            return "{$subjectName} Mock Exam";
+        }
+
+        if ($this->exam_year) {
+            $subjectName = $this->subject?->name ?? 'Subject';
+
+            return "{$subjectName} {$this->exam_year} Practice";
+        }
+
+        $subjectName = $this->subject?->name;
+
+        return $subjectName ? "{$subjectName} Practice Exam" : 'Mock Examination';
     }
 }

@@ -11,33 +11,54 @@
     </div>
 
     {{-- Stats Overview --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {{-- Videos Watched --}}
+        <div
+            class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20">
+            <flux:text class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">{{ __('Videos Watched') }}</flux:text>
+            <flux:heading size="2xl" class="text-emerald-900 dark:text-emerald-100 mt-2">
+                {{ $videosWatched }} <span class="text-base font-normal text-emerald-600 dark:text-emerald-400">/ {{ $totalVideos }}</span>
+            </flux:heading>
+        </div>
+
+        {{-- Total Quizzes --}}
         <div
             class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20">
-            <flux:text class="text-sm text-blue-600 dark:text-blue-400 font-medium">{{ __('Total Quizzes') }}
-            </flux:text>
+            <flux:text class="text-sm text-blue-600 dark:text-blue-400 font-medium">{{ __('Quizzes Taken') }}</flux:text>
             <flux:heading size="2xl" class="text-blue-900 dark:text-blue-100 mt-2">{{ $totalQuizzes }}</flux:heading>
         </div>
 
+        {{-- Mock Exams Taken --}}
+        <div
+            class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20">
+            <flux:text class="text-sm text-purple-600 dark:text-purple-400 font-medium">{{ __('Mock Exams Taken') }}</flux:text>
+            <div class="flex items-baseline gap-2 mt-2">
+                <flux:heading size="2xl" class="text-purple-900 dark:text-purple-100">{{ $mockExamsTaken }}</flux:heading>
+                @if($mockExamsTaken > 0)
+                    <span class="text-xs font-semibold text-purple-700 dark:text-purple-300">Best: {{ round($bestMockScore) }}%</span>
+                @endif
+            </div>
+        </div>
+
+        {{-- Avg Score --}}
         <div
             class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20">
             <flux:text class="text-sm text-green-600 dark:text-green-400 font-medium">{{ __('Avg Score') }}</flux:text>
             <flux:heading size="2xl" class="text-green-900 dark:text-green-100 mt-2">{{ $averageScore }}%</flux:heading>
         </div>
 
+        {{-- Current Streak --}}
         <div
             class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20">
-            <flux:text class="text-sm text-amber-600 dark:text-amber-400 font-medium">{{ __('Current Streak') }}
-            </flux:text>
-            <flux:heading size="2xl" class="text-amber-900 dark:text-amber-100 mt-2">{{ $currentStreak }}
-                {{ __('days') }}</flux:heading>
+            <flux:text class="text-sm text-amber-600 dark:text-amber-400 font-medium">{{ __('Current Streak') }}</flux:text>
+            <flux:heading size="2xl" class="text-amber-900 dark:text-amber-100 mt-2">{{ $currentStreak }} {{ __('days') }}</flux:heading>
         </div>
 
+        {{-- Total Time --}}
         <div
-            class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20">
-            <flux:text class="text-sm text-purple-600 dark:text-purple-400 font-medium">{{ __('Total Time') }}
-            </flux:text>
-            <flux:heading size="2xl" class="text-purple-900 dark:text-purple-100 mt-2">
+            class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-sky-50 to-sky-100 dark:from-sky-950/30 dark:to-sky-900/20">
+            <flux:text class="text-sm text-sky-600 dark:text-sky-400 font-medium">{{ __('Total Time') }}</flux:text>
+            <flux:heading size="2xl" class="text-sky-900 dark:text-sky-100 mt-2">
                 {{ floor($totalTimeSpent / 3600) }}h {{ floor(($totalTimeSpent % 3600) / 60) }}m
             </flux:heading>
         </div>
@@ -122,6 +143,10 @@
 
 @script
 <script>
+    if (typeof $wire !== 'undefined') {
+        $wire.toJSON = () => ({});
+    }
+
     // Import Chart.js
     import Chart from 'chart.js/auto';
 

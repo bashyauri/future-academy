@@ -126,6 +126,7 @@ return new class extends Migration
                 $table->id();
                 $table->string('name');
                 $table->string('slug')->nullable();
+                $table->string('code')->nullable();
                 $table->integer('sort_order')->default(0);
                 $table->timestamps();
             });
@@ -141,6 +142,7 @@ return new class extends Migration
                 $table->string('video_url')->nullable();
                 $table->integer('duration_seconds')->nullable();
                 $table->integer('order')->default(0);
+                $table->string('status')->default('published');
                 $table->timestamps();
             });
         }
@@ -161,6 +163,7 @@ return new class extends Migration
                 $table->timestamp('available_from')->nullable();
                 $table->timestamp('available_until')->nullable();
                 $table->timestamps();
+                $table->softDeletes();
             });
         }
 

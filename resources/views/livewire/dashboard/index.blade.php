@@ -341,13 +341,16 @@
                                     <flux:heading size="sm" class="truncate font-semibold text-neutral-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                         {{ $video->title }}
                                     </flux:heading>
-                                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{{ $video->subject->name }}</flux:text>
-                                    @if($video->duration)
+                                    <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{{ $video->subject?->name }}</flux:text>
+                                    @php
+                                        $durationSeconds = $video->duration ?? ($video->duration_minutes ? $video->duration_minutes * 60 : null);
+                                    @endphp
+                                    @if($durationSeconds)
                                     <div class="flex items-center mt-2 space-x-2">
                                         <svg class="w-4 h-4 text-neutral-400" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00-.293.707l-2.828 2.829a1 1 0 101.415 1.415L9 9.414V6z" clip-rule="evenodd"></path>
                                         </svg>
-                                        <flux:text class="text-xs text-neutral-500">{{ gmdate('i:s', $video->duration) }}</flux:text>
+                                        <flux:text class="text-xs text-neutral-500">{{ gmdate('i:s', $durationSeconds) }}</flux:text>
                                     </div>
                                     @endif
                                 </div>
@@ -389,10 +392,10 @@
                                 <div class="flex items-start justify-between mb-3">
                                     <div class="flex-1 min-w-0">
                                         <flux:heading size="sm" class="font-semibold text-neutral-900 dark:text-white truncate">
-                                            {{ $attempt->quiz->title }}
+                                            {{ $attempt->title ?? $attempt->quiz?->title ?? __('Mock Examination') }}
                                         </flux:heading>
                                         <flux:text class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                                            {{ $attempt->completed_at->format('M j, Y • g:i A') }}
+                                            {{ $attempt->completed_at ? $attempt->completed_at->format('M j, Y • g:i A') : '' }}
                                         </flux:text>
                                     </div>
                                     <span class="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-bold {{ $attempt->score_percentage >= 70 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : ($attempt->score_percentage >= 50 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300') }}">
@@ -401,7 +404,10 @@
                                 </div>
                                 <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                                     <span>{{ $attempt->correct_answers }}/{{ $attempt->total_questions }} correct</span>
-                                    <span>{{ $attempt->time_taken ? gmdate('i:s', $attempt->time_taken) : 'N/A' }}</span>
+                                    @php
+                                        $secondsTaken = $attempt->time_taken_seconds ?? $attempt->time_taken;
+                                    @endphp
+                                    <span>{{ $secondsTaken ? gmdate('i:s', $secondsTaken) : 'N/A' }}</span>
                                 </div>
                                 <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3 overflow-hidden">
                                     <div class="h-full transition-all {{ $attempt->score_percentage >= 70 ? 'bg-gradient-to-r from-green-500 to-green-600' : ($attempt->score_percentage >= 50 ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-red-500 to-red-600') }}" style="width: {{ $attempt->score_percentage }}%"></div>

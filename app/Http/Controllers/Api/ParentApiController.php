@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\QuizType;
 use App\Http\Controllers\Controller;
+use App\Models\Lesson;
 use App\Models\Quiz;
 use App\Models\Subject;
 use App\Models\User;
-use App\Models\Video;
 use App\Models\VideoAnalytics;
 use App\Services\AnalyticsService;
 use Illuminate\Http\JsonResponse;
@@ -77,26 +76,23 @@ class ParentApiController extends Controller
             $canViewMetrics = $showProgressMetrics || $parentPaidForStudent;
 
             $videosWatched = $child->videoProgress()->where('completed', true)->count();
-            $totalVideos = Video::where('is_published', true)->count();
+            $totalVideos = Lesson::where('status', 'published')->whereNotNull('video_url')->count();
 
             $quizzesTaken = $child->quizAttempts()->where('status', 'completed')->count();
             $totalQuizzes = Quiz::where('status', 'published')->count();
 
             $childAvgScore = $child->quizAttempts()
                 ->where('status', 'completed')
+                ->whereNotNull('score_percentage')
                 ->avg('score_percentage') ?? 0;
 
             $mockExamsTaken = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->count();
 
             $bestMock = $child->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0;
 

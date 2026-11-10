@@ -3,8 +3,8 @@
 namespace App\Livewire\Dashboard;
 
 use App\Enums\QuizType;
+use App\Models\Lesson;
 use App\Models\Quiz;
-use App\Models\Video;
 use App\Models\VideoAnalytics;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -57,25 +57,33 @@ class Index extends Component
         $totalVideoWatchTime = $videoAnalytics->sum('total_watch_time') ?? 0;
         $averageCompletionRate = $videoAnalytics->avg('completion_rate') ?? 0;
 
+        $totalVideos = Lesson::where('status', 'published')
+            ->whereNotNull('video_url')
+            ->when(! empty($subjectIds), fn ($q) => $q->whereIn('subject_id', $subjectIds))
+            ->count();
+
+        if ($totalVideos === 0) {
+            $totalVideos = Lesson::where('status', 'published')
+                ->whereNotNull('video_url')
+                ->count();
+        }
+
         $this->stats = [
             'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
-            'total_videos' => Video::where('is_published', true)->count(),
+            'total_videos' => $totalVideos,
             'quizzes_taken' => $user->quizAttempts()->where('status', 'completed')->count(),
             'total_quizzes' => Quiz::where('status', 'published')->count(),
             'average_score' => $user->quizAttempts()
                 ->where('status', 'completed')
+                ->whereNotNull('score_percentage')
                 ->avg('score_percentage') ?? 0,
             'subjects_enrolled' => $this->enrolledSubjects->count(),
             'mock_exams_taken' => $user->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->count(),
             'best_mock_score' => $user->quizAttempts()
-                ->whereHas('quiz', function ($query) {
-                    $query->where('type', QuizType::Mock->value);
-                })
+                ->mockExams()
                 ->where('status', 'completed')
                 ->max('score_percentage') ?? 0,
             // Video analytics from Bunny Stream
@@ -84,10 +92,11 @@ class Index extends Component
             'total_video_watch_time_hours' => round($totalVideoWatchTime / 3600, 1),
             'average_completion_rate' => number_format($averageCompletionRate, 1),
         ];
-        $this->recentVideos = Video::whereIn('subject_id', $subjectIds)
-            ->where('is_published', true)
+        $this->recentVideos = Lesson::where('status', 'published')
+            ->whereNotNull('video_url')
+            ->when(! empty($subjectIds), fn ($q) => $q->whereIn('subject_id', $subjectIds))
             ->with(['subject', 'topic'])
-            ->latest()
+            ->latest('published_at')
             ->take(6)
             ->get();
 
@@ -134,14 +143,17 @@ class Index extends Component
 
         // Get recent mock exam attempts
         $this->recentMockAttempts = $user->quizAttempts()
-            ->whereHas('quiz', function ($query) {
-                $query->where('type', QuizType::Mock->value);
-            })
-            ->with(['quiz.subject'])
+            ->mockExams()
+            ->with(['quiz.subject', 'subject', 'mockSession.examType'])
             ->where('status', 'completed')
             ->latest('completed_at')
             ->take(5)
             ->get();
+    }
+
+    public function toJSON(): array
+    {
+        return [];
     }
 
     public function render()
