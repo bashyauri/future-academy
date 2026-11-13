@@ -516,6 +516,11 @@
                             </a>
                         </li>
                         <li>
+                            <a href="{{ route('terms-of-service') }}" class="text-neutral-600 dark:text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400" wire:navigate>
+                                Terms of Service
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ route('account-deletion') }}" class="text-neutral-600 dark:text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400" wire:navigate>
                                 Account Deletion
                             </a>
@@ -530,6 +535,8 @@
                 </p>
                 <div class="flex items-center gap-4">
                     <a href="{{ route('privacy-policy') }}" class="hover:text-neutral-700 dark:hover:text-neutral-200" wire:navigate>Privacy Policy</a>
+                    <span>&bull;</span>
+                    <a href="{{ route('terms-of-service') }}" class="hover:text-neutral-700 dark:hover:text-neutral-200" wire:navigate>Terms of Service</a>
                     <span>&bull;</span>
                     <a href="{{ route('account-deletion') }}" class="hover:text-neutral-700 dark:hover:text-neutral-200" wire:navigate>Account Deletion</a>
                 </div>

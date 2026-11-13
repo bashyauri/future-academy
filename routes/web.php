@@ -44,6 +44,8 @@ use Laravel\Fortify\Features;
 Route::get('/', HomePage::class)->name('home');
 Route::view('/account-deletion', 'account-deletion')->name('account-deletion');
 Route::view('/privacy-policy', 'privacy-policy')->name('privacy-policy');
+Route::view('/terms-of-service', 'terms-of-service')->name('terms-of-service');
+Route::view('/terms', 'terms-of-service')->name('terms');
 
 Route::get('/redirect-dashboard', function () {
     $user = auth()->user();

@@ -218,6 +218,8 @@
             &copy; {{ now()->year }} {{ config('app.name', 'Future Academy') }}. All rights reserved.
             &nbsp;&bull;&nbsp;
             <a href="{{ route('home') }}" class="underline underline-offset-2 hover:text-neutral-700">Home</a>
+            &nbsp;&bull;&nbsp;
+            <a href="{{ route('terms-of-service') }}" class="underline underline-offset-2 hover:text-neutral-700">Terms of Service</a>
         </p>
     </div>
 

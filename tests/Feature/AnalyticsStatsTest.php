@@ -189,3 +189,13 @@ test('livewire analytics component handles toJSON calls gracefully', function ()
         ->call('toJSON')
         ->assertSuccessful();
 });
+
+test('terms of service and refund policy page is accessible', function () {
+    $this->get('/terms-of-service')
+        ->assertOk()
+        ->assertSee('Refund', false)
+        ->assertSee('Conditions Under Which Refunds Are Made');
+
+    $this->get('/terms')
+        ->assertOk();
+});
