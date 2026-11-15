@@ -3,9 +3,13 @@
 namespace App\Services;
 
 use App\Models\Lesson;
+use App\Models\MockSession;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use App\Models\User;
+use App\Models\UserProgress;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AnalyticsService
 {
@@ -19,23 +23,37 @@ class AnalyticsService
             ->whereNotNull('score_percentage')
             ->avg('score_percentage');
 
+        $mockAttempts = QuizAttempt::where('user_id', $user->id)
+            ->mockExams()
+            ->where('status', 'completed');
+        $mockAttemptIds = (clone $mockAttempts)->pluck('id');
+        $unlinkedMockSessions = MockSession::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->where(function ($q) use ($mockAttemptIds) {
+                $q->whereNull('quiz_attempt_id')
+                    ->orWhereNotIn('quiz_attempt_id', $mockAttemptIds);
+            })
+            ->count();
+        $mockExamsTaken = $mockAttemptIds->count() + $unlinkedMockSessions;
+        $bestMockScore = (clone $mockAttempts)->max('score_percentage') ?? 0;
+
+        $userProgressTime = Schema::hasTable('user_progress')
+            ? (int) UserProgress::where('user_id', $user->id)->sum('time_spent_seconds')
+            : 0;
+
+        $quizTime = (int) QuizAttempt::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->sum(DB::raw('COALESCE(time_taken_seconds, time_spent_seconds, 0)'));
+
         return [
             'total_quizzes' => QuizAttempt::where('user_id', $user->id)
                 ->where('status', 'completed')
                 ->count(),
             'average_score' => $avgScore !== null ? round((float) $avgScore, 1) : null,
-            'total_time_spent' => (int) QuizAttempt::where('user_id', $user->id)
-                ->where('status', 'completed')
-                ->sum('time_taken_seconds'),
+            'total_time_spent' => $quizTime + $userProgressTime,
             'study_streak' => $this->calculateStudyStreak($user),
-            'mock_exams_taken' => QuizAttempt::where('user_id', $user->id)
-                ->mockExams()
-                ->where('status', 'completed')
-                ->count(),
-            'best_mock_score' => round((float) (QuizAttempt::where('user_id', $user->id)
-                ->mockExams()
-                ->where('status', 'completed')
-                ->max('score_percentage') ?? 0), 1),
+            'mock_exams_taken' => $mockExamsTaken,
+            'best_mock_score' => round((float) $bestMockScore, 1),
             'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
             'total_videos' => Lesson::where('status', 'published')
                 ->whereNotNull('video_url')
@@ -48,33 +66,34 @@ class AnalyticsService
      */
     public function getSubjectPerformance(User $user): array
     {
-        $performance = QuizAttempt::where('user_id', $user->id)
+        $attempts = QuizAttempt::where('user_id', $user->id)
             ->where('status', 'completed')
-            ->whereNotNull('subject_id')
-            ->selectRaw('
-        subject_id,
-        COUNT(*) as total_attempts,
-        AVG(score_percentage) as avg_score,
-        MAX(score_percentage) as best_score,
-        SUM(time_taken_seconds) as total_time
-    ')
-            ->groupBy('subject_id')
+            ->with(['subject', 'quiz.subject', 'mockSession'])
             ->get();
 
-        return $performance->map(function ($item) {
+        $grouped = $attempts->groupBy(function ($attempt) {
+            return $attempt->subject_id
+                ?? $attempt->quiz?->subject_id
+                ?? ($attempt->mockSession?->subject_ids[0] ?? null);
+        })->filter(fn ($group, $subjectId) => ! empty($subjectId));
 
-            $subject = Subject::find($item->subject_id);
+        return $grouped->map(function ($group, $subjectId) {
+            $subject = $group->first()->subject
+                ?? $group->first()->quiz?->subject
+                ?? Subject::find($subjectId);
+
+            $scores = $group->whereNotNull('score_percentage');
 
             return [
-                'subject_id' => $item->subject_id,
-                'subject_name' => $subject?->name,
-                'subject_code' => $subject?->code,
-                'total_attempts' => (int) $item->total_attempts,
-                'average_score' => round($item->avg_score ?? 0, 2),
-                'best_score' => round($item->best_score ?? 0, 2),
-                'total_time_spent_seconds' => (int) $item->total_time,
+                'subject_id' => (int) $subjectId,
+                'subject_name' => $subject?->name ?? 'Subject',
+                'subject_code' => $subject?->code ?? '',
+                'total_attempts' => $group->count(),
+                'average_score' => round((float) ($scores->avg('score_percentage') ?? 0), 2),
+                'best_score' => round((float) ($scores->max('score_percentage') ?? 0), 2),
+                'total_time_spent_seconds' => (int) $group->sum(fn ($a) => $a->time_taken_seconds ?? $a->time_spent_seconds ?? 0),
             ];
-        })->toArray();
+        })->values()->toArray();
     }
 
     /**
@@ -84,16 +103,22 @@ class AnalyticsService
     {
         return QuizAttempt::where('user_id', $user->id)
             ->where('status', 'completed')
-            ->with(['subject', 'quiz', 'mockSession.examType'])
+            ->with(['subject', 'quiz.subject', 'mockSession.examType'])
             ->latest('completed_at')
             ->limit($limit)
             ->get()
             ->map(function ($attempt) {
+                $subjectName = $attempt->subject?->name
+                    ?? $attempt->quiz?->subject?->name
+                    ?? ($attempt->mockSession?->examType?->name ? $attempt->mockSession->examType->name.' Mock' : 'General');
+
+                $quizType = $attempt->quiz?->title
+                    ?? ($attempt->mockSession?->examType?->name ? $attempt->mockSession->examType->name.' Mock Exam' : ($attempt->subject?->name ? $attempt->subject->name.' Practice' : 'Quiz Attempt'));
 
                 return [
                     'id' => $attempt->id,
-                    'quiz_type' => $attempt->title ?? $attempt->quiz?->title ?? 'Quiz',
-                    'subject_name' => $attempt->subject?->name,
+                    'quiz_type' => $quizType,
+                    'subject_name' => $subjectName,
                     'score' => $attempt->score_percentage,
                     'total_questions' => $attempt->total_questions ?? 0,
                     'completed_at' => $attempt->completed_at?->toIso8601String(),
@@ -103,32 +128,47 @@ class AnalyticsService
     }
 
     /**
-     * Calculate study streak (consecutive days with activity)
+     * Calculate study streak (consecutive days with activity across quizzes, mocks and videos)
      */
     public function calculateStudyStreak(User $user): int
     {
-        $lastActivityDate = QuizAttempt::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->value('created_at');
+        $quizDates = QuizAttempt::where('user_id', $user->id)
+            ->selectRaw('DATE(created_at) as act_date')
+            ->pluck('act_date')
+            ->all();
 
-        if (! $lastActivityDate) {
+        $progressDates = Schema::hasTable('user_progress')
+            ? UserProgress::where('user_id', $user->id)
+                ->selectRaw('DATE(updated_at) as act_date')
+                ->pluck('act_date')
+                ->all()
+            : [];
+
+        $videoDates = Schema::hasTable('video_progress')
+            ? DB::table('video_progress')
+                ->where('user_id', $user->id)
+                ->selectRaw('DATE(updated_at) as act_date')
+                ->pluck('act_date')
+                ->all()
+            : [];
+
+        $allDates = array_flip(array_unique(array_merge($quizDates, $progressDates, $videoDates)));
+
+        if (empty($allDates)) {
             return 0;
         }
 
         $streak = 0;
         $currentDate = now()->startOfDay();
 
-        while ($currentDate->gte($lastActivityDate->startOfDay())) {
-            $hasActivity = QuizAttempt::where('user_id', $user->id)
-                ->whereDate('created_at', $currentDate)
-                ->exists();
+        // If no activity today, check if yesterday was active (streak is still alive today)
+        if (! isset($allDates[$currentDate->format('Y-m-d')])) {
+            $currentDate->subDay();
+        }
 
-            if ($hasActivity) {
-                $streak++;
-                $currentDate->subDay();
-            } else {
-                break;
-            }
+        while (isset($allDates[$currentDate->format('Y-m-d')])) {
+            $streak++;
+            $currentDate->subDay();
         }
 
         return $streak;

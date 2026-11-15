@@ -4,6 +4,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Enums\QuizType;
 use App\Models\Lesson;
+use App\Models\MockSession;
 use App\Models\Quiz;
 use App\Models\VideoAnalytics;
 use Livewire\Attributes\Layout;
@@ -68,6 +69,20 @@ class Index extends Component
                 ->count();
         }
 
+        $mockAttempts = $user->quizAttempts()
+            ->mockExams()
+            ->where('status', 'completed');
+        $mockAttemptIds = (clone $mockAttempts)->pluck('id');
+        $unlinkedMockSessions = MockSession::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->where(function ($q) use ($mockAttemptIds) {
+                $q->whereNull('quiz_attempt_id')
+                    ->orWhereNotIn('quiz_attempt_id', $mockAttemptIds);
+            })
+            ->count();
+        $mockExamsTaken = $mockAttemptIds->count() + $unlinkedMockSessions;
+        $bestMockScore = (clone $mockAttempts)->max('score_percentage') ?? 0;
+
         $this->stats = [
             'videos_watched' => $user->videoProgress()->where('completed', true)->count(),
             'total_videos' => $totalVideos,
@@ -78,14 +93,8 @@ class Index extends Component
                 ->whereNotNull('score_percentage')
                 ->avg('score_percentage') ?? 0,
             'subjects_enrolled' => $this->enrolledSubjects->count(),
-            'mock_exams_taken' => $user->quizAttempts()
-                ->mockExams()
-                ->where('status', 'completed')
-                ->count(),
-            'best_mock_score' => $user->quizAttempts()
-                ->mockExams()
-                ->where('status', 'completed')
-                ->max('score_percentage') ?? 0,
+            'mock_exams_taken' => $mockExamsTaken,
+            'best_mock_score' => $bestMockScore,
             // Video analytics from Bunny Stream
             'total_video_views' => $totalVideoViews,
             'total_video_watch_time_seconds' => $totalVideoWatchTime,

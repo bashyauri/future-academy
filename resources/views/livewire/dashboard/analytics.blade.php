@@ -67,7 +67,7 @@
     {{-- Quiz Scores Over Time --}}
     <div class="rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 bg-white dark:bg-zinc-900">
         <flux:heading size="lg" class="mb-4">{{ __('Quiz Scores Over Time') }}</flux:heading>
-        <flux:text class="text-sm text-neutral-500 mb-4">{{ __('Last 30 days') }}</flux:text>
+        <flux:text class="text-sm text-neutral-500 mb-4">{{ $isFallbackRecent ? __('Recent activity') : __('Last 30 days') }}</flux:text>
         @if($quizScoresOverTime->isEmpty())
             <div class="text-center py-12">
                 <flux:text class="text-neutral-500">{{ __('No quiz data available yet') }}</flux:text>
@@ -141,16 +141,16 @@
     </div>
 </div>
 
+@assets
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+@endassets
+
 @script
 <script>
     if (typeof $wire !== 'undefined') {
         $wire.toJSON = () => ({});
     }
 
-    // Import Chart.js
-    import Chart from 'chart.js/auto';
-
-    // Chart colors
     const colors = {
         primary: 'rgb(59, 130, 246)',
         success: 'rgb(34, 197, 94)',
@@ -161,60 +161,73 @@
         gray: 'rgb(156, 163, 175)',
     };
 
-    // Chart.js defaults
-    Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('color-scheme') === 'dark'
-        ? 'rgb(229, 231, 235)'
-        : 'rgb(55, 65, 81)';
-    Chart.defaults.borderColor = 'rgba(156, 163, 175, 0.2)';
-    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const chartInstances = {};
 
-    // Quiz Scores Over Time Chart
-    @if($quizScoresOverTime->isNotEmpty())
-        const quizScoresData = @json($quizScoresOverTime);
-        const quizScoresCtx = document.getElementById('quizScoresChart').getContext('2d');
-        new Chart(quizScoresCtx, {
-            type: 'line',
-            data: {
-                labels: quizScoresData.map(d => d.date),
-                datasets: [{
-                    label: 'Score %',
-                    data: quizScoresData.map(d => d.score),
-                    borderColor: colors.primary,
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            title: (items) => quizScoresData[items[0].dataIndex].title,
-                            label: (item) => `Score: ${item.parsed.y}%`
+    function initCharts() {
+        if (typeof Chart === 'undefined') {
+            setTimeout(initCharts, 100);
+            return;
+        }
+
+        Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('color-scheme') === 'dark'
+            ? 'rgb(229, 231, 235)'
+            : 'rgb(55, 65, 81)';
+        Chart.defaults.borderColor = 'rgba(156, 163, 175, 0.2)';
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+        function createChart(id, config) {
+            if (chartInstances[id]) {
+                chartInstances[id].destroy();
+                delete chartInstances[id];
+            }
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+            chartInstances[id] = new Chart(canvas.getContext('2d'), config);
+        }
+
+        @if($quizScoresOverTime->isNotEmpty())
+            const quizScoresData = @json($quizScoresOverTime);
+            createChart('quizScoresChart', {
+                type: 'line',
+                data: {
+                    labels: quizScoresData.map(d => d.date),
+                    datasets: [{
+                        label: 'Score %',
+                        data: quizScoresData.map(d => d.score),
+                        borderColor: colors.primary,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => quizScoresData[items[0].dataIndex]?.title || 'Quiz',
+                                label: (item) => `Score: ${item.parsed.y}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: (value) => value + '%' }
                         }
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { callback: (value) => value + '%' }
-                    }
                 }
-            }
-        });
-    @endif
+            });
+        @endif
 
-        // Subject Performance Chart
         @if($subjectPerformance->isNotEmpty())
             const subjectData = @json($subjectPerformance);
-            const subjectCtx = document.getElementById('subjectPerformanceChart').getContext('2d');
-            new Chart(subjectCtx, {
+            createChart('subjectPerformanceChart', {
                 type: 'bar',
                 data: {
                     labels: subjectData.map(d => d.subject),
@@ -239,7 +252,7 @@
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: (item) => `Score: ${item.parsed.y}% (${subjectData[item.dataIndex].total_attempts} quizzes)`
+                                label: (item) => `Score: ${item.parsed.y}% (${subjectData[item.dataIndex].total_attempts} attempts)`
                             }
                         }
                     },
@@ -254,11 +267,9 @@
             });
         @endif
 
-        // Topic Mastery Chart
         @if($topicMastery->isNotEmpty())
             const topicData = @json($topicMastery);
-            const topicCtx = document.getElementById('topicMasteryChart').getContext('2d');
-            new Chart(topicCtx, {
+            createChart('topicMasteryChart', {
                 type: 'doughnut',
                 data: {
                     labels: topicData.map(d => d.topic),
@@ -293,83 +304,82 @@
             });
         @endif
 
-    // Study Streak Chart
-    const streakData = @json($studyStreak);
-    const streakCtx = document.getElementById('studyStreakChart').getContext('2d');
-    new Chart(streakCtx, {
-        type: 'bar',
-        data: {
-            labels: streakData.map(d => d.date),
-            datasets: [{
-                label: 'Active Days',
-                data: streakData.map(d => d.active),
-                backgroundColor: streakData.map(d => d.active ? 'rgba(34, 197, 94, 0.8)' : 'rgba(229, 231, 235, 0.3)'),
-                borderWidth: 0,
-                borderRadius: 4,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (item) => item.parsed.y === 1 ? 'Active' : 'No activity'
-                    }
-                }
+        const streakData = @json($studyStreak);
+        createChart('studyStreakChart', {
+            type: 'bar',
+            data: {
+                labels: streakData.map(d => d.date),
+                datasets: [{
+                    label: 'Active Days',
+                    data: streakData.map(d => d.active),
+                    backgroundColor: streakData.map(d => d.active ? 'rgba(34, 197, 94, 0.8)' : 'rgba(229, 231, 235, 0.3)'),
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }]
             },
-            scales: {
-                y: {
-                    display: false,
-                    beginAtZero: true,
-                    max: 1
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (item) => item.parsed.y === 1 ? 'Active' : 'No activity'
+                        }
+                    }
                 },
-                x: {
-                    ticks: {
-                        maxRotation: 90,
-                        minRotation: 45,
-                        autoSkip: true,
-                        maxTicksLimit: 10
+                scales: {
+                    y: {
+                        display: false,
+                        beginAtZero: true,
+                        max: 1
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 90,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
                     }
                 }
             }
-        }
-    });
+        });
 
-    // Time Spent Chart
-    const timeData = @json($timeSpentDaily);
-    const timeCtx = document.getElementById('timeSpentChart').getContext('2d');
-    new Chart(timeCtx, {
-        type: 'bar',
-        data: {
-            labels: timeData.map(d => d.date),
-            datasets: [{
-                label: 'Minutes',
-                data: timeData.map(d => d.minutes),
-                backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                borderWidth: 0,
-                borderRadius: 8,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (item) => `${item.parsed.y} minutes`
+        const timeData = @json($timeSpentDaily);
+        createChart('timeSpentChart', {
+            type: 'bar',
+            data: {
+                labels: timeData.map(d => d.date),
+                datasets: [{
+                    label: 'Minutes',
+                    data: timeData.map(d => d.minutes),
+                    backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                    borderWidth: 0,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (item) => `${item.parsed.y} minutes`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (value) => value + 'm' }
                     }
                 }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: (value) => value + 'm' }
-                }
             }
-        }
-    });
+        });
+    }
+
+    initCharts();
 </script>
 @endscript

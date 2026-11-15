@@ -181,6 +181,48 @@ test('analytics livewire page calculates mock exams and videos accurately', func
         ->assertSee('Mock Exams Taken');
 });
 
+test('analytics livewire page displays fallback recent scores and tracks streak from quiz attempts', function () {
+    $user = User::factory()->create();
+    $subject = Subject::create([
+        'name' => 'Biology',
+        'code' => 'BIO',
+        'slug' => 'biology',
+        'is_active' => true,
+    ]);
+
+    // Attempt from 45 days ago (outside 30-day window)
+    QuizAttempt::create([
+        'user_id' => $user->id,
+        'subject_id' => $subject->id,
+        'score_percentage' => 78.5,
+        'status' => 'completed',
+        'time_taken_seconds' => 300,
+        'completed_at' => now()->subDays(45),
+        'created_at' => now()->subDays(45),
+    ]);
+
+    // Attempt today
+    QuizAttempt::create([
+        'user_id' => $user->id,
+        'subject_id' => $subject->id,
+        'score_percentage' => 84.0,
+        'status' => 'completed',
+        'time_taken_seconds' => 450,
+        'completed_at' => now(),
+        'created_at' => now(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Analytics::class)
+        ->assertViewHas('quizScoresOverTime', function ($scores) {
+            return count($scores) >= 1;
+        })
+        ->assertViewHas('currentStreak', 1)
+        ->assertViewHas('totalTimeSpent', 750)
+        ->assertSee('Performance by Subject')
+        ->assertSee('Daily Study Time');
+});
+
 test('livewire analytics component handles toJSON calls gracefully', function () {
     $user = User::factory()->create();
 
@@ -198,4 +240,52 @@ test('terms of service and refund policy page is accessible', function () {
 
     $this->get('/terms')
         ->assertOk();
+});
+
+test('mobile api analytics endpoints return complete metrics for mobile app', function () {
+    $user = User::factory()->create();
+    $subject = Subject::create([
+        'name' => 'Economics',
+        'code' => 'ECO',
+        'slug' => 'economics',
+        'is_active' => true,
+    ]);
+    $examType = ExamType::create([
+        'name' => 'JAMB',
+        'slug' => 'jamb',
+    ]);
+
+    $attempt = QuizAttempt::create([
+        'user_id' => $user->id,
+        'quiz_id' => null,
+        'subject_id' => $subject->id,
+        'score_percentage' => 82.5,
+        'status' => 'completed',
+        'time_taken_seconds' => 600,
+        'completed_at' => now(),
+    ]);
+
+    MockSession::create([
+        'user_id' => $user->id,
+        'exam_type_id' => $examType->id,
+        'quiz_attempt_id' => $attempt->id,
+        'subject_ids' => [$subject->id],
+        'questions_per_subject' => [$subject->id => 10],
+        'status' => 'completed',
+        'time_limit' => 60,
+    ]);
+
+    $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/analytics/overview');
+    $response->assertOk()
+        ->assertJsonPath('data.mock_exams_taken', 1)
+        ->assertJsonPath('data.best_mock_score', 82.5)
+        ->assertJsonPath('data.study_streak', 1);
+
+    $subjectPerfResponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/analytics/subject-performance');
+    $subjectPerfResponse->assertOk()
+        ->assertJsonFragment(['subject_name' => 'Economics']);
+
+    $quizHistResponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/analytics/quiz-history');
+    $quizHistResponse->assertOk()
+        ->assertJsonFragment(['subject_name' => 'Economics']);
 });
