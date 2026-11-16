@@ -62,14 +62,11 @@ class AnalyticsController extends Controller
     public function studyStreak(Request $request): JsonResponse
     {
         $user = $request->user();
-        $streak = $this->analyticsService->calculateStudyStreak($user);
+        $detail = $this->analyticsService->getStudyStreakDetail($user);
 
         return response()->json([
             'message' => 'Study streak retrieved successfully',
-            'data' => [
-                'current_streak' => $streak,
-                'last_activity_date' => $user->quizAttempts()->latest()->value('created_at'),
-            ],
+            'data' => $detail,
         ]);
     }
 }

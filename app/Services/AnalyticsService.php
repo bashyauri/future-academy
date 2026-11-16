@@ -132,6 +132,16 @@ class AnalyticsService
      */
     public function calculateStudyStreak(User $user): int
     {
+        return $this->getStudyStreakDetail($user)['current_streak'];
+    }
+
+    /**
+     * Get detailed study streak data including longest streak and active days.
+     *
+     * @return array{current_streak: int, longest_streak: int, last_activity_date: string|null, active_days: string[]}
+     */
+    public function getStudyStreakDetail(User $user): array
+    {
         $quizDates = QuizAttempt::where('user_id', $user->id)
             ->selectRaw('DATE(created_at) as act_date')
             ->pluck('act_date')
@@ -152,25 +162,62 @@ class AnalyticsService
                 ->all()
             : [];
 
-        $allDates = array_flip(array_unique(array_merge($quizDates, $progressDates, $videoDates)));
+        $uniqueDates = array_values(array_unique(array_merge($quizDates, $progressDates, $videoDates)));
+        sort($uniqueDates);
 
-        if (empty($allDates)) {
-            return 0;
+        $activeDaySet = array_flip($uniqueDates);
+
+        // Last 30 days for the calendar
+        $calendarDays = [];
+        $today = now()->startOfDay();
+        for ($i = 29; $i >= 0; $i--) {
+            $d = (clone $today)->subDays($i)->format('Y-m-d');
+            if (isset($activeDaySet[$d])) {
+                $calendarDays[] = $d;
+            }
         }
 
-        $streak = 0;
-        $currentDate = now()->startOfDay();
-
-        // If no activity today, check if yesterday was active (streak is still alive today)
-        if (! isset($allDates[$currentDate->format('Y-m-d')])) {
-            $currentDate->subDay();
+        if (empty($uniqueDates)) {
+            return [
+                'current_streak' => 0,
+                'longest_streak' => 0,
+                'last_activity_date' => null,
+                'active_days' => [],
+            ];
         }
 
-        while (isset($allDates[$currentDate->format('Y-m-d')])) {
-            $streak++;
-            $currentDate->subDay();
+        // Current streak (walk backwards from today)
+        $currentStreak = 0;
+        $checkDate = now()->startOfDay();
+        if (! isset($activeDaySet[$checkDate->format('Y-m-d')])) {
+            $checkDate->subDay();
+        }
+        while (isset($activeDaySet[$checkDate->format('Y-m-d')])) {
+            $currentStreak++;
+            $checkDate->subDay();
         }
 
-        return $streak;
+        // Longest streak (scan all dates)
+        $longestStreak = 0;
+        $run = 1;
+        for ($i = 1; $i < count($uniqueDates); $i++) {
+            $prev = new \DateTime($uniqueDates[$i - 1]);
+            $curr = new \DateTime($uniqueDates[$i]);
+            $diff = (int) $prev->diff($curr)->days;
+            if ($diff === 1) {
+                $run++;
+                $longestStreak = max($longestStreak, $run);
+            } else {
+                $run = 1;
+            }
+        }
+        $longestStreak = max($longestStreak, $currentStreak, count($uniqueDates) > 0 ? 1 : 0);
+
+        return [
+            'current_streak' => $currentStreak,
+            'longest_streak' => $longestStreak,
+            'last_activity_date' => end($uniqueDates) ?: null,
+            'active_days' => $calendarDays,
+        ];
     }
 }
