@@ -75,6 +75,13 @@ class ParentApiController extends Controller
                 'average_completion_rate' => 0,
             ];
             $childrenStats = [];
+            $paginationMeta = [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => 50,
+                'total' => 0,
+                'has_more' => false,
+            ];
         } else {
             $quizAgg = QuizAttempt::whereIn('user_id', $childIds)
                 ->where('status', 'completed')
@@ -232,6 +239,14 @@ class ParentApiController extends Controller
                     ],
                 ];
             }
+
+            $paginationMeta = [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'has_more' => $paginated->hasMorePages(),
+            ];
         }
 
         // Format subscriptions
@@ -255,6 +270,7 @@ class ParentApiController extends Controller
             'data' => [
                 'stats' => $combinedStats,
                 'children' => $childrenStats,
+                'pagination' => $paginationMeta,
                 'subscriptions' => $formattedSubscriptions,
                 'unassigned_subscriptions' => $unassignedSubscriptions->map(fn ($sub) => [
                     'id' => $sub->id,
