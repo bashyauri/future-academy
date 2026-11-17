@@ -5,7 +5,33 @@ declare(strict_types=1);
 use App\Livewire\Dashboard\ParentIndex;
 use App\Models\Subscription;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    if (! Schema::hasTable('parent_student')) {
+        Schema::create('parent_student', function ($table): void {
+            $table->id();
+            $table->foreignId('parent_id');
+            $table->foreignId('student_id');
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('linked_at')->nullable();
+            $table->timestamps();
+        });
+    }
+    if (! Schema::hasTable('enrollments')) {
+        Schema::create('enrollments', function ($table): void {
+            $table->id();
+            $table->foreignId('user_id');
+            $table->foreignId('subject_id');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+});
 
 it('allows guardian to create and link a student from parent dashboard', function (): void {
     $guardian = User::factory()->create([

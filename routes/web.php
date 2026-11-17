@@ -226,3 +226,4 @@ Route::get('payment/pricing', PaymentPricing::class)->name('payment.pricing');
 Route::get('pricing', PaymentPricing::class)->name('pricing');
 Route::post('payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
 Route::get('payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');
+Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');

@@ -211,6 +211,40 @@ class PaymentController extends Controller
     }
 
     /**
+     * Verify Paystack payment via AJAX polling
+     */
+    public function verify(Request $request)
+    {
+        $reference = $request->input('reference');
+        if (! $reference) {
+            return response()->json(['message' => 'Reference is required.'], 400);
+        }
+
+        $subscription = Subscription::where('reference', $reference)
+            ->orWhere('paystack_reference', $reference)
+            ->first();
+
+        if ($subscription && $subscription->status === 'active') {
+            return response()->json([
+                'message' => 'Payment successful',
+                'data' => $subscription,
+            ]);
+        }
+
+        $verify = $this->paymentService->verifyPaystack($reference);
+        if ($verify['success'] && ($verify['data']['status'] ?? '') === 'success') {
+            return response()->json([
+                'message' => 'Payment successful',
+                'data' => $verify['data'],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Payment verification pending or unsuccessful.',
+        ], 400);
+    }
+
+    /**
      * Handle Paystack callback after payment
      */
     public function callback(Request $request)

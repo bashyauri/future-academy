@@ -244,9 +244,14 @@
 
         {{-- Children Progress Cards --}}
         <div>
-            <div class="mb-6">
-                <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Students Progress') }}</flux:heading>
-                <flux:text class="text-neutral-600 dark:text-neutral-400 mt-1">{{ __('Track learning metrics for each student') }}</flux:text>
+            <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <flux:heading size="lg" class="font-bold text-neutral-900 dark:text-white">{{ __('Students Progress') }}</flux:heading>
+                    <flux:text class="text-neutral-600 dark:text-neutral-400 mt-1">{{ __('Track learning metrics for each student') }}</flux:text>
+                </div>
+                <div class="w-full sm:w-72">
+                    <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search students...') }}" icon="magnifying-glass" clearable size="sm" />
+                </div>
             </div>
 
             @if($children->isEmpty())
@@ -276,7 +281,7 @@
                             </flux:heading>
                             <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
                                 @if($childrenStats[$child->id]['can_view_metrics'])
-                                    {{ $child->enrolledSubjects()->count() }} subject(s) enrolled
+                                    {{ $child->enrolled_subjects_count ?? ($childrenStats[$child->id]['subjects_enrolled'] ?? 0) }} subject(s) enrolled
                                 @else
                                     {{ __('Payment required to view metrics') }}
                                 @endif
@@ -513,6 +518,12 @@
                 </div>
                 @endforeach
             </div>
+
+            @if(method_exists($children, 'hasPages') && $children->hasPages())
+                <div class="mt-6">
+                    {{ $children->links() }}
+                </div>
+            @endif
             @endif
         </div>
 
