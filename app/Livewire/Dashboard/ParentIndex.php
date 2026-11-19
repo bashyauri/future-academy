@@ -83,6 +83,8 @@ class ParentIndex extends Component
 
     public $createStudentSuccessMessage = '';
 
+    public $unlinkSuccessMessage = '';
+
     public Collection $studentSubscriptions;
 
     public Collection $paidStudentIds;
@@ -188,6 +190,45 @@ class ParentIndex extends Component
         $this->newStudentName = '';
         $this->newStudentEmail = '';
         $this->createStudentSuccessMessage = __('Student account created and invitation sent to :email', ['email' => $student->email]);
+
+        $this->refreshDashboardData();
+    }
+
+    public function unlinkStudent($studentId): void
+    {
+        $this->linkSuccessMessage = '';
+        $this->createStudentSuccessMessage = '';
+        $this->unlinkSuccessMessage = '';
+
+        $parent = auth()->user();
+        if (! $parent) {
+            return;
+        }
+
+        $student = $parent->children()->where('users.id', $studentId)->first();
+        if (! $student) {
+            session()->flash('error', __('Student not found or not linked.'));
+
+            return;
+        }
+
+        $studentName = $student->name;
+
+        // Release any subscription bound to this student back to unassigned
+        $parent->subscriptions()
+            ->where('student_id', $studentId)
+            ->update(['student_id' => null]);
+
+        // Detach pivot relationship
+        $parent->children()->detach($studentId);
+
+        // If the student was created with an unusable password/typo and never completed onboarding or attempted quizzes, clean it up
+        if (! $student->has_completed_onboarding && $student->parents()->count() === 0 && $student->quizAttempts()->count() === 0) {
+            $student->delete();
+        }
+
+        $this->unlinkSuccessMessage = __('Student :name has been unlinked successfully.', ['name' => $studentName]);
+        session()->flash('success', $this->unlinkSuccessMessage);
 
         $this->refreshDashboardData();
     }

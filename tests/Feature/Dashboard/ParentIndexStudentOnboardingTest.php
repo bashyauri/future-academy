@@ -144,3 +144,29 @@ it('does not unlock all linked students when guardian has only self-scoped subsc
         ->assertDontSee('Track Progress')
         ->assertDontSee('View Performance');
 });
+
+it('allows guardian to unlink a student', function (): void {
+    $guardian = User::factory()->create([
+        'account_type' => 'guardian',
+    ]);
+
+    $student = User::factory()->create([
+        'account_type' => 'student',
+    ]);
+
+    $guardian->children()->syncWithoutDetaching([
+        $student->id => [
+            'is_active' => true,
+            'linked_at' => now(),
+        ],
+    ]);
+
+    expect($guardian->children()->where('users.id', $student->id)->exists())->toBeTrue();
+
+    Livewire::actingAs($guardian)
+        ->test(ParentIndex::class)
+        ->call('unlinkStudent', $student->id)
+        ->assertHasNoErrors();
+
+    expect($guardian->children()->where('users.id', $student->id)->exists())->toBeFalse();
+});

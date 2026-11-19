@@ -421,6 +421,43 @@ class ParentApiController extends Controller
     }
 
     /**
+     * Unlink a student from the parent / school account
+     */
+    public function unlinkStudent(Request $request, $studentId): JsonResponse
+    {
+        $parent = $request->user();
+
+        if (! $parent->isParent()) {
+            return response()->json(['message' => 'Unauthorized. Parent account required.'], 403);
+        }
+
+        $student = $parent->children()->where('users.id', $studentId)->first();
+
+        if (! $student) {
+            return response()->json(['message' => 'Student not found or not linked.'], 404);
+        }
+
+        $studentName = $student->name;
+
+        // Release any subscription bound to this student back to unassigned
+        $parent->subscriptions()
+            ->where('student_id', $studentId)
+            ->update(['student_id' => null]);
+
+        // Detach pivot relationship
+        $parent->children()->detach($studentId);
+
+        // If the student account was created with a typo, never completed onboarding, and has no other links/activity, clean it up
+        if (! $student->has_completed_onboarding && $student->parents()->count() === 0 && $student->quizAttempts()->count() === 0) {
+            $student->delete();
+        }
+
+        return response()->json([
+            'message' => "Student {$studentName} has been unlinked successfully.",
+        ]);
+    }
+
+    /**
      * Helper to verify if parent has access to child's metrics
      */
     private function checkChildAccess(User $parent, $studentId): ?User

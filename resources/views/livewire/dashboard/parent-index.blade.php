@@ -177,6 +177,12 @@
                 </div>
             @endif
 
+            @if($unlinkSuccessMessage)
+                <div class="mb-4 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-2 text-sm font-semibold">
+                    {{ $unlinkSuccessMessage }}
+                </div>
+            @endif
+
             <form wire:submit.prevent="linkStudent" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div class="sm:col-span-2">
                     <flux:input
@@ -276,9 +282,12 @@
                     {{-- Child Header --}}
                     <div class="px-8 py-5 border-b border-neutral-200 dark:border-neutral-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 flex items-center justify-between">
                         <div>
-                            <flux:heading size="md" class="font-bold text-neutral-900 dark:text-white">
-                                {{ $child->name }}
-                            </flux:heading>
+                            <div class="flex items-center gap-2">
+                                <flux:heading size="md" class="font-bold text-neutral-900 dark:text-white">
+                                    {{ $child->name }}
+                                </flux:heading>
+                                <span class="text-xs text-neutral-500 dark:text-neutral-400">({{ $child->email }})</span>
+                            </div>
                             <flux:text class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
                                 @if($childrenStats[$child->id]['can_view_metrics'])
                                     {{ $child->enrolled_subjects_count ?? ($childrenStats[$child->id]['subjects_enrolled'] ?? 0) }} subject(s) enrolled
@@ -438,7 +447,7 @@
                         @endif
 
                         {{-- Student Actions --}}
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             @if($childrenStats[$child->id]['can_view_metrics'])
                                 <flux:button
                                     href="{{ route('analytics', ['student' => $child->id]) }}"
@@ -487,6 +496,16 @@
                                 wire:navigate
                             >
                                 {{ __('Manage Enrollment') }}
+                            </flux:button>
+
+                            <flux:button
+                                wire:click="unlinkStudent({{ $child->id }})"
+                                wire:confirm="{{ __('Are you sure you want to unlink :name? They will be removed from your dashboard.', ['name' => $child->name]) }}"
+                                variant="ghost"
+                                size="sm"
+                                class="w-full text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                                {{ __('Unlink') }}
                             </flux:button>
                         </div>
 

@@ -118,6 +118,7 @@ Route::prefix('v1')
                     Route::get('/dashboard', [ParentApiController::class, 'dashboard']);
                     Route::post('/students/link', [ParentApiController::class, 'linkStudent']);
                     Route::post('/students/create', [ParentApiController::class, 'createStudent']);
+                    Route::post('/students/{studentId}/unlink', [ParentApiController::class, 'unlinkStudent']);
                     Route::post('/students/{studentId}/resend-invitation', [ParentApiController::class, 'resendInvitation']);
                     Route::get('/students/{studentId}/analytics/overview', [ParentApiController::class, 'studentOverview']);
                     Route::get('/students/{studentId}/analytics/subject-performance', [ParentApiController::class, 'studentSubjectPerformance']);
