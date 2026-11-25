@@ -459,7 +459,7 @@ class ParentIndex extends Component
             $subjectsEnrolled = $child->enrolled_subjects_count ?? $child->enrolledSubjects()->count();
             $hasActiveSubscription = $child->hasActiveSubscription();
             $parentPaidForStudent = $parentSubscriptions->has($cId);
-            $canViewMetrics = true; // TESTING: Deactivated paywall
+            $canViewMetrics = $this->showProgressMetrics || $parentPaidForStudent;
 
             $this->childrenStats[$cId] = [
                 'videos_watched' => $videosWatched,
@@ -474,7 +474,7 @@ class ParentIndex extends Component
                 'can_view_metrics' => $canViewMetrics,
                 'access_label' => $parentPaidForStudent
                     ? __('✓ You Paid')
-                    : ($parent->hasAnyRole(['super-admin', 'admin']) ? __('Staff View') : __('Access Active')),
+                    : ($parent->hasAnyRole(['super-admin', 'admin']) ? __('Staff View') : __('Progress Access')),
                 'lessons_completed' => $lessonsCompleted,
                 'lessons_started' => $lessonsStarted,
                 'lessons_percentage' => $lessonsPercentage,
@@ -490,12 +490,8 @@ class ParentIndex extends Component
 
     private function canViewProgressMetrics($user): bool
     {
-        // TESTING: Allow all guardians to view metrics for testing
-        return true;
-        /*
         return $user->hasAnyRole(['super-admin', 'admin'])
             || (! $user->isParent() && $user->hasActiveSubscription());
-        */
     }
 
     /**

@@ -3,7 +3,6 @@
 namespace App\Livewire\Payment;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Livewire\Component;
 
 class Pricing extends Component
@@ -31,30 +30,30 @@ class Pricing extends Component
         $this->student_id = request()->query('student_id');
 
         if (! $user) {
+            $this->loadingPlans = false;
+
             return;
         }
 
         $this->isGuardian = $user->isParent();
 
-        if (! $this->isGuardian) {
-            return;
-        }
+        if ($this->isGuardian) {
+            $this->linkedStudents = $user->children()
+                ->get(['users.id', 'users.name'])
+                ->map(fn ($student): array => [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                ])
+                ->all();
 
-        $this->linkedStudents = $user->children()
-            ->get(['users.id', 'users.name'])
-            ->map(fn ($student): array => [
-                'id' => $student->id,
-                'name' => $student->name,
-            ])
-            ->all();
+            $linkedStudentIds = array_map(
+                static fn (array $student): int => (int) $student['id'],
+                $this->linkedStudents,
+            );
 
-        $linkedStudentIds = array_map(
-            static fn (array $student): int => (int) $student['id'],
-            $this->linkedStudents,
-        );
-
-        if (! in_array((int) $this->student_id, $linkedStudentIds, true)) {
-            $this->student_id = null;
+            if (! in_array((int) $this->student_id, $linkedStudentIds, true)) {
+                $this->student_id = null;
+            }
         }
 
         $this->loadPricing();
@@ -62,23 +61,16 @@ class Pricing extends Component
 
     public function loadPricing(): void
     {
-        try {
-            $response = Http::withToken(session('api_token'))
-                ->acceptJson()
-                ->get(config('app.url').'/api/v1/payment/pricing');
+        $plans = $this->isGuardian
+            ? config('pricing.parent_plans', config('pricing.plans', []))
+            : config('pricing.plans', []);
 
-            if ($response->successful()) {
-                $this->plans = $response->json('data.plans', []);
-            } else {
-                // Fallback to config if API fails
-                $this->plans = config('pricing.plans', []);
-            }
-        } catch (\Exception $e) {
-            // Fallback to config on any error
-            $this->plans = config('pricing.plans', []);
-        } finally {
-            $this->loadingPlans = false;
+        if (empty($plans)) {
+            $plans = config('pricing.plans', []);
         }
+
+        $this->plans = $plans;
+        $this->loadingPlans = false;
     }
 
     public function pay()

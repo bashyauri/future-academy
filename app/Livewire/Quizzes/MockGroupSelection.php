@@ -40,16 +40,12 @@ class MockGroupSelection extends Component
         $this->examTypeId = (int) request()->query('exam_type', 0) ?: null;
         $this->subjectId = (int) request()->query('subject', 0) ?: null;
 
-        // PAYWALL DISABLED FOR TESTING - Allow all authenticated users to access all features
-        // Uncomment the code below to re-enable the paywall
         $user = auth()->user();
-        /*
         if ($user->onTrial() && ! $user->hasActiveSubscription()) {
             session()->flash('error', 'Mock exams require an active subscription. Please subscribe to access them.');
 
             return redirect()->route('mock.setup');
         }
-        */
 
         // Clear completion cache on fresh load to show latest completions
         $cacheKey = "user_{$this->getUserId()}_completed_mocks_{$this->examTypeId}_{$this->subjectId}";

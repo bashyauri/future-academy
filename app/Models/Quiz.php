@@ -209,11 +209,6 @@ class Quiz extends Model
 
     public function canUserAccess(User $user): bool
     {
-        // PAYWALL DISABLED FOR TESTING - Allow all authenticated users to access all features
-        // Uncomment the code below to re-enable the paywall
-        return true;
-
-        /*
         // Super-admins have unrestricted access to all content
         if ($user->hasRole('super-admin')) {
             return true;
@@ -235,6 +230,5 @@ class Quiz extends Model
         }
 
         return $user->hasActiveSubscription();
-        */
     }
 }
