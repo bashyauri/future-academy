@@ -79,3 +79,44 @@ test('honeypot field prevents spam registration', function () {
     $response->assertSessionHasErrors(['website']);
     $this->assertGuest();
 });
+
+test('system_url honeypot field prevents spam registration', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'Spam Bot',
+        'email' => 'spam@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'student',
+        'system_url' => 'http://spam-site.com',
+    ]);
+
+    $response->assertSessionHasErrors(['system_url']);
+    $this->assertGuest();
+});
+
+test('disposable email address is rejected on web registration', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'Spam Bot',
+        'email' => 'spambot@mailinator.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'student',
+    ]);
+
+    $response->assertSessionHasErrors(['email']);
+    $this->assertGuest();
+});
+
+test('sub-two-second bot submission is rejected', function () {
+    $response = $this->post(route('register.store'), [
+        'name' => 'Fast Bot',
+        'email' => 'fastbot@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'account_type' => 'student',
+        '_form_time' => encrypt(time()),
+    ]);
+
+    $response->assertSessionHasErrors(['email']);
+    $this->assertGuest();
+});

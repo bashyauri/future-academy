@@ -8,8 +8,14 @@
         <form method="POST" action="{{ route('register.store') }}" class="flex flex-col gap-6">
             @csrf
 
-            <!-- Honeypot field for spam prevention -->
-            <input type="text" name="website" style="display: none;" tabindex="-1" autocomplete="off">
+            <!-- Stealth honeypot fields for bot prevention (hidden off-screen via CSS, invisible to humans) -->
+            <div class="opacity-0 absolute -left-[9999px] pointer-events-none -z-10" aria-hidden="true" tabindex="-1">
+                <input type="text" name="website" tabindex="-1" autocomplete="off" value="">
+                <input type="text" name="system_url" tabindex="-1" autocomplete="off" value="">
+            </div>
+
+            <!-- Encrypted form load timestamp for invisible time-check -->
+            <input type="hidden" name="_form_time" value="{{ encrypt(time()) }}">
 
             <!-- Name -->
             <flux:input

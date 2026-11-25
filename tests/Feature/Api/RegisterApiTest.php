@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\MobileVerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\Fluent\AssertableJson;
@@ -37,7 +37,7 @@ test('student can register from the mobile api', function () {
         ->and($user->trial_ends_at)->not->toBeNull()
         ->and($user->tokens)->toHaveCount(1);
 
-    Notification::assertSentTo($user, VerifyEmail::class);
+    Notification::assertSentTo($user, MobileVerifyEmail::class);
 });
 
 test('guardian can register from the mobile api without trial access', function () {
@@ -104,4 +104,33 @@ test('mobile registration rejects honeypot field spam', function () {
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['website']);
+});
+
+test('mobile registration rejects system_url honeypot field spam', function () {
+    $response = $this->postJson('/api/v1/register', [
+        'name' => 'Spam Bot',
+        'email' => 'spam@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'account_type' => 'student',
+        'device_name' => 'Test Device',
+        'system_url' => 'http://spam-site.com',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['system_url']);
+});
+
+test('mobile registration rejects disposable email domains', function () {
+    $response = $this->postJson('/api/v1/register', [
+        'name' => 'Spam Bot',
+        'email' => 'spambot@tempmail.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'account_type' => 'student',
+        'device_name' => 'Test Device',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['email']);
 });

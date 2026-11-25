@@ -88,6 +88,16 @@ class UsersTable
                     ->falseColor('danger')
                     ->sortable(),
 
+                IconColumn::make('email_verified_at')
+                    ->label('Verified')
+                    ->boolean()
+                    ->getStateUsing(fn (User $record): bool => ! is_null($record->email_verified_at))
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('warning')
+                    ->sortable(),
+
                 TextColumn::make('created_at')
                     ->label('Joined')
                     ->dateTime('M d, Y')
@@ -161,6 +171,18 @@ class UsersTable
                     ->placeholder('All users')
                     ->trueLabel('Active only')
                     ->falseLabel('Inactive only')
+                    ->native(false),
+
+                TernaryFilter::make('email_verified_at')
+                    ->label('Email Verification')
+                    ->placeholder('All users')
+                    ->trueLabel('Verified only')
+                    ->falseLabel('Unverified only')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('email_verified_at'),
+                        false: fn ($query) => $query->whereNull('email_verified_at'),
+                        blank: fn ($query) => $query,
+                    )
                     ->native(false),
             ])
             ->recordActions([
@@ -325,7 +347,7 @@ class UsersTable
                         ->visible(fn () => Auth::user()?->hasRole('super-admin') ?? false),
 
                     DeleteBulkAction::make()
-                        ->visible(fn () => Auth::user()?->hasRole('super-admin') ?? false),
+                        ->visible(fn () => Auth::user()?->hasAnyRole(['admin', 'super-admin']) ?? false),
                 ]),
             ])
             ->defaultSort('name', 'asc')

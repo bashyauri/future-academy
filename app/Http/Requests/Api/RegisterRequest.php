@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use App\Actions\Fortify\PasswordValidationRules;
 use App\Models\User;
+use App\Rules\NotDisposableEmail;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,11 +24,19 @@ class RegisterRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique(User::class),
+                new NotDisposableEmail,
+            ],
             'password' => $this->passwordRules(),
             'account_type' => ['required', 'string', 'in:student,guardian,school,community'],
             'device_name' => ['required', 'string', 'max:255'],
             'website' => ['nullable', 'prohibited'],
+            'system_url' => ['nullable', 'prohibited'],
         ];
     }
 
