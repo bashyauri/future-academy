@@ -111,7 +111,7 @@ Route::post('/role-context/switch', function () {
     }
     session(['active_role_context' => $context]);
 
-    return redirect()->route('dashboard');
+    return redirect()->route($context === 'guardian' ? 'parent.dashboard' : 'student.dashboard');
 })->middleware(['auth', 'verified'])->name('role-context.switch');
 
 Route::post('/impersonate/stop', function () {
