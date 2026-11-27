@@ -118,6 +118,10 @@ class PaymentController extends Controller
 
         $user = Auth::user();
         if (! $user) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Please log in to continue.'], 401);
+            }
+
             return redirect()->route('login');
         }
 
@@ -151,6 +155,10 @@ class PaymentController extends Controller
             : null;
 
         if ($isRecurring && ! $planCode) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Subscription plan not configured in config/services.php'], 422);
+            }
+
             return back()->withErrors(['payment' => 'Subscription plan not configured in config/services.php']);
         }
 
@@ -195,6 +203,12 @@ class PaymentController extends Controller
                 'response' => $init['full_response'] ?? null,
             ]);
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $init['message'] ?? 'Unable to start payment process.',
+                ], 422);
+            }
+
             return back()->withErrors(['payment' => $init['message'] ?? 'Unable to start payment process.']);
         }
 
@@ -206,6 +220,16 @@ class PaymentController extends Controller
             'selected_plan_code' => $planCode,
             'selected_student_id' => $selectedStudentId,
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Payment initialized',
+                'data' => [
+                    'authorization_url' => $init['authorization_url'],
+                    'reference' => $reference,
+                ],
+            ]);
+        }
 
         return redirect($init['authorization_url']);
     }

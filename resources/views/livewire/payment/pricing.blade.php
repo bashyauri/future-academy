@@ -117,106 +117,129 @@
     </form>
 
     <script>
-        let paymentWindow = null;
-        let paymentReference = null;
-        let verificationInterval = null;
-
-        document.getElementById('payment-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const submitButton = this.querySelector('button[type="submit"]');
-
-            // Disable button and show loading
-            submitButton.disabled = true;
-            submitButton.textContent = 'Processing...';
-
-            fetch('{{ route("payment.initialize") }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.data && data.data.authorization_url) {
-                    paymentReference = data.data.reference;
-
-                    // Open payment in popup instead of new tab for better control
-                    const width = 500;
-                    const height = 600;
-                    const left = (screen.width - width) / 2;
-                    const top = (screen.height - height) / 2;
-                    paymentWindow = window.open(
-                        data.data.authorization_url,
-                        'paystack-payment',
-                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-                    );
-
-                    // Start polling for payment completion
-                    if (paymentWindow) {
-                        verificationInterval = setInterval(checkPaymentStatus, 3000);
-
-                        // Handle window close
-                        paymentWindow.onbeforeunload = function() {
-                            clearInterval(verificationInterval);
-                            // Attempt final verification when window closes
-                            setTimeout(() => verifyPayment(paymentReference), 1000);
-                        };
-                    }
-                } else {
-                    throw new Error(data.message || 'Payment initialization failed');
-                }
-            })
-            .catch(error => {
-                console.error('Payment error:', error);
-                alert(error.message || 'Could not start payment process. Please try again.');
-            })
-            .finally(() => {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Pay Now';
-            });
-        });
-
-        function checkPaymentStatus() {
-            if (!paymentReference || !paymentWindow || paymentWindow.closed) {
-                clearInterval(verificationInterval);
+        (function () {
+            if (window.__futurePaymentInitialized) {
                 return;
             }
+            window.__futurePaymentInitialized = true;
 
-            // Try to verify payment silently
-            verifyPayment(paymentReference, true);
-        }
+            let paymentWindow = null;
+            let paymentReference = null;
+            let verificationInterval = null;
 
-        function verifyPayment(reference, silent = false) {
-            fetch('{{ route("payment.verify") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({ reference: reference })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message === 'Payment successful' || data.data) {
-                    clearInterval(verificationInterval);
-                    if (paymentWindow && !paymentWindow.closed) {
-                        paymentWindow.close();
+            document.addEventListener('submit', function (e) {
+                const form = e.target;
+                if (!form || form.id !== 'payment-form') {
+                    return;
+                }
+
+                e.preventDefault();
+                const formData = new FormData(form);
+                const submitButton = form.querySelector('button[type="submit"]');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Processing...';
+                }
+
+                fetch('{{ route("payment.initialize", [], false) }}', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {})
                     }
-                    // Reload page to show subscription status
-                    window.location.reload();
-                }
-            })
-            .catch(error => {
-                if (!silent) {
-                    console.error('Verification error:', error);
-                }
+                })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        throw new Error(data.message || `Payment request failed (${response.status})`);
+                    }
+                    return data;
+                })
+                .then(data => {
+                    if (data.data && data.data.authorization_url) {
+                        paymentReference = data.data.reference;
+
+                        const width = 500;
+                        const height = 600;
+                        const left = (screen.width - width) / 2;
+                        const top = (screen.height - height) / 2;
+                        paymentWindow = window.open(
+                            data.data.authorization_url,
+                            'paystack-payment',
+                            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                        );
+
+                        if (paymentWindow) {
+                            verificationInterval = setInterval(checkPaymentStatus, 3000);
+
+                            paymentWindow.onbeforeunload = function () {
+                                clearInterval(verificationInterval);
+                                setTimeout(() => verifyPayment(paymentReference), 1000);
+                            };
+                        } else {
+                            window.location.href = data.data.authorization_url;
+                        }
+                    } else {
+                        throw new Error(data.message || 'Payment initialization failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Payment error:', error);
+                    alert(error.message || 'Could not start payment process. Please try again.');
+                })
+                .finally(() => {
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Pay Now';
+                    }
+                });
             });
-        }
+
+            function checkPaymentStatus() {
+                if (!paymentReference || !paymentWindow || paymentWindow.closed) {
+                    clearInterval(verificationInterval);
+                    return;
+                }
+
+                verifyPayment(paymentReference, true);
+            }
+
+            function verifyPayment(reference, silent = false) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                fetch('{{ route("payment.verify", [], false) }}', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ reference: reference })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === 'Payment successful' || data.data) {
+                        clearInterval(verificationInterval);
+                        if (paymentWindow && !paymentWindow.closed) {
+                            paymentWindow.close();
+                        }
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    if (!silent) {
+                        console.error('Verification error:', error);
+                    }
+                });
+            }
+        })();
     </script>
     <div class="mt-6 w-full flex flex-col items-center gap-2">
         <flux:heading size="md" class="text-green-900 dark:text-green-200 font-bold mb-1">{{ __('Why Go Premium?') }}</flux:heading>
